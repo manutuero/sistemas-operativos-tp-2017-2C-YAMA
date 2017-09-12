@@ -19,5 +19,4 @@
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 
-
 #endif /* FUNCIONESMASTER_H_ */

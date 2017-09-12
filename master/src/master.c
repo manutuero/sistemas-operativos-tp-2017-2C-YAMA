@@ -24,6 +24,9 @@ int main(int argsc,char **args) {
 		if(!chequearParametros(transformador,reductor,archivoAprocesar,direccionDeResultado)){
 
 			return 0;
+		} else{
+			printf("Esta todo ok. Se envia por socket la info al yamafs");
+
 		}
 
 	} else {

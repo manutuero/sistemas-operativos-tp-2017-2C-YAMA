@@ -1,14 +1,13 @@
 #include "funcionesMaster.h"
 
-
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
 
-	if(!string_contains(archivoAprocesar,"yamafs:/")){
+	if(!string_starts_with(archivoAprocesar,"yamafs:/")){
 		printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
 		return 0;
 	}
-	if(!string_contains(direccionDeResultado,"yamafs:/")){
+	if(!string_starts_with(direccionDeResultado,"yamafs:/")){
 		printf("La direccion de guardado de resultado es invalida: %s \n",direccionDeResultado);
 		return 0;
 	}
