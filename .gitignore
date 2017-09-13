@@ -52,6 +52,7 @@ Mkfile.old
 dkms.conf
 
 #Eclipse files
+Debug/
 .metadata
 bin/
 tmp/
