@@ -48,4 +48,7 @@ comando empaquetarFuncionCpto(char **componentes);
 comando empaquetarFuncionCpblok(char **componentes);
 
 int validarParametro(char * parametro);
+
+char **cargarArgumentos(char* linea);
+
 #endif /* FUNCIONESCONSOLA_H_ */

@@ -16,6 +16,7 @@
 #include <readline/history.h>
 
 #include "funcionesConsola.h"
+
 #define ESPACIO " "
 
 
@@ -25,6 +26,7 @@ int main(void) {
 	char *linea;
 	char **argumentos;
 	int cantElementos;
+	int socket;
 
 	while(1){
 
@@ -34,10 +36,11 @@ int main(void) {
 
 	add_history(linea);
 
-	argumentos = string_split(linea,ESPACIO);
+	argumentos = cargarArgumentos(linea);
 
 	cantElementos = cantArgumentos(argumentos);
 	switch(cantElementos){
+
 		case 1:
 			if(strcmp(argumentos[0],"format")==0)
 				{
@@ -134,8 +137,6 @@ int main(void) {
 					break;
 				}
 
-
-
 		case 4:
 			if(strcmp(argumentos[0],"cpblock")==0)
 				{
@@ -166,14 +167,20 @@ int main(void) {
 
 	}
 
-	if(strcmp(argumentos[0],"exit")==0)
-	break;
+	if(argumentos[0]!=NULL)
+		if(strcmp(argumentos[0],"exit")==0)
+			break;
 
 
-	//	if(instruccion.funcion!=0)
-	//	algo=serializar(instruccion)
-	//	send(algo);
-	//preguntar si el primer campo del struct != NULL
+	if(instruccion.funcion!=0)
+		printf("utils.h");
+
+	//	socket = newSocket();
+
+	//	conectarSocket(socket, const char * ipDestino, int puerto);
+
+	//	enviarPaquete(socket, instruccion, 1);
+
 
 
 	}
