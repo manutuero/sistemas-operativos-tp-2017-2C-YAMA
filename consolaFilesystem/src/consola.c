@@ -1,25 +1,14 @@
-/*
- ============================================================================
- Name        : test.c
- Author      : 
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
- ============================================================================
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <commons/string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-
 #include "funcionesConsola.h"
 
 #define ESPACIO " "
-
-
+#define IPDESTINO "192.168.1.106"
+#define PUERTO 6667
 
 int main(void) {
 	comando instruccion;
@@ -27,7 +16,7 @@ int main(void) {
 	char **argumentos;
 	int cantElementos;
 	int socket;
-
+	header header;
 	while(1){
 
 	linea = (char*) readline("> ");
@@ -136,7 +125,6 @@ int main(void) {
 					printf("El comando %s no es valido",argumentos[0]);
 					break;
 				}
-
 		case 4:
 			if(strcmp(argumentos[0],"cpblock")==0)
 				{
@@ -148,10 +136,8 @@ int main(void) {
 					printf("El comando %s no es valido",argumentos[0]);
 					break;
 				}
-
 		case 5:
-
-			if(strcmp(argumentos[0],"rm")==0)
+			if(strcmp(argumentos[0],"rm") == 0)
 				{
 					instruccion=empaquetarFuncionRmBloque(argumentos);
 					break;
@@ -161,28 +147,22 @@ int main(void) {
 					printf("El comando %s no es valido",argumentos[0]);
 					break;
 				}
-
 		default:
 			printf("El comando ingresado no es valido\n");
-
 	}
 
-	if(argumentos[0]!=NULL)
-		if(strcmp(argumentos[0],"exit")==0)
+	if(argumentos[0] != NULL)
+		if(strcmp(argumentos[0], "exit") == 0)
 			break;
 
+	if(instruccion.funcion != 0)
+		socket = nuevoSocket();
+		conectarSocket(socket, IPDESTINO, PUERTO);
+		void* payload = serializarComandoConsola(&instruccion, &header);
+		header.id = 1;
 
-	if(instruccion.funcion!=0)
-		printf("utils.h");
-
-	//	socket = newSocket();
-
-	//	conectarSocket(socket, const char * ipDestino, int puerto);
-
-	//	enviarPaquete(socket, instruccion, 1);
-
-
-
+		enviarPaquete(socket, payload, header);
+		cerrarSocket(socket);
 	}
 
 	return 0;

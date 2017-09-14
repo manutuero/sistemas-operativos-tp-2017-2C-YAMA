@@ -1,21 +1,6 @@
-/*
- * funciones_consola.h
- *
- *  Created on: 8/9/2017
- *      Author: utnso
- */
-
 #ifndef FUNCIONESCONSOLA_H_
 #define FUNCIONESCONSOLA_H_
-
-typedef struct{
-	int funcion;
-	int opcion;
-	char *parametro1;
-	char *parametro2;
-	int bloque;
-	int idNodo;
-}comando;
+#include "utils.h"
 
 int cantArgumentos(char **argumentos);
 
@@ -50,5 +35,7 @@ comando empaquetarFuncionCpblok(char **componentes);
 int validarParametro(char * parametro);
 
 char **cargarArgumentos(char* linea);
+
+void *serializarComandoConsola(comando*, header*);
 
 #endif /* FUNCIONESCONSOLA_H_ */
