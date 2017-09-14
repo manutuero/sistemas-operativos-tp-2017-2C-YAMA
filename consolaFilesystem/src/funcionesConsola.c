@@ -4,9 +4,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <commons/string.h>
+#define ESPACIO " "
 
 int validarParametro(char *parametro){
-	if ((string_starts_with(parametro,"/"))&&(string_contains(parametro," ")))
+	if ((string_starts_with(parametro,"/")))
 		return 1;
 	else
 		return 0;
@@ -26,6 +27,12 @@ int cantArgumentos(char **argumentos){
 		}
 
 	return cantidad;
+}
+
+char** cargarArgumentos(char* linea)
+{
+	string_trim(&linea);
+	return(string_split(linea,ESPACIO));
 }
 
 comando empaquetarFuncionFormat(char **argumentos){
@@ -48,7 +55,7 @@ comando empaquetarFuncionRm(char **argumentos){
 	}
 	else{
 		aux.funcion=0;
-		printf("El parametro ingresado no es valido");
+		printf("El parametro ingresado no es valido\n");
 	}
 
 	return aux;
@@ -108,7 +115,7 @@ comando empaquetarFuncionCat(char **argumentos){
 	}
 	else{
 		aux.funcion=0;
-		printf("El parametro ingresado no es valido");
+		printf("El parametro ingresado no es valido\n");
 	}
 
 	return aux;
@@ -129,7 +136,7 @@ comando empaquetarFuncionMkdir(char **argumentos){
 	else
 	{
 		aux.funcion=0;
-		printf("El parametro ingresado no es valido");
+		printf("El parametro ingresado no es valido\n");
 	}
 
 	return aux;
@@ -149,7 +156,7 @@ comando empaquetarFuncionMd5(char **argumentos){
 	else
 	{
 		aux.funcion=0;
-		printf("El parametro ingresado no es valido");
+		printf("El parametro ingresado no es valido\n");
 	}
 
 	return aux;
@@ -158,72 +165,126 @@ comando empaquetarFuncionMd5(char **argumentos){
 comando empaquetarFuncionLs(char **argumentos){
 	comando aux;
 
-	aux.funcion=8;
-	aux.parametro1=argumentos[1];
+	if(validarParametro(argumentos[1]))
+	{
+		aux.funcion=8;
+		aux.parametro1=argumentos[1];
 
-	printf("funcion ls\n");
-	printf("El directorio a listar es: %s\n",argumentos[1]);
+		printf("funcion ls\n");
+		printf("El directorio a listar es: %s\n",argumentos[1]);
+	}
+	else
+	{
+		aux.funcion=0;
+		printf("El parametro ingresado no es valido\n");
+	}
+
 	return aux;
 }
 
 comando empaquetarFuncionInfo(char **argumentos){
 	comando aux;
 
-	aux.funcion=9;
-	aux.parametro1=argumentos[1];
+	if(validarParametro(argumentos[1]))
+	{
+		aux.funcion=9;
+		aux.parametro1=argumentos[1];
 
-	printf("funcion info\n");
-	printf("El archivo es: %s\n",argumentos[1]);
+		printf("funcion info\n");
+		printf("El archivo es: %s\n",argumentos[1]);
+	}
+	else
+	{
+		aux.funcion=0;
+		printf("El parametro ingresado no es valido\n");
+	}
+
 	return aux;
 }
 
 comando empaquetarFuncionRename(char **argumentos){
 	comando aux;
 
-	aux.funcion=10;
-	aux.parametro1=argumentos[1];
-	aux.parametro2=argumentos[2];
+	if(validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
+	{
+		aux.funcion=10;
+		aux.parametro1=argumentos[1];
+		aux.parametro2=argumentos[2];
 
-	printf("funcion rename\n");
-	printf("El nombre original era: %s\n",argumentos[1]);
-	printf("El nuevo nombre es: %s\n",argumentos[2]);
+		printf("funcion rename\n");
+		printf("El nombre original era: %s\n",argumentos[1]);
+		printf("El nuevo nombre es: %s\n",argumentos[2]);
+	}
+	else
+	{
+		aux.funcion=0;
+		printf("El parametro ingresado no es valido\n");
+	}
+
 	return aux;
 }
 
 comando empaquetarFuncionMv(char **argumentos){
 	comando aux;
 
-	aux.funcion=11;
-	aux.parametro1=argumentos[1];
-	aux.parametro2=argumentos[2];
+	if(validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
+	{
+		aux.funcion=11;
+		aux.parametro1=argumentos[1];
+		aux.parametro2=argumentos[2];
 
-	printf("funcion move\n");
-	printf("La ruta original era: %s\n",argumentos[1]);
-	printf("La nueva ruta es: %s\n",argumentos[2]);
+		printf("funcion move\n");
+		printf("La ruta original era: %s\n",argumentos[1]);
+		printf("La nueva ruta es: %s\n",argumentos[2]);
+	}
+	else
+	{
+		aux.funcion=0;
+		printf("El parametro ingresado no es valido\n");
+	}
+
 	return aux;
 }
 
 comando empaquetarFuncionCpfrom(char **argumentos){
 	comando aux;
 
-	aux.funcion=12;
-	aux.parametro1=argumentos[1];
-	aux.parametro2=argumentos[2];
+	if(validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
+	{
+		aux.funcion=12;
+		aux.parametro1=argumentos[1];
+		aux.parametro2=argumentos[2];
 
-	printf("funcion cpfrom\n");
-	printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
+		printf("funcion cpfrom\n");
+		printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
+	}
+	else
+	{
+		aux.funcion=0;
+		printf("El parametro ingresado no es valido\n");
+	}
+
 	return aux;
 }
 
 comando empaquetarFuncionCpto(char **argumentos){
 	comando aux;
 
-	aux.funcion=13;
-	aux.parametro1=argumentos[1];
-	aux.parametro2=argumentos[2];
+	if (validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
+	{
+		aux.funcion=13;
+		aux.parametro1=argumentos[1];
+		aux.parametro2=argumentos[2];
 
-	printf("funcion cpto\n");
-	printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
+		printf("funcion cpto\n");
+		printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
+	}
+	else
+	{
+		aux.funcion=0;
+		printf("El parametro ingresado no es valido\n");
+	}
+
 	return aux;
 }
 
@@ -244,7 +305,7 @@ comando empaquetarFuncionCpblok(char **argumentos){
 	}
 	else
 		{
-			printf("El comando ingresado no es valido");
+			printf("El comando ingresado no es valido\n");
 			aux.funcion=0;
 		}
 	return aux;
