@@ -1,27 +1,14 @@
-/*
- ============================================================================
- Name        : FileSystem.c
- Author      : Gaboxxz
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
- ============================================================================
- */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include "funcionesfs.h"
+#include "funcionesFs.h"
 
 int main(void) {
 
 	int PUERTO=6667;
 	int opt = TRUE;
-	int master_socket , addrlen , new_socket , client_socket[30] , max_clients = 30 , activity, i , valread , sd;
+	int master_socket , addrlen , new_socket , client_socket[30] , max_clients = 30 , activity, i  , sd;
     header header;
 	int max_sd;
 	void *buffer;
 	struct sockaddr_in address;
-	comando nuevoPaqueteRecbido;
 	fd_set readfds;
 	//Inicia todos los  client_socket[] en 0
 	    for (i = 0; i < max_clients; i++)
@@ -41,18 +28,18 @@ int main(void) {
 			perror("setsockopt");
 			exit(EXIT_FAILURE);
 		}
-		//Defino el tipo de socket con sus parametros. 
+		//Defino el tipo de socket con sus parametros.
 		address.sin_family = AF_INET;
 		address.sin_addr.s_addr = INADDR_ANY;
 		address.sin_port = htons( PUERTO );
 		//bind al puerto indicado en la variable PUERTO. Cargada de la config O DEL ARCHIVO HEADER
-		if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
+		if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0)
 		{
 			perror("bind failed");
 			exit(EXIT_FAILURE);
 		}
 		printf("Escuchando en el puerto: %d \n", PUERTO);
-		 
+
 		//try to specify maximum of 3 pending connections for the master socket
 		if (listen(master_socket, 3) < 0)
 		{

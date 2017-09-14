@@ -1,5 +1,17 @@
 
 
+#ifndef UTILS_H_
+#define UTILS_H_
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <stdint.h>
+
 enum headers {SOLICITUD_EJECUTAR_COMANDO_CONSOLA = 1};
 
 typedef struct{
@@ -19,7 +31,9 @@ typedef struct{
 void* deserializar(void* mensaje, header header);
 
 void* deserializarSolicitudEjecutarComando(void*);
-
-int recibirPorSocket(int, void *, int);
 int recibirHeader(int, header*);
 void * recibirPaquete(int, header);
+int recibirPorSocket(int, void *, int);
+int enviarPorSocket(int, const void * , int);
+
+#endif /* UTILS_H_ */

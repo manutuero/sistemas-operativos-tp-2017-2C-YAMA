@@ -1,7 +1,7 @@
 /*
- * funcionesfs.h
+ * funcionesFs.h
  *
- *  Created on: 6/9/2017
+ *  Created on: 13/9/2017
  *      Author: utnso
  */
 
@@ -25,5 +25,9 @@
 #define MAXUSERNAME 30
 #define MAX_MESSAGE_SIZE 300
 #define TRUE 1
+
+
+void procesarMensaje(void * , int ,header);
+void procesarComandoConsola(void *,int);
 
 #endif /* FUNCIONESFS_H_ */

@@ -15,7 +15,7 @@ void* deserializar(void* mensaje, header header) {
   return buffer;
 }
 
-void* deserializarSolicitudEjecutarComando(mensaje) {
+void* deserializarSolicitudEjecutarComando(void *mensaje) {
   int desplazamiento = 0, bytesACopiar;
 
   comando* comando = malloc(sizeof(comando));
@@ -49,20 +49,39 @@ void* deserializarSolicitudEjecutarComando(mensaje) {
 
 
 
-int recibirHeader(int socket, header* myHeader){ // myHeader es parametro de salida por eso usamos puntero
+int recibirHeader(int socket, header* header){ // myHeader es parametro de salida por eso usamos puntero
 
 	int bytesRecibidos;
-	void * buffer = malloc(sizeof(header));
 
-	if ((bytesRecibidos = recv(socket, &((*myHeader).id), sizeof((*myHeader).id), 0)) <= 0) return bytesRecibidos;
+	if ((bytesRecibidos = recv(socket, &((*header).id), sizeof((*header).id), 0)) <= 0) return bytesRecibidos;
 
-				bytesRecibidos = recv(socket, &((*myHeader).tamanio), sizeof((*myHeader).tamanio), 0);
+				bytesRecibidos = recv(socket, &((*header).tamanio), sizeof((*header).tamanio), 0);
+	return bytesRecibidos;
+}
+int recibirPorSocket(int unSocket, void * buffer, int tamanio) {
+	int total = 0;
+	int bytesRecibidos;
+
+	while (total < tamanio) {
+		bytesRecibidos = recv(unSocket, buffer + total, tamanio, 0);
+		if (bytesRecibidos == -1) {
+			// Error
+			perror("[ERROR] Funcion recv");
+			break;
+		}
+		if (bytesRecibidos == 0) {
+			// Desconexion
+			break;
+		}
+		total += bytesRecibidos;
+		tamanio -= bytesRecibidos;
+	}
 	return bytesRecibidos;
 }
 
 void * recibirPaquete(int socket, header header){
 
-	void * mensaje = malloc(myHeader.tamanio);
+	void * mensaje = malloc(header.tamanio);
 
 	recibirPorSocket(socket, mensaje, header.tamanio);
 
@@ -72,3 +91,21 @@ void * recibirPaquete(int socket, header header){
 
 	return buffer;
 }  // Recordar castear
+
+int enviarPorSocket(int socket, const void * mensaje, int tamanio) {
+	int bytes_enviados;
+	int total = 0;
+
+	while (total < tamanio) {
+		bytes_enviados = send(socket, mensaje + total, tamanio, 0);
+		if (bytes_enviados == -1) {
+			break;
+		}
+		total += bytes_enviados;
+		tamanio -= bytes_enviados;
+	}
+	if (bytes_enviados == -1) perror("[ERROR] Funcion send");
+
+	return bytes_enviados;
+}
+
