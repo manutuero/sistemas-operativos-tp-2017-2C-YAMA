@@ -7,7 +7,7 @@
 #include "funcionesConsola.h"
 
 #define ESPACIO " "
-#define IPDESTINO "192.168.1.106"
+#define IPDESTINO "127.0.0.1"
 #define PUERTO 6667
 
 int main(void) {
@@ -15,8 +15,9 @@ int main(void) {
 	char *linea;
 	char **argumentos;
 	int cantElementos;
-	int socket;
+	int socket=-1;
 	header header;
+	int prueba=0;
 	while(1){
 
 	linea = (char*) readline("> ");
@@ -26,7 +27,7 @@ int main(void) {
 	add_history(linea);
 
 	argumentos = cargarArgumentos(linea);
-
+	instruccion.funcion=0;
 	cantElementos = cantArgumentos(argumentos);
 	switch(cantElementos){
 
@@ -149,20 +150,23 @@ int main(void) {
 				}
 		default:
 			printf("El comando ingresado no es valido\n");
+			break;
 	}
 
 	if(argumentos[0] != NULL)
 		if(strcmp(argumentos[0], "exit") == 0)
 			break;
-
-	if(instruccion.funcion != 0)
+	if(instruccion.funcion != 0){
 		socket = nuevoSocket();
-		conectarSocket(socket, IPDESTINO, PUERTO);
-		void* payload = serializarComandoConsola(&instruccion, &header);
-		header.id = 1;
-
-		enviarPaquete(socket, payload, header);
-		cerrarSocket(socket);
+		if(conectarSocket(socket, IPDESTINO, PUERTO)>=0){
+			header.id = 1;
+			void* payload = serializarComandoConsola(&instruccion, &header);
+			enviarPaquete(socket, payload, header);
+			cerrarSocket(socket);
+		} else{
+			perror("No se conecto al socket");
+		}
+	}
 	}
 
 	return 0;

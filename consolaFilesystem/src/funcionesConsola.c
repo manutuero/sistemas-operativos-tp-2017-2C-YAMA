@@ -310,76 +310,64 @@ comando empaquetarFuncionCpblok(char **argumentos){
 		}
 	return aux;
 }
+
 void* serializarComandoConsola(comando* comando, header* header) {
-	int tamanioHeader = sizeof(header->tamanio);
-	int tamanioTotal = 0;
-	int desplazamientoAux = 0;
-	int desplazamiento = 0;
+	int tamanioMensaje  = 0;
+	int desplazamientoMensaje = 0;
 
 	// Primera parte: serializa la estructura comando.
-	void *bufferAux = malloc(sizeof(int));
-	memcpy(bufferAux + desplazamientoAux, &(comando->funcion), sizeof(int));
-	desplazamientoAux += sizeof(int);
-	tamanioTotal += sizeof(bufferAux);
+	void *mensaje = malloc(sizeof(comando->funcion));
 
-	int tamanioRedimensionadoAux = sizeof(int) + sizeof(comando->opcion);
-	bufferAux=realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux + desplazamiento, &(comando->opcion), sizeof(comando->opcion));
-	desplazamientoAux += sizeof(comando->opcion);
-	tamanioTotal += sizeof(bufferAux);
+	memcpy(mensaje + desplazamientoMensaje, &(comando->funcion), sizeof(comando->funcion));
+	desplazamientoMensaje += sizeof(comando->funcion);
+	tamanioMensaje += sizeof(comando->funcion);
+
+	int tamanioRedimensionadoAux = sizeof(comando->funcion) + sizeof(comando->opcion);
+	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, &(comando->opcion), sizeof(comando->opcion));
+	desplazamientoMensaje += sizeof(comando->opcion);
+	tamanioMensaje += sizeof(comando->opcion);
 
 	int tamanioParametro1 = strlen(comando->parametro1);
 	tamanioRedimensionadoAux += sizeof(int);
-	bufferAux = realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux + desplazamientoAux, &(tamanioParametro1), sizeof(int));
-	desplazamientoAux += sizeof(int);
-	tamanioTotal += sizeof(bufferAux);
+	mensaje = realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, &(tamanioParametro1), sizeof(int));
+	desplazamientoMensaje += sizeof(int);
+	tamanioMensaje += sizeof(int);
 
 	tamanioRedimensionadoAux += strlen(comando->parametro1);
-	bufferAux=realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux + desplazamientoAux, comando->parametro1, strlen(comando->parametro1));
-	desplazamientoAux += sizeof(strlen(comando->parametro1));
-	tamanioTotal += sizeof(bufferAux);
+	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, comando->parametro1, strlen(comando->parametro1));
+	desplazamientoMensaje += sizeof(strlen(comando->parametro1));
+	tamanioMensaje += tamanioParametro1;
 
 	int tamanioParametro2 = strlen(comando->parametro2);
 	tamanioRedimensionadoAux += sizeof(int);
-	bufferAux=realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux + desplazamientoAux, &(tamanioParametro2), sizeof(int));
-	desplazamientoAux += sizeof(int);
-	tamanioTotal += sizeof(bufferAux);
+	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, &(tamanioParametro2), sizeof(int));
+	desplazamientoMensaje += sizeof(int);
+	tamanioMensaje += sizeof(int);
 
 	tamanioRedimensionadoAux += strlen(comando->parametro2);
-	bufferAux=realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux+desplazamientoAux, comando->parametro2, strlen(comando->parametro2));
-	desplazamientoAux += sizeof(strlen(comando->parametro2));
-	tamanioTotal += sizeof(bufferAux);
+	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, comando->parametro2, strlen(comando->parametro2));
+	desplazamientoMensaje += sizeof(strlen(comando->parametro2));
+	tamanioMensaje += sizeof(tamanioParametro2);
 
 	tamanioRedimensionadoAux += sizeof(int);
-	bufferAux=realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux + desplazamientoAux, &(comando->bloque), sizeof(int));
-	desplazamientoAux += sizeof(comando->bloque);
-	tamanioTotal += sizeof(bufferAux);
+	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, &(comando->bloque), sizeof(int));
+	desplazamientoMensaje += sizeof(comando->bloque);
+	tamanioMensaje += sizeof(comando->bloque);
 
 	tamanioRedimensionadoAux += sizeof(int);
-	bufferAux = realloc(bufferAux, tamanioRedimensionadoAux);
-	memcpy(bufferAux + desplazamientoAux, &(comando->idNodo), sizeof(int));
-	desplazamientoAux += sizeof(comando->idNodo);
-	tamanioTotal += sizeof(bufferAux);
+	mensaje = realloc(mensaje, tamanioRedimensionadoAux);
+	memcpy(mensaje + desplazamientoMensaje, &(comando->idNodo), sizeof(int));
+	desplazamientoMensaje += sizeof(comando->idNodo);
+	tamanioMensaje += sizeof(comando->idNodo);
 
-	// Segunda parte: serializa el header junto con la estructura ya serializada.
-	void* buffer = malloc(tamanioHeader);
-	memcpy(buffer + desplazamiento, &(header), sizeof(int));
-	desplazamiento += sizeof(int);
+	header->tamanio = tamanioMensaje;
 
-	int tamanioRedimensionado = sizeof(int) + sizeof(int);
-	buffer = realloc(buffer, tamanioRedimensionado);
-	memcpy(buffer + desplazamiento, &(tamanioTotal), tamanioTotal);
-	desplazamiento += sizeof(int);
-
-	tamanioRedimensionado += tamanioTotal;
-	buffer=realloc(buffer, tamanioRedimensionado);
-	memcpy(buffer + desplazamiento, bufferAux, tamanioTotal);
-
-	return buffer;
+	return mensaje;
 }
 
