@@ -1,15 +1,18 @@
 /*
  ============================================================================
- Name        : master.c
- Author      : Gaboxxz
+ Name        : Master.c
+ Author      : utnso
  Version     :
  Copyright   : Your copyright notice
  Description : Hello World in C, Ansi-style
  ============================================================================
  */
 
+
 #include "funcionesMaster.h"
 
+
+//PARA EJECUTAR ESTE PROGRAMA RECORDAR QUE LOS PARAMETROS TIENEN QUE SER RUTAS VALIDAS
 int main(int argsc,char **args) {
 	char * transformador;
 	char *reductor;
@@ -25,11 +28,11 @@ int main(int argsc,char **args) {
 
 			return 0;
 		} else{
-			printf("Esta todo ok. Se envia por socket la info al yamafs");
-
+			printf("Esta todo ok. Se envia por socket la info al yamafs\n");
+			iniciarMaster(transformador,reductor,archivoAprocesar,direccionDeResultado);
 		}
 
-	} else {
+	} else{
 		printf("Cantidad de parametros invalida. Se esperan 4 pero se detectaron: %d \n",argsc-1);
 
 	}
