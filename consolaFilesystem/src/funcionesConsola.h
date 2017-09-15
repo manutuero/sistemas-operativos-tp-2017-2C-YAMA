@@ -1,6 +1,16 @@
 #ifndef FUNCIONESCONSOLA_H_
 #define FUNCIONESCONSOLA_H_
+
 #include "utils.h"
+
+
+//Variables globales empiezan en mayuscula
+
+int PuertoFS;
+
+char * IP;
+
+//Firma de funciones
 
 int cantArgumentos(char **argumentos);
 
@@ -31,6 +41,10 @@ comando empaquetarFuncionCpfrom(char **componentes);
 comando empaquetarFuncionCpto(char **componentes);
 
 comando empaquetarFuncionCpblok(char **componentes);
+
+void cargarArchivoDeConfiguracion(char *rutaAConfig);
+
+void inicializarInstruccion(comando *instruccion);
 
 int validarParametro(char * parametro);
 

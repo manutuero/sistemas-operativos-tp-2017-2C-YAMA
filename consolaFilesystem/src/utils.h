@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/select.h>
+#include <commons/config.h>
+
 
 enum headers {SOLICITUD_EJECUTAR_COMANDO_CONSOLA = 1};
 

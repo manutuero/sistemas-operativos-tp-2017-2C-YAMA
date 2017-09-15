@@ -6,7 +6,39 @@
 #include <commons/string.h>
 #define ESPACIO " "
 
-int validarParametro(char *parametro){
+void inicializarInstruccion(comando *instruccion)
+{
+	instruccion->funcion = 0;
+	instruccion->bloque = 0;
+	instruccion->idNodo=0;
+	instruccion->opcion = 0;
+	instruccion->parametro1 = "";
+	instruccion->parametro2 = "";
+}
+
+void cargarArchivoDeConfiguracion(char *rutaAConfig) {
+
+   char      cwd[1024];                                                                           // Variable donde voy a guardar el path absoluto hasta el /Debug
+   char *    pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)), rutaAConfig); // String que va a tener el path absoluto para pasarle al config_create
+   t_config *config         = config_create(pathArchConfig);
+
+   if (config_has_property(config, "PUERTO_FILESYSTEM")) {
+      PuertoFS = config_get_int_value(config, "PUERTO_FILESYSTEM");  //asigna a PUERTOSERVIDOR el puerto del .cfg
+   }
+
+   if (config_has_property(config, "IP_FILESYSTEM")) {
+      IP = string_duplicate(config_get_string_value(config, "IP_FILESYSTEM")); //asigna a IPSERVIDOR el puerto del .cfg
+   }
+
+   printf("Puerto: %d\n", PuertoFS);
+   printf("IP: %s\n\n\n", IP);
+
+   config_destroy(config);
+
+}
+
+int validarParametro(char *parametro)
+{
 	if ((string_starts_with(parametro,"/")))
 		return 1;
 	else
@@ -29,286 +61,277 @@ int cantArgumentos(char **argumentos){
 	return cantidad;
 }
 
-char** cargarArgumentos(char* linea)
-{
+char** cargarArgumentos(char* linea){
 	string_trim(&linea);
 	return(string_split(linea,ESPACIO));
 }
 
 comando empaquetarFuncionFormat(char **argumentos){
-	comando aux;
-	aux.funcion = 1;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
+
+	instruccion.funcion = 1;
 
 	printf("funcion de format\n");
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionRm(char **argumentos){
-	comando aux;
-	if (validarParametro(argumentos[1])==1){
-	aux.funcion=2;
-	aux.parametro1=argumentos[1];
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
-	printf("Funcion de remove archivo estandar\n");
-	printf("El archivo a remover es: %s\n",argumentos[1]);
-	}
-	else{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
+	if (validarParametro(argumentos[1])==1)
+		{
+			instruccion.funcion=2;
+			instruccion.parametro1=argumentos[1];
+
+			printf("Funcion de remove archivo estandar\n");
+			printf("El archivo a remover es: %s\n",argumentos[1]);
+		}
+	else
+	{
+		printf("El parametro ingresado %s no es valido\n",argumentos[1]);
 	}
 
-	return aux;
+	return instruccion;
+
 }
 
 comando empaquetarFuncionRmDirectory(char **argumentos){
 	//revisar que directorio esta vacio primero
-	comando aux;
-	if((strcmp(argumentos[1],"-d")==0)&&(validarParametro(argumentos[1])==1))
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
+
+	if((strcmp(argumentos[1],"-d")==0)&&((validarParametro(argumentos[2]))==1))
 		{
-			aux.funcion=3;
-			aux.opcion=1;
-			aux.parametro1=argumentos[2];
+			instruccion.funcion=3;
+			instruccion.opcion=1;
+			instruccion.parametro1=argumentos[2];
 
 			printf("funcion de remove directorio\n");
 			printf("el directorio a remover es: %s\n",argumentos[2]);
 		}
 	else
-			printf("La opcion: %s no es valida\n",argumentos[1]);
+			printf("La opcion: %s no es valida o el parametro: %s no es correcto\n",argumentos[1],argumentos[2]);
 
-	return aux;
+
+	return instruccion;
 
 }
 
 comando empaquetarFuncionRmBloque(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
+
 	//revisar que no es la ultima copia del bloque
 	if((strcmp(argumentos[1],"-b")==0)&&(isdigit(argumentos[3]))&&(isdigit(argumentos[4])))
 		{
-			aux.funcion=4;
-			aux.opcion=2;
-			aux.bloque=(int)argumentos[3];
-			aux.idNodo=(int)argumentos[4];
+			instruccion.funcion=4;
+			instruccion.opcion=2;
+			instruccion.bloque=(int)argumentos[3];
+			instruccion.idNodo=(int)argumentos[4];
 
 			printf("Funcion de remover un bloque\n");
 			printf("Se removera del archivo: %s\n",argumentos[2]);
 			printf("El bloque: %s de la copia: %s\n",argumentos[3],argumentos[4]);
 		}
 	else
-		{
-			printf("La opcion: %s no es valida\n",argumentos[1]);
-			aux.funcion=0;
-		}
+			printf("La opcion: %s no es valida o uno de los parametros: %s,%s no es correcto\n",argumentos[1],argumentos[2],argumentos[3]);
 
-	return aux;
+	return instruccion;
 
 }
 
 comando empaquetarFuncionCat(char **argumentos){
-	comando aux;
-	if (validarParametro(argumentos[1])==1){
-		aux.funcion=5;
-		aux.parametro1=argumentos[1];
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
-		printf("Funcion de concatenar texto plano\n");
-		printf("el archivo es: %s\n",argumentos[1]);
-	}
-	else{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+	if (validarParametro(argumentos[1])==1)
+		{
+			instruccion.funcion=5;
+			instruccion.parametro1=argumentos[1];
 
-	return aux;
+			printf("Funcion de concatenar texto plano\n");
+			printf("el archivo es: %s\n",argumentos[1]);
+		}
+	else
+			printf("El parametro ingresado: %s no es valido\n",argumentos[1]);
+
+	return instruccion;
 }
 
 comando empaquetarFuncionMkdir(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]))
-	{
-		aux.funcion=6;
-		aux.parametro1 = argumentos[1];
+		{
+			instruccion.funcion=6;
+			instruccion.parametro1 = argumentos[1];
 
-		printf("funcion de crear directorio\n");
-		printf("El directorio a crear es: %s\n",argumentos[1]);
-		return aux;
-	}
+			printf("funcion de crear directorio\n");
+			printf("El directorio a crear es: %s\n",argumentos[1]);
+			return instruccion;
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+			printf("El parametro ingresado: %s no es valido\n",argumentos[1]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionMd5(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]))
-	{
-		aux.funcion=7;
-		aux.parametro1 = argumentos[1];
+		{
+			instruccion.funcion=7;
+			instruccion.parametro1 = argumentos[1];
 
-		printf("funcion de md5\n");
-		printf("El archivo es: %s\n",argumentos[1]);
-	}
+			printf("funcion de md5\n");
+			printf("El archivo es: %s\n",argumentos[1]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+			printf("El parametro ingresado: %s no es valido\n",argumentos[1]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionLs(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]))
-	{
-		aux.funcion=8;
-		aux.parametro1=argumentos[1];
+		{
+			instruccion.funcion=8;
+			instruccion.parametro1=argumentos[1];
 
-		printf("funcion ls\n");
-		printf("El directorio a listar es: %s\n",argumentos[1]);
-	}
+			printf("funcion ls\n");
+			printf("El directorio a listar es: %s\n",argumentos[1]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+			printf("El parametro ingresado: %s no es valido\n",argumentos[1]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionInfo(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]))
-	{
-		aux.funcion=9;
-		aux.parametro1=argumentos[1];
+		{
+			instruccion.funcion=9;
+			instruccion.parametro1=argumentos[1];
 
-		printf("funcion info\n");
-		printf("El archivo es: %s\n",argumentos[1]);
-	}
+			printf("funcion info\n");
+			printf("El archivo es: %s\n",argumentos[1]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+			printf("El parametro ingresado: %s no es valido\n",argumentos[1]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionRename(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
-	{
-		aux.funcion=10;
-		aux.parametro1=argumentos[1];
-		aux.parametro2=argumentos[2];
+		{
+			instruccion.funcion=10;
+			instruccion.parametro1=argumentos[1];
+			instruccion.parametro2=argumentos[2];
 
-		printf("funcion rename\n");
-		printf("El nombre original era: %s\n",argumentos[1]);
-		printf("El nuevo nombre es: %s\n",argumentos[2]);
-	}
+			printf("funcion rename\n");
+			printf("El nombre original era: %s\n",argumentos[1]);
+			printf("El nuevo nombre es: %s\n",argumentos[2]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+			printf("Los parametros ingresados: %s,%s no son validos\n",argumentos[1],argumentos[2]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionMv(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
-	{
-		aux.funcion=11;
-		aux.parametro1=argumentos[1];
-		aux.parametro2=argumentos[2];
+		{
+			instruccion.funcion=11;
+			instruccion.parametro1=argumentos[1];
+			instruccion.parametro2=argumentos[2];
 
-		printf("funcion move\n");
-		printf("La ruta original era: %s\n",argumentos[1]);
-		printf("La nueva ruta es: %s\n",argumentos[2]);
-	}
+			printf("funcion move\n");
+			printf("La ruta original era: %s\n",argumentos[1]);
+			printf("La nueva ruta es: %s\n",argumentos[2]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+		printf("Los parametros ingresados: %s,%s no son validos\n",argumentos[1],argumentos[2]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionCpfrom(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if(validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
-	{
-		aux.funcion=12;
-		aux.parametro1=argumentos[1];
-		aux.parametro2=argumentos[2];
+		{
+			instruccion.funcion=12;
+			instruccion.parametro1=argumentos[1];
+			instruccion.parametro2=argumentos[2];
 
-		printf("funcion cpfrom\n");
-		printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
-	}
+			printf("funcion cpfrom\n");
+			printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+		printf("Los parametros ingresados: %s,%s no son validos\n",argumentos[1],argumentos[2]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionCpto(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
 	if (validarParametro(argumentos[1]) && validarParametro(argumentos[2]))
-	{
-		aux.funcion=13;
-		aux.parametro1=argumentos[1];
-		aux.parametro2=argumentos[2];
+		{
+			instruccion.funcion=13;
+			instruccion.parametro1=argumentos[1];
+			instruccion.parametro2=argumentos[2];
 
-		printf("funcion cpto\n");
-		printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
-	}
+			printf("funcion cpto\n");
+			printf("Los argumentos son: %s y %s\n",argumentos[1],argumentos[2]);
+		}
 	else
-	{
-		aux.funcion=0;
-		printf("El parametro ingresado no es valido\n");
-	}
+		printf("Los parametros ingresados: %s,%s no son validos\n",argumentos[1],argumentos[2]);
 
-	return aux;
+	return instruccion;
 }
 
 comando empaquetarFuncionCpblok(char **argumentos){
-	comando aux;
+	comando instruccion;
+	inicializarInstruccion(&instruccion);
 
-	if((isdigit(argumentos[2]))&&(isdigit(argumentos[3])))
-	{
-		aux.funcion=14;
-		aux.parametro1=argumentos[1];
-		aux.bloque=(int)argumentos[2];
-		aux.idNodo=(int)argumentos[3];
-
-		printf("funcion cpblock\n");
-		printf("El archivo al que pertenece el bloque: %s\n",argumentos[1]);
-		printf("El numero de bloque es: %s\n",argumentos[2]);
-		printf("El nodo en el que copiar es: %s\n",argumentos[3]);
-	}
-	else
+	if((isdigit(argumentos[2]))&&(isdigit(argumentos[3]))&&(validarParametro(argumentos[1])))
 		{
-			printf("El comando ingresado no es valido\n");
-			aux.funcion=0;
+			instruccion.funcion=14;
+			instruccion.parametro1=argumentos[1];
+			instruccion.bloque=(int)argumentos[2];
+			instruccion.idNodo=(int)argumentos[3];
+
+			printf("funcion cpblock\n");
+			printf("El archivo al que pertenece el bloque: %s\n",argumentos[1]);
+			printf("El numero de bloque es: %s\n",argumentos[2]);
+			printf("El nodo en el que copiar es: %s\n",argumentos[3]);
 		}
-	return aux;
+	else
+		printf("Los parametros ingresados: %s,%s,%s no son validos\n",argumentos[1],argumentos[2],argumentos[3]);
+
+	return instruccion;
 }
 
 void* serializarComandoConsola(comando* comando, header* header) {

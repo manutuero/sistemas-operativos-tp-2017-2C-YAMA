@@ -1,23 +1,36 @@
+/*
+ ============================================================================
+ Name        : test.c
+ Author      : 
+ Version     :
+ Copyright   : Your copyright notice
+ Description : Hello World in C, Ansi-style
+ ============================================================================
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <commons/string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+
 #include "funcionesConsola.h"
 
 #define ESPACIO " "
-#define IPDESTINO "127.0.0.1"
-#define PUERTO 6667
 
-int main(void) {
+int main(int argc, char* argv[]) {
+
+	cargarArchivoDeConfiguracion(argv[1]);
+
 	comando instruccion;
 	char *linea;
 	char **argumentos;
 	int cantElementos;
 	int socket=-1;
 	header header;
-	int prueba=0;
+	instruccion.funcion=0;
+
 	while(1){
 
 	linea = (char*) readline("> ");
@@ -27,7 +40,7 @@ int main(void) {
 	add_history(linea);
 
 	argumentos = cargarArgumentos(linea);
-	instruccion.funcion=0;
+
 	cantElementos = cantArgumentos(argumentos);
 	switch(cantElementos){
 
@@ -85,7 +98,7 @@ int main(void) {
 				}
 			else
 				{
-					printf("El comando %s no es valido",argumentos[0]);
+					printf("El comando %s no es valido\n",argumentos[0]);
 				}
 
 			break;
@@ -126,6 +139,7 @@ int main(void) {
 					printf("El comando %s no es valido",argumentos[0]);
 					break;
 				}
+
 		case 4:
 			if(strcmp(argumentos[0],"cpblock")==0)
 				{
@@ -137,8 +151,10 @@ int main(void) {
 					printf("El comando %s no es valido",argumentos[0]);
 					break;
 				}
+
 		case 5:
-			if(strcmp(argumentos[0],"rm") == 0)
+
+			if(strcmp(argumentos[0],"rm")==0)
 				{
 					instruccion=empaquetarFuncionRmBloque(argumentos);
 					break;
@@ -148,25 +164,35 @@ int main(void) {
 					printf("El comando %s no es valido",argumentos[0]);
 					break;
 				}
+
 		default:
-			printf("El comando ingresado no es valido\n");
-			break;
+			{
+				inicializarInstruccion(&instruccion);
+				printf("El comando ingresado no es valido\n");
+			}
+
 	}
 
-	if(argumentos[0] != NULL)
-		if(strcmp(argumentos[0], "exit") == 0)
+	if(argumentos[0]!=NULL)
+		if(strcmp(argumentos[0],"exit")==0)
 			break;
-	if(instruccion.funcion != 0){
+
+
+	if(instruccion.funcion!=0){
 		socket = nuevoSocket();
-		if(conectarSocket(socket, IPDESTINO, PUERTO)>=0){
+		if(conectarSocket(socket, IP, PuertoFS)>=0)
+		{
 			header.id = 1;
 			void* payload = serializarComandoConsola(&instruccion, &header);
 			enviarPaquete(socket, payload, header);
 			cerrarSocket(socket);
-		} else{
+		}
+		else
+		{
 			perror("No se conecto al socket");
 		}
-	}
+		}
+
 	}
 
 	return 0;
