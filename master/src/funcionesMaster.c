@@ -98,12 +98,12 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
-
-	if(!string_starts_with(archivoAprocesar,"yamafs:/")){
+	char * comienzo ="yamafs:/";
+	if(string_starts_with(archivoAprocesar,comienzo)<=0){
 		printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
 		return 0;
 	}
-	if(!string_starts_with(direccionDeResultado,"yamafs:/")){
+	if(string_starts_with(direccionDeResultado,comienzo)<=0){
 		printf("La direccion de guardado de resultado es invalida: %s \n",direccionDeResultado);
 		return 0;
 	}
