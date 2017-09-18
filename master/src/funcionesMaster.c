@@ -8,50 +8,28 @@
 
 #include "funcionesMaster.h"
 
-void enviarArchivo(int fd, FILE* fich, char* buffer, long * tam, char* archivo) {
-
-	fich = fopen(archivo, "rb");
-	//fich = fopen("/home/utnso/Escritorio/archivo", "rb");
-	if (!fich) {
-		printf("Error al abrir el archivo\n");
-		exit(1);
-	}
-	buffer = (char*) malloc(*tam * sizeof(char) + 1);
-
-	printf("Mandando el archivo... \n");
-	while (!feof(fich)) { //leo el archivo y guardo el el contenido en el buffer
-		fread(buffer, sizeof(char), *tam, fich);
-	}
-	buffer[*tam]='\0'; //Cierro el buffer
-	serializarYEnviarArchivo(fd,*tam, buffer);
-
-
-	printf("Se mando el archivo al worker \n");
-	rewind(fich);
-	fclose(fich);
-	free(buffer);
-}
-
-
-long calcularTamanioArchivo(char* archivo){
+void enviarArchivo(int fd, char* buffer, char* archivo) {
+	int file = open(archivo, O_RDWR);
 	struct stat mystat;
-		void *pmap;
-		int fd;
-		//Abre el archivo y lo lee
-		fd = open(archivo, O_RDONLY);
-		 if(fd==-1){
+	if(file==-1){
 			 perror("open");
 			 exit(1);
-		 }
-
-		 if(fstat(fd,&mystat) < 0){
+	}
+	if(fstat(file,&mystat) < 0){
 			 perror("fstat");
-			 close(fd);
+			 close(file);
 			 exit(1);
-		 }
+		}
+	int tam = mystat.st_size;
+	buffer = (char*) malloc(tam * sizeof(char) + 1);
 
-		 printf("Tengo un archivo de %d bytes para mandar\n",(int)mystat.st_size);
-		 return mystat.st_size;
+	read(file, buffer, tam);
+	printf("Mandando un archivo de %d bytes... \n",tam);
+	buffer[tam]='\0'; //Cierro el buffer
+	serializarYEnviarArchivo(fd,tam, buffer);
+	printf("Se mando el archivo al worker correctamente.\n");
+	close(file);
+	free(buffer);
 }
 
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
@@ -75,6 +53,7 @@ void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
 
 void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 	archivo *paqueteArchivo;
+	paqueteArchivo = malloc(sizeof(int)+tamanio);
 
 	paqueteArchivo->tamanio = tamanio;
 	paqueteArchivo->contenido = contenido;
@@ -99,7 +78,6 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 	return buffer;
 }
 
-#include "funcionesMaster.h"
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
@@ -147,7 +125,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	struct sockaddr_in dir;
 	int socketMaster;
 	int opt = 1;
-	int addrlen , nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
+	int nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
 	int maxPuerto;
 	fd_set readfds, auxRead;
 
@@ -168,8 +146,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	socketMaster = socket(AF_INET, SOCK_STREAM, 0);
 
 	// Olvidémonos del error "Address already in use" [La dirección ya se está usando]
-	int yes=1;
-		 if (setsockopt(socketMaster,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
+		 if (setsockopt(socketMaster,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int)) == -1) {
 		 perror("setsockopt");
 		 exit(1);
 		 }
@@ -187,7 +164,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 
 	char *buffer;
 	int bytesRecibidos;
-	FILE *fich;
 
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
@@ -197,9 +173,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	tamanioDir = sizeof(direccionCliente);
 
 	//-----------------------
-	//Calculo el tamanio del archivo que voy a mandar
-	//reescribir(transformador);
-	long tam = calcularTamanioArchivo(transformador);
 
 	//Entro al select de conexiones
 	printf("Esperando conexiones\n");
@@ -226,7 +199,8 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 					 *Actualmente manda el primer parametro, en este caso el tranformador.
 					 * Seguramente va a haber que cambiarlo
 					 */
-					enviarArchivo(nuevoSocket, fich, buffer, &tam, transformador);
+					//enviarArchivo(nuevoSocket, fich, buffer, &tam, transformador);
+					enviarArchivo(nuevoSocket, buffer, transformador);
 					if(nuevoSocket > maxPuerto)
 						maxPuerto = nuevoSocket;
 				}
@@ -234,7 +208,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 		      else{
 				buffer = malloc(1000);
 
-				recibirPorSocket(i,buffer,1000);
+				bytesRecibidos = recibirPorSocket(i,buffer,1000);
 				if(bytesRecibidos < 0){
 					perror("Error");
 					free(buffer);
@@ -263,7 +237,7 @@ void conectarseAYama(int puerto,char* ip){
 
 	direccionYama.sin_family = AF_INET;
 	direccionYama.sin_port = htons(puerto);
-	direccionYama.sin_addr.s_addr = inet_addr(ip);;
+	direccionYama.sin_addr.s_addr = inet_addr(ip);
 	//memset(&(direccionYama.sin_zero), '\0', 8);
 
 
