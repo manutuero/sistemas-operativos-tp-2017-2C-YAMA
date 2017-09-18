@@ -1,7 +1,7 @@
 /*
  ============================================================================
  Name        : Master.c
- Author      :
+ Author      : 
  Version     :
  Copyright   : Your copyright notice
  Description : Hello World in C, Ansi-style
@@ -26,14 +26,14 @@ int main(int argsc,char **args) {
 
 		if(!chequearParametros(transformador,reductor,archivoAprocesar,direccionDeResultado)){
 
-			return 0;
+			//return 0;
 		} else{
 			printf("Esta todo ok. Se envia por socket la info al yamafs\n");
 		}
 
 	} else{
 		printf("Cantidad de parametros invalida. Se esperan 4 pero se detectaron: %d \n",argsc-1);
-		return 0;
+		//return 0;
 
 	}
 

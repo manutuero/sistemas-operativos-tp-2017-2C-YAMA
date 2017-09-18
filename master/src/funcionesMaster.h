@@ -24,6 +24,8 @@
 #include <stdint.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <commons/string.h>
+#include "utils.h"
 
 
 
@@ -39,11 +41,11 @@ typedef struct archivo{
 
 
 
-long calcularTamanioArchivo(char* archivo);
-void enviarArchivo(int fd, FILE* fich, char* buffer, long * tam, char* archivo);
+void enviarArchivo(int fd, char* buffer, char* archivo);
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido);
 void *serializarArchivo(int tamanio, char* contenido, myHeader* header);
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 int file_exists (char * fileName);
+void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
 
 #endif /* FUNCIONESMASTER_H_ */

@@ -1,7 +1,7 @@
 /*
  ============================================================================
  Name        : worker.c
- Author      : 
+ Author      :
  Version     :
  Copyright   : Your copyright notice
  Description : Hello World in C, Ansi-style
@@ -47,9 +47,8 @@ int main(void) {
 */
 	/**********************************************************/
 
-	int len = 0;
-	int bytesRecibidos = recibirArchivo(bytesRecibidos, cliente, len, fich);
-			if(bytesRecibidos < 0){
+	int bytesRecibidos = recibirArchivo(cliente);
+		if(bytesRecibidos < 0){
 				perror("Error");
 				return 1;
 			}
@@ -70,4 +69,3 @@ int main(void) {
 	}
 	return EXIT_SUCCESS;
 }
-
