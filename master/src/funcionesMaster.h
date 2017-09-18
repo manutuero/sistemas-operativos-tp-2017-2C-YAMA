@@ -17,11 +17,14 @@
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
+#include <sys/mman.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <netdb.h>
+#include <fcntl.h>
+
 
 
 typedef struct header{
@@ -36,7 +39,7 @@ typedef struct archivo{
 
 
 
-long calcularTamanioArchivo(FILE* fich, char* archivo);
+long calcularTamanioArchivo(char* archivo);
 void enviarArchivo(int fd, FILE* fich, char* buffer, long * tam, char* archivo);
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido);
 void *serializarArchivo(int tamanio, char* contenido, myHeader* header);

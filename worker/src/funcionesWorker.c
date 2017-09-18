@@ -11,12 +11,12 @@
 
 int recibirArchivo(int bytesRecibidos, int cliente, int len, FILE* fich) {
 
-	fich = fopen("/home/utnso/Escritorio/archivoSalida", "w");
+	fich = fopen("/home/utnso/Escritorio/archivoSalida", "wb");
 
 	archivo* archivo;
 
 	void *buffer;
-		myHeader header;
+		header header;
 		bytesRecibidos = recibirHeader(cliente, &header);
 
 			buffer = malloc(header.tamanio+1);

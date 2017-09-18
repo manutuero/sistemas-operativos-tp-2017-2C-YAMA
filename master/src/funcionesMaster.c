@@ -10,7 +10,7 @@
 
 void enviarArchivo(int fd, FILE* fich, char* buffer, long * tam, char* archivo) {
 
-	fich = fopen(archivo, "r");
+	fich = fopen(archivo, "rb");
 	//fich = fopen("/home/utnso/Escritorio/archivo", "rb");
 	if (!fich) {
 		printf("Error al abrir el archivo\n");
@@ -32,21 +32,26 @@ void enviarArchivo(int fd, FILE* fich, char* buffer, long * tam, char* archivo) 
 	free(buffer);
 }
 
-//Calculo el tamanio del archivo que voy a mandar
-long calcularTamanioArchivo(FILE* fich, char* archivo) {
-	fich = fopen(archivo, "r");
-	//fich = fopen("/home/utnso/Escritorio/archivo", "r");
-	if(!fich){
-		printf("No existe el archivo en la direccion indicada de apertura\n");
-		exit(1);
-	}
-	fseek(fich, 0L, SEEK_END);
-	int tam = ftell(fich); //Te dice los bytes desplazados desde el inicio del archivo
-	rewind(fich);
-	fclose(fich);
 
-	printf("tengo un archivo de %d bytes para mandar\n", tam);
-	return tam;
+long calcularTamanioArchivo(char* archivo){
+	struct stat mystat;
+		void *pmap;
+		int fd;
+		//Abre el archivo y lo lee
+		fd = open(archivo, O_RDONLY);
+		 if(fd==-1){
+			 perror("open");
+			 exit(1);
+		 }
+
+		 if(fstat(fd,&mystat) < 0){
+			 perror("fstat");
+			 close(fd);
+			 exit(1);
+		 }
+
+		 printf("Tengo un archivo de %d bytes para mandar\n",(int)mystat.st_size);
+		 return mystat.st_size;
 }
 
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
@@ -98,26 +103,25 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
-	char * comienzo ="yamafs:/";
-	if(string_starts_with(archivoAprocesar,comienzo)<=0){
-		printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
-		return 0;
-	}
-	if(string_starts_with(direccionDeResultado,comienzo)<=0){
-		printf("La direccion de guardado de resultado es invalida: %s \n",direccionDeResultado);
-		return 0;
-	}
 
-	if(!file_exists(transformador)){
-		printf("El programa transformador no se encuentra en : %s  \n",transformador);
-		return 0;
-	}
-	if(!file_exists(reductor)){
-		printf("El programa reductor no se encuentra en : %s  \n",reductor);
-		return 0;
+	char * comienzo ="yamafs:/";
+		if(string_starts_with(archivoAprocesar,comienzo)<=0){
+			printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
+			return 0;
+		}
+		if(string_starts_with(direccionDeResultado,comienzo)<=0){
+			printf("La direccion de guardado de resultado es invalida: %s \n",direccionDeResultado);
+			return 0;
 		}
 
-
+		if(!file_exists(transformador)){
+			printf("El programa transformador no se encuentra en : %s  \n",transformador);
+			return 0;
+		}
+		if(!file_exists(reductor)){
+			printf("El programa reductor no se encuentra en : %s  \n",reductor);
+			return 0;
+			}
 
 
 	return 1;
@@ -194,7 +198,8 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 
 	//-----------------------
 	//Calculo el tamanio del archivo que voy a mandar
-	long tam = calcularTamanioArchivo(fich,transformador);
+	//reescribir(transformador);
+	long tam = calcularTamanioArchivo(transformador);
 
 	//Entro al select de conexiones
 	printf("Esperando conexiones\n");
@@ -249,5 +254,27 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 		    }
 		}
 	}
+
+}
+
+
+void conectarseAYama(int puerto,char* ip){
+	struct sockaddr_in direccionYama;
+
+	direccionYama.sin_family = AF_INET;
+	direccionYama.sin_port = htons(puerto);
+	direccionYama.sin_addr.s_addr = inet_addr(ip);;
+	//memset(&(direccionYama.sin_zero), '\0', 8);
+
+
+	int yama;
+
+	yama = socket(AF_INET, SOCK_STREAM, 0);
+
+	if(connect(yama, (struct sockaddr *)&direccionYama, sizeof(struct sockaddr)) != 0){
+			perror("fallo la conexion a YAMA");
+			exit(1);
+		}
+
 
 }
