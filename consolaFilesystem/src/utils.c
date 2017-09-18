@@ -16,35 +16,43 @@ void* deserializar(void* mensaje, header header) {
 }
 
 void* deserializarSolicitudEjecutarComando(void *mensaje) {
-  int desplazamiento = 0, bytesACopiar;
+  int desplazamiento = 0, bytesACopiar,longitudParametro;
 
-  comando* comando = malloc(sizeof(comando));
+  comando* unComando = malloc(sizeof(comando));
 
-  bytesACopiar = sizeof(comando->funcion);
-  memcpy(&comando->funcion, mensaje + desplazamiento, bytesACopiar);
+  bytesACopiar = sizeof(unComando->funcion);
+  memmove(&unComando->funcion, mensaje + desplazamiento, bytesACopiar);
   desplazamiento += bytesACopiar;
 
-  bytesACopiar = sizeof(comando->opcion);
-  memcpy(&comando->opcion, mensaje + desplazamiento, bytesACopiar);
+  bytesACopiar = sizeof(unComando->opcion);
+  memmove(&unComando->opcion, mensaje + desplazamiento, bytesACopiar);
   desplazamiento += bytesACopiar;
 
-  bytesACopiar = sizeof(comando->parametro1);
-  memcpy(&comando->parametro1, mensaje + desplazamiento, bytesACopiar);
+  bytesACopiar=sizeof(int);
+  memmove(&longitudParametro,mensaje + desplazamiento,bytesACopiar);
+  desplazamiento+=bytesACopiar;
+
+  bytesACopiar = longitudParametro;
+  memmove(&unComando->parametro1, mensaje + desplazamiento, bytesACopiar);
   desplazamiento += bytesACopiar;
 
-  bytesACopiar = sizeof(comando->parametro2);
-  memcpy(&comando->parametro2, mensaje + desplazamiento, bytesACopiar);
+  bytesACopiar=sizeof(int);
+  memmove(&longitudParametro,mensaje + desplazamiento,bytesACopiar);
+  desplazamiento+=bytesACopiar;
+
+  bytesACopiar = sizeof(unComando->parametro2);
+  memmove(&unComando->parametro2, mensaje + desplazamiento, bytesACopiar);
   desplazamiento += bytesACopiar;
 
-  bytesACopiar = sizeof(comando->bloque);
-  memcpy(&comando->bloque, mensaje + desplazamiento, bytesACopiar);
+  bytesACopiar = sizeof(unComando->bloque);
+  memmove(&unComando->bloque, mensaje + desplazamiento, bytesACopiar);
   desplazamiento += bytesACopiar;
 
-  bytesACopiar = sizeof(comando->idNodo);
-  memcpy(&comando->idNodo, mensaje + desplazamiento, bytesACopiar);
+  bytesACopiar = sizeof(unComando->idNodo);
+  memmove(&unComando->idNodo, mensaje + desplazamiento, bytesACopiar);
   desplazamiento += bytesACopiar;
 
-  return comando;
+  return unComando;
 }
 
 int recibirHeader(int socket, header* header){ // myHeader es parametro de salida por eso usamos puntero
@@ -86,7 +94,7 @@ void * recibirPaquete(int socket, header header){
 	return buffer;
 }  // Recordar castear
 
-int enviarPorSocket(int socket, const void * mensaje, int tamanio) {
+int enviarPorSocket(int socket, const void* mensaje, int tamanio) {
 	int bytes_enviados;
 	int total = 0;
 
@@ -125,8 +133,7 @@ int conectarSocket(int sockfd, const char * ipDestino, int puerto){
 void enviarPaquete(int socket, void* mensaje, header header){
 	int desplazamiento = 0;
 	int tamanioTotal = sizeof(header) + header.tamanio;
-    void *buffer = malloc(tamanioTotal);
-
+    void* buffer = malloc(tamanioTotal);
 	memcpy(buffer + desplazamiento, &header.id, sizeof(header.id));
 	desplazamiento += sizeof(header.id);
 	memcpy(buffer + desplazamiento, &header.tamanio, sizeof(header.tamanio));
@@ -135,8 +142,8 @@ void enviarPaquete(int socket, void* mensaje, header header){
 
 	enviarPorSocket(socket, buffer, tamanioTotal);
 
-	free(buffer);
-	free(mensaje);
+	//free(buffer);
+	//free(mensaje);
 }
 
 void cerrarSocket(int socket) {

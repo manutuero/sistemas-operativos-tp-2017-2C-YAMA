@@ -16,10 +16,10 @@ void inicializarInstruccion(comando *instruccion)
 	instruccion->parametro2 = "";
 }
 
-void cargarArchivoDeConfiguracion(char *rutaAConfig) {
+void cargarArchivoDeConfiguracion(void) {
 
    char      cwd[1024];                                                                           // Variable donde voy a guardar el path absoluto hasta el /Debug
-   char *    pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)), rutaAConfig); // String que va a tener el path absoluto para pasarle al config_create
+   char *    pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)), "config.cfg"); // String que va a tener el path absoluto para pasarle al config_create
    t_config *config         = config_create(pathArchConfig);
 
    if (config_has_property(config, "PUERTO_FILESYSTEM")) {
@@ -43,6 +43,20 @@ int validarParametro(char *parametro)
 		return 1;
 	else
 		return 0;
+}
+
+int esNumero(char* valor){
+	int i=0;
+	while (valor[i]!='\0')
+	{
+		if (!isdigit(valor[i]))
+		{
+			return 0;
+		}
+		else
+			i++;
+	}
+	return 1;
 }
 
 int cantArgumentos(char **argumentos){
@@ -125,7 +139,7 @@ comando empaquetarFuncionRmBloque(char **argumentos){
 	inicializarInstruccion(&instruccion);
 
 	//revisar que no es la ultima copia del bloque
-	if((strcmp(argumentos[1],"-b")==0)&&(isdigit(argumentos[3]))&&(isdigit(argumentos[4])))
+	if((strcmp(argumentos[1],"-b")==0)&&(esNumero(argumentos[3]))&&(esNumero(argumentos[4])))
 		{
 			instruccion.funcion=4;
 			instruccion.opcion=2;
@@ -316,7 +330,7 @@ comando empaquetarFuncionCpblok(char **argumentos){
 	comando instruccion;
 	inicializarInstruccion(&instruccion);
 
-	if((isdigit(argumentos[2]))&&(isdigit(argumentos[3]))&&(validarParametro(argumentos[1])))
+	if((esNumero(argumentos[2]))&&(esNumero(argumentos[3]))&&(validarParametro(argumentos[1])))
 		{
 			instruccion.funcion=14;
 			instruccion.parametro1=argumentos[1];
@@ -338,19 +352,23 @@ void* serializarComandoConsola(comando* comando, header* header) {
 	int tamanioMensaje  = 0;
 	int desplazamientoMensaje = 0;
 
-	// Primera parte: serializa la estructura comando.
+	// serializa la estructura comando.
+	//Reserva 4 Bytes para el int de funcion
 	void *mensaje = malloc(sizeof(comando->funcion));
 
+	//Copia los 4B, incrementa el desplazamiento y el tamanio del mensaje
 	memcpy(mensaje + desplazamientoMensaje, &(comando->funcion), sizeof(comando->funcion));
 	desplazamientoMensaje += sizeof(comando->funcion);
 	tamanioMensaje += sizeof(comando->funcion);
 
+	//Reserva 4B mas para el int de opcion, lo copia e incrementa desplazamiento y tamanio del mensaje
 	int tamanioRedimensionadoAux = sizeof(comando->funcion) + sizeof(comando->opcion);
 	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
 	memcpy(mensaje + desplazamientoMensaje, &(comando->opcion), sizeof(comando->opcion));
 	desplazamientoMensaje += sizeof(comando->opcion);
 	tamanioMensaje += sizeof(comando->opcion);
 
+	//Reserva 4B mas para el int de la longitud del parametro 1, lo copia e incrementa desp y tam del mensaje
 	int tamanioParametro1 = strlen(comando->parametro1);
 	tamanioRedimensionadoAux += sizeof(int);
 	mensaje = realloc(mensaje, tamanioRedimensionadoAux);
@@ -358,12 +376,14 @@ void* serializarComandoConsola(comando* comando, header* header) {
 	desplazamientoMensaje += sizeof(int);
 	tamanioMensaje += sizeof(int);
 
-	tamanioRedimensionadoAux += strlen(comando->parametro1);
+	//Reserva N Bytes (la long de parametro 1), e idem anterior
+	tamanioRedimensionadoAux += tamanioParametro1;
 	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
-	memcpy(mensaje + desplazamientoMensaje, comando->parametro1, strlen(comando->parametro1));
-	desplazamientoMensaje += sizeof(strlen(comando->parametro1));
+	memcpy(mensaje + desplazamientoMensaje, comando->parametro1, tamanioParametro1);
+	desplazamientoMensaje += tamanioParametro1;
 	tamanioMensaje += tamanioParametro1;
 
+	//Reserva 4B para el int de la long del parametro2, e idem anterior
 	int tamanioParametro2 = strlen(comando->parametro2);
 	tamanioRedimensionadoAux += sizeof(int);
 	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
@@ -371,12 +391,14 @@ void* serializarComandoConsola(comando* comando, header* header) {
 	desplazamientoMensaje += sizeof(int);
 	tamanioMensaje += sizeof(int);
 
-	tamanioRedimensionadoAux += strlen(comando->parametro2);
+	//Reserva M Bytes (la long de parametro 2), e idem anterior
+	tamanioRedimensionadoAux += tamanioParametro2;
 	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
 	memcpy(mensaje + desplazamientoMensaje, comando->parametro2, strlen(comando->parametro2));
-	desplazamientoMensaje += sizeof(strlen(comando->parametro2));
-	tamanioMensaje += sizeof(tamanioParametro2);
+	desplazamientoMensaje += tamanioParametro2;
+	tamanioMensaje += tamanioParametro2;
 
+	//Reserva 4B para el int de bloque, e idem anterior
 	tamanioRedimensionadoAux += sizeof(int);
 	mensaje=realloc(mensaje, tamanioRedimensionadoAux);
 	memcpy(mensaje + desplazamientoMensaje, &(comando->bloque), sizeof(int));

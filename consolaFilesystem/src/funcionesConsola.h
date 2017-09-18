@@ -42,7 +42,7 @@ comando empaquetarFuncionCpto(char **componentes);
 
 comando empaquetarFuncionCpblok(char **componentes);
 
-void cargarArchivoDeConfiguracion(char *rutaAConfig);
+void cargarArchivoDeConfiguracion();
 
 void inicializarInstruccion(comando *instruccion);
 
