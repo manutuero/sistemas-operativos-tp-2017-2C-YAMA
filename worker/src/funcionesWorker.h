@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/select.h>
@@ -30,7 +32,7 @@ typedef struct archivo{
 }__attribute__((packed)) archivo;
 
 
-int recibirArchivo(int bytesRecibidos, int cliente, int len, FILE* fich);
+int recibirArchivo(int cliente);
 int recibirYDeserializar(int fd, archivo* miArchivo);
 archivo *deserializarArchivo(void *buffer, int tamanio);
 

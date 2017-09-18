@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <commons/string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -19,9 +20,9 @@
 
 #define ESPACIO " "
 
-int main(int argc, char* argv[]) {
+int main(void) {
 
-	cargarArchivoDeConfiguracion(argv[1]);
+	cargarArchivoDeConfiguracion();
 
 	comando instruccion;
 	char *linea;
@@ -33,7 +34,7 @@ int main(int argc, char* argv[]) {
 
 	while(1){
 
-	linea = (char*) readline("> ");
+	linea = (char*) readline(">");
 	if (!linea)
 	break; // Si recibe NULL corta la ejecucion, evita un segmentation fault.
 

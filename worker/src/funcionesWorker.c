@@ -9,28 +9,22 @@
 #include "utils.h"
 #include "funcionesWorker.h"
 
-int recibirArchivo(int bytesRecibidos, int cliente, int len, FILE* fich) {
 
-	fich = fopen("/home/utnso/Escritorio/archivoSalida", "w");
-
+int recibirArchivo(int cliente){
+	int file = open("/home/utnso/Escritorio/archivoSalida",O_WRONLY);
 	archivo* archivo;
-
 	void *buffer;
-		myHeader header;
-		bytesRecibidos = recibirHeader(cliente, &header);
+	header header;
 
-			buffer = malloc(header.tamanio+1);
+	int bytesRecibidos = recibirHeader(cliente, &header);
+	buffer = malloc(header.tamanio+1);
+	bytesRecibidos = recibirPorSocket(cliente,buffer,header.tamanio);
+	//Se podria hacer RecibirPaquete, dependiendo si la deserializacion va a utils o no.
+	archivo = deserializarArchivo(buffer,header.tamanio);
 
-			bytesRecibidos = recibirPorSocket(cliente,buffer,header.tamanio);
-			//Se podria hacer RecibirPaquete, dependiendo si la deserializacion va a utils o no.
-
-			archivo = deserializarArchivo(buffer,header.tamanio);
-
-	printf("Al worker le llego como contenido del archivo: \n%s\n",archivo->contenido);
-
-	fwrite(archivo->contenido, 1, archivo->tamanio, fich);
-
-	fclose(fich);
+	printf("Al worker le llego un archivo de %d bytes: \n%s\n",archivo->tamanio, archivo->contenido);
+	write(file, archivo->contenido, archivo->tamanio);
+	close(file);
 	return bytesRecibidos;
 }
 

@@ -8,45 +8,28 @@
 
 #include "funcionesMaster.h"
 
-void enviarArchivo(int fd, FILE* fich, char* buffer, long * tam, char* archivo) {
-
-	fich = fopen(archivo, "r");
-	//fich = fopen("/home/utnso/Escritorio/archivo", "rb");
-	if (!fich) {
-		printf("Error al abrir el archivo\n");
-		exit(1);
+void enviarArchivo(int fd, char* buffer, char* archivo) {
+	int file = open(archivo, O_RDWR);
+	struct stat mystat;
+	if(file==-1){
+			 perror("open");
+			 exit(1);
 	}
-	buffer = (char*) malloc(*tam * sizeof(char) + 1);
+	if(fstat(file,&mystat) < 0){
+			 perror("fstat");
+			 close(file);
+			 exit(1);
+		}
+	int tam = mystat.st_size;
+	buffer = (char*) malloc(tam * sizeof(char) + 1);
 
-	printf("Mandando el archivo... \n");
-	while (!feof(fich)) { //leo el archivo y guardo el el contenido en el buffer
-		fread(buffer, sizeof(char), *tam, fich);
-	}
-	buffer[*tam]='\0'; //Cierro el buffer
-	serializarYEnviarArchivo(fd,*tam, buffer);
-
-
-	printf("Se mando el archivo al worker \n");
-	rewind(fich);
-	fclose(fich);
+	read(file, buffer, tam);
+	printf("Mandando un archivo de %d bytes... \n",tam);
+	buffer[tam]='\0'; //Cierro el buffer
+	serializarYEnviarArchivo(fd,tam, buffer);
+	printf("Se mando el archivo al worker correctamente.\n");
+	close(file);
 	free(buffer);
-}
-
-//Calculo el tamanio del archivo que voy a mandar
-long calcularTamanioArchivo(FILE* fich, char* archivo) {
-	fich = fopen(archivo, "r");
-	//fich = fopen("/home/utnso/Escritorio/archivo", "r");
-	if(!fich){
-		printf("No existe el archivo en la direccion indicada de apertura\n");
-		exit(1);
-	}
-	fseek(fich, 0L, SEEK_END);
-	int tam = ftell(fich); //Te dice los bytes desplazados desde el inicio del archivo
-	rewind(fich);
-	fclose(fich);
-
-	printf("tengo un archivo de %d bytes para mandar\n", tam);
-	return tam;
 }
 
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
@@ -70,6 +53,7 @@ void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
 
 void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 	archivo *paqueteArchivo;
+	paqueteArchivo = malloc(sizeof(int)+tamanio);
 
 	paqueteArchivo->tamanio = tamanio;
 	paqueteArchivo->contenido = contenido;
@@ -94,30 +78,28 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 	return buffer;
 }
 
-#include "funcionesMaster.h"
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
-	char * comienzo ="yamafs:/";
-	if(string_starts_with(archivoAprocesar,comienzo)<=0){
-		printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
-		return 0;
-	}
-	if(string_starts_with(direccionDeResultado,comienzo)<=0){
-		printf("La direccion de guardado de resultado es invalida: %s \n",direccionDeResultado);
-		return 0;
-	}
 
-	if(!file_exists(transformador)){
-		printf("El programa transformador no se encuentra en : %s  \n",transformador);
-		return 0;
-	}
-	if(!file_exists(reductor)){
-		printf("El programa reductor no se encuentra en : %s  \n",reductor);
-		return 0;
+	char * comienzo ="yamafs:/";
+		if(string_starts_with(archivoAprocesar,comienzo)<=0){
+			printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
+			return 0;
+		}
+		if(string_starts_with(direccionDeResultado,comienzo)<=0){
+			printf("La direccion de guardado de resultado es invalida: %s \n",direccionDeResultado);
+			return 0;
 		}
 
-
+		if(!file_exists(transformador)){
+			printf("El programa transformador no se encuentra en : %s  \n",transformador);
+			return 0;
+		}
+		if(!file_exists(reductor)){
+			printf("El programa reductor no se encuentra en : %s  \n",reductor);
+			return 0;
+			}
 
 
 	return 1;
@@ -143,7 +125,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	struct sockaddr_in dir;
 	int socketMaster;
 	int opt = 1;
-	int addrlen , nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
+	int nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
 	int maxPuerto;
 	fd_set readfds, auxRead;
 
@@ -164,8 +146,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	socketMaster = socket(AF_INET, SOCK_STREAM, 0);
 
 	// Olvidémonos del error "Address already in use" [La dirección ya se está usando]
-	int yes=1;
-		 if (setsockopt(socketMaster,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
+		 if (setsockopt(socketMaster,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int)) == -1) {
 		 perror("setsockopt");
 		 exit(1);
 		 }
@@ -183,7 +164,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 
 	char *buffer;
 	int bytesRecibidos;
-	FILE *fich;
 
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
@@ -193,8 +173,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	tamanioDir = sizeof(direccionCliente);
 
 	//-----------------------
-	//Calculo el tamanio del archivo que voy a mandar
-	long tam = calcularTamanioArchivo(fich,transformador);
 
 	//Entro al select de conexiones
 	printf("Esperando conexiones\n");
@@ -221,7 +199,8 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 					 *Actualmente manda el primer parametro, en este caso el tranformador.
 					 * Seguramente va a haber que cambiarlo
 					 */
-					enviarArchivo(nuevoSocket, fich, buffer, &tam, transformador);
+					//enviarArchivo(nuevoSocket, fich, buffer, &tam, transformador);
+					enviarArchivo(nuevoSocket, buffer, transformador);
 					if(nuevoSocket > maxPuerto)
 						maxPuerto = nuevoSocket;
 				}
@@ -229,7 +208,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 		      else{
 				buffer = malloc(1000);
 
-				recibirPorSocket(i,buffer,1000);
+				bytesRecibidos = recibirPorSocket(i,buffer,1000);
 				if(bytesRecibidos < 0){
 					perror("Error");
 					free(buffer);
@@ -249,5 +228,27 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 		    }
 		}
 	}
+
+}
+
+
+void conectarseAYama(int puerto,char* ip){
+	struct sockaddr_in direccionYama;
+
+	direccionYama.sin_family = AF_INET;
+	direccionYama.sin_port = htons(puerto);
+	direccionYama.sin_addr.s_addr = inet_addr(ip);
+	//memset(&(direccionYama.sin_zero), '\0', 8);
+
+
+	int yama;
+
+	yama = socket(AF_INET, SOCK_STREAM, 0);
+
+	if(connect(yama, (struct sockaddr *)&direccionYama, sizeof(struct sockaddr)) != 0){
+			perror("fallo la conexion a YAMA");
+			exit(1);
+		}
+
 
 }

@@ -22,12 +22,12 @@ typedef struct{
 	char *parametro2;
 	int bloque;
 	int idNodo;
-} comando;
+} __attribute__((packed)) comando;
 
 typedef struct{
 	int id;
 	int tamanio;
-} header;
+} __attribute__((packed)) header;
 
 /* Recibe un mensaje serializado y devuelve un puntero generico (void) al buffer de memoria donde estara la respuesta deserializada del mensaje. */
 void* deserializar(void*, header);

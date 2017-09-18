@@ -50,7 +50,7 @@ int main(void) {
 			perror("bind failed");
 			exit(EXIT_FAILURE);
 		}
-		printf("\n Escuchando en el puerto: %d \n", PUERTO);
+		printf("Escuchando en el puerto: %d \n", PUERTO);
 
 		//try to specify maximum of 3 pending connections for the master socket
 		if (listen(master_socket, 3) < 0)
