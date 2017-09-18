@@ -1,14 +1,19 @@
+/*
+ ============================================================================
+ Name        : fileSystem.c
+ Author      : Larry
+ Version     :
+ Copyright   : Your copyright notice
+ Description : Hello World in C, Ansi-style
+ ============================================================================
+ */
+
 #include "funcionesFs.h"
 
 int main(void) {
 
-	clear_screen();
-	//crearLogger(); No sabemos si vamos a llevar registro de las operaciones que se realicen
-	cargarArchivoDeConfiguracion(argv[1]);
-	//initFilesystem(); Posiblemente usemos una funcion parecida
-	//Carga los datos del metadata.bin, del bitmap.bin (es creado si no existe), y crea la lista de archivos
-
-
+	ARCHCONFIG="fsConfig.cfg";
+	cargarArchivoDeConfiguracion(ARCHCONFIG);
 	//int PUERTO=6667;
 	int opt = TRUE;
 	int master_socket , addrlen , new_socket , client_socket[30] , max_clients = 30 , activity, i  , sd;
@@ -45,7 +50,7 @@ int main(void) {
 			perror("bind failed");
 			exit(EXIT_FAILURE);
 		}
-		printf("\nEscuchando en el puerto: %d \n", PUERTO);
+		printf("Escuchando en el puerto: %d \n", PUERTO);
 
 		//try to specify maximum of 3 pending connections for the master socket
 		if (listen(master_socket, 3) < 0)
