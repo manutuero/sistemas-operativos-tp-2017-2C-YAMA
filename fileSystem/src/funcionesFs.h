@@ -17,7 +17,9 @@
 #include <unistd.h>
 #include <stdint.h>
 #include "utils.h"
-
+#include <commons/config.h>
+#include <commons/string.h>
+#include <string.h>
 
 //#define PUERTO "6667"
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
@@ -27,6 +29,10 @@
 #define TRUE 1
 
 
+int PUERTO;
+char * ARCHCONFIG;
+
+void cargarArchivoDeConfiguracion(char*nombreArchivo);
 void procesarMensaje(void * , int ,header);
 void procesarComandoConsola(void *,int);
 

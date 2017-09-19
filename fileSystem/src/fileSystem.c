@@ -2,7 +2,9 @@
 
 int main(void) {
 
-	int PUERTO=6667;
+	ARCHCONFIG="fsConfig.cfg";
+	cargarArchivoDeConfiguracion(ARCHCONFIG);
+
 	int opt = TRUE;
 	int master_socket , addrlen , new_socket , client_socket[30] , max_clients = 30 , activity, i  , sd;
     header header;
@@ -38,7 +40,7 @@ int main(void) {
 			perror("bind failed");
 			exit(EXIT_FAILURE);
 		}
-		printf("Escuchando en el puerto: %d \n", PUERTO);
+		printf("\n Escuchando en el puerto: %d \n", PUERTO);
 
 		//try to specify maximum of 3 pending connections for the master socket
 		if (listen(master_socket, 3) < 0)
