@@ -1,20 +1,8 @@
-/*
- ============================================================================
- Name        : fileSystem.c
- Author      : Larry
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
- ============================================================================
- */
-
 #include "funcionesFs.h"
 
 int main(void) {
 
-	ARCHCONFIG="fsConfig.cfg";
-	cargarArchivoDeConfiguracion(ARCHCONFIG);
-	//int PUERTO=6667;
+	int PUERTO=6667;
 	int opt = TRUE;
 	int master_socket , addrlen , new_socket , client_socket[30] , max_clients = 30 , activity, i  , sd;
     header header;
@@ -146,6 +134,7 @@ int main(void) {
 		                	buffer=recibirPaquete(sd,header);
 		                	//printf("Paquete recibido. \n Mensaje: %s usuario: %s \n ",nuevoPacketeRecbido.message,nuevoPacketeRecbido.username);
 		                	procesarMensaje(buffer,sd,header);
+		                	//free(buffer);
 		                }
 
 
