@@ -23,15 +23,133 @@ void cargarArchivoDeConfiguracion(char*nombreArchivo) {
   //log_info(vg_logger,"Archivo de configuracion cargado exitosamente");
 }
 
+char *ejecutarFuncionFormat(comando *unComando){
+	return "";
+}
+
+char * ejecutarFuncionRm(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionRmDirectory(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionRmBloque(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionCat(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionMkdir(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionMd5(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionLs(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionInfo(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionRename(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionMv(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionCpfrom(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionCpto(comando *unComando){
+
+	return "";
+}
+
+char * ejecutarFuncionCpblok(comando *unComando){
+
+	return "";
+}
+
 
 
 void procesarComandoConsola(void *buffer,int sd){
- comando *comando=buffer;
- printf("Recibi el comando codigo= %d. Envio respuesta \n",comando->funcion);
- //free(comando);
- //int enviarPorSocket(int socket, const void * mensaje, int tamanio)
- ///char * respuesta = "Comando recibido y ejecutado";
- //enviarPorSocket(sd,respuesta,sizeof(respuesta));
+ comando *unComando=(comando*)buffer;
+ printf("Recibi el comando codigo= %d. Envio respuesta \n",unComando->funcion);
+ char * respuesta="";
+ switch(unComando->funcion){
+ case 1:
+	 respuesta=ejecutarFuncionFormat(unComando);
+	 break;
+ case 2:
+	 respuesta=ejecutarFuncionRm(unComando);
+	 break;
+ case 3:
+	 respuesta=ejecutarFuncionRmDirectory(unComando);
+	 break;
+ case 4:
+	 respuesta=ejecutarFuncionRmBloque(unComando);
+	 break;
+ case 5:
+	 respuesta=ejecutarFuncionCat(unComando);
+	 break;
+ case 6:
+	 respuesta=ejecutarFuncionMkdir(unComando);
+	 break;
+ case 7:
+	 respuesta=ejecutarFuncionMd5(unComando);
+	 break;
+ case 8:
+	 respuesta=ejecutarFuncionLs(unComando);
+	 break;
+ case 9:
+	 respuesta=ejecutarFuncionInfo(unComando);
+	 break;
+ case 10:
+	 respuesta=ejecutarFuncionRename(unComando);
+	 break;
+ case 11:
+	 respuesta=ejecutarFuncionMv(unComando);
+	 break;
+ case 12:
+	 respuesta=ejecutarFuncionCpfrom(unComando);
+	 break;
+ case 13:
+	 respuesta=ejecutarFuncionCpto(unComando);
+	 break;
+ case 14:
+	 respuesta=ejecutarFuncionCpblok(unComando);
+	 break;
+ default:
+	 respuesta=strcat("Error en la consola. No se reconocio el codigo de comando enviado:",(char*)unComando->funcion);
+	 break;
+
+	 //Enviar respuesta por socket al cliente. Veremos como.
+ }
+
+
+
 }
 
 void procesarMensaje(void * buffer, int sd ,header header){

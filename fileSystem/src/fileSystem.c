@@ -48,11 +48,9 @@ int main(void) {
 			perror("Maximo de tres conexiones pendientes");
 			exit(EXIT_FAILURE);
 		}
-
 		//Accepto conexion entrante
 		    addrlen = sizeof(address);
 		    puts("Esperando conexiones ...");
-
 		    while(TRUE)
 		    {
 		        //Limpio la lista de sockets
@@ -68,7 +66,7 @@ int main(void) {
 		            //socket descriptor
 		            sd = client_socket[i];
 
-		            //if valid socket descriptor then add to read list
+		            //Si el sd es valido lo agrego a la lista de sockets
 		            if(sd > 0)
 		                FD_SET( sd , &readfds);
 
@@ -76,7 +74,6 @@ int main(void) {
 		            if(sd > max_sd)
 		                max_sd = sd;
 		        }
-
 		        //Espero que haya actividad en los sockets. Tiempo de espera null, nunca termina.
 		        activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
 
@@ -94,43 +91,35 @@ int main(void) {
 		                perror("accept");
 		                exit(EXIT_FAILURE);
 		            }
-
-		            //inform user of socket number - used in send and receive commands
-		            printf("Nueva conexion , socket fd is %d , ip is : %d , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-		            //Agrego el nuevo socket al array
+		            printf("Cliente conectado. IP: %s\n", (char*)inet_ntoa(address.sin_addr));
 		            for (i = 0; i < max_clients; i++)
 		            {
 		                //Busco una pos vacia en la lista de clientes para guardar el socket entrante
 		                if( client_socket[i] == 0 )
 		                {
 		                    client_socket[i] = new_socket;
-		                    printf("Se agrego el nuevo socket como: %d\n" , i);
+		                    printf("Se agrego el nuevo socket en la posicion: %d\n" , i);
 
 		                    break;
 		                }
 		            }
 		        }
-
 		        //else  es un cambio en los sockets que estaba escuchando.
 		        for (i = 0; i < max_clients; i++)
 		        {
 		            sd = client_socket[i];
-
 		            if (FD_ISSET( sd , &readfds))
 		            {
 		                //Chequea si fue para cerrarse y sino lee el mensaje;
-
 		            	 if (recibirHeader(sd,&header) == 0)//desconexion
 		                {
-		                    //Somebody disconnected , get his details and print
+		                    //Alguien se desconecto.
 		                    getpeername(sd , (struct sockaddr*)&address , (socklen_t*)&addrlen);
 		                    printf("Cliente desconectado sd: %d \n",sd);
-		                    //Close the socket and mark as 0 in list for reuse
+		                    //Cierro el socket y pongo en cero la pos en la lista para reusarlo
 		                    close( sd );
 		                    client_socket[i] = 0;
 		                }
-
-		                //Echo back the message that came in
 		                else
 		                {
 		                	buffer=recibirPaquete(sd,header);
@@ -138,15 +127,8 @@ int main(void) {
 		                	procesarMensaje(buffer,sd,header);
 		                	//free(buffer);
 		                }
-
-
-
 		            }
 		        }
-
 		    }
-
-
-
 	return EXIT_SUCCESS;
 }
