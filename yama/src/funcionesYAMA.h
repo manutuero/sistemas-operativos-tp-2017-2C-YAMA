@@ -11,7 +11,7 @@
 #include "utils.h"
 
 
-
+ 
 typedef struct rutaArchivo{
 	int tamanio;
 	char* ruta;

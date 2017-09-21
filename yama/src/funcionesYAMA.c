@@ -4,7 +4,7 @@
  *  Created on: 20/9/2017
  *      Author: utnso
  */
-
+ 
 #include "funcionesYAMA.h"
 
 void conectarseAFS(){
@@ -150,7 +150,6 @@ t_rutaArchivo* deserializarRutaArchivo(void* buffer){
 	desplazamiento += sizeof(rutaArchivo->tamanio);
 
 	rutaArchivo->ruta = malloc(rutaArchivo->tamanio);
-	//rutaArchivo = realloc(rutaArchivo, sizeof(rutaArchivo->tamanio)+rutaArchivo->tamanio);
 	memcpy(rutaArchivo->ruta, buffer+desplazamiento, rutaArchivo->tamanio);
 	desplazamiento += rutaArchivo->tamanio;
 

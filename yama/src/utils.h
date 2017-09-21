@@ -13,7 +13,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <stdint.h>
-
+ 
 enum headers {SOLICITUD_EJECUTAR_COMANDO_CONSOLA = 1};
 
 typedef struct{

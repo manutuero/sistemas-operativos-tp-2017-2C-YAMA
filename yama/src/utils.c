@@ -14,7 +14,7 @@ void* deserializar(void* mensaje, header header) {
 
   return buffer;
 }
-
+ 
 void* deserializarSolicitudEjecutarComando(void *mensaje) {
   int desplazamiento = 0, bytesACopiar;
 
