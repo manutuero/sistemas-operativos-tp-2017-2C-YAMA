@@ -10,160 +10,77 @@ void cargarArchivoDeConfiguracion(char*nombreArchivo) {
   if (config_has_property(config, "PUERTO")) {
       PUERTO = config_get_int_value(config, "PUERTO");
   }
-  /*if (config_has_property(config, "IP_FILESYSTEM")) {
-      IP_FILESYSTEM = config_get_string_value(config, "IP_FILESYSTEM");
-  }*/
-  /*if (config_has_property(config, "PUNTO_MONTAJE")) {
-      PUNTO_MONTAJE = config_get_string_value(config, "PUNTO_MONTAJE");
-  }*/
 
   printf("\nPuerto: %d\n", PUERTO);
-  //printf("IP Filesystem: %s\n", IP_FILESYSTEM);
-  //printf("Punto montaje: %s\n", PUNTO_MONTAJE);
   //log_info(vg_logger,"Archivo de configuracion cargado exitosamente");
 }
 
-char *ejecutarFuncionFormat(comando *unComando){
+
+char* ejecutarFuncionFormat(t_comando *comando) {
 	return "";
 }
 
-char * ejecutarFuncionRm(comando *unComando){
-
-	return "";
-}
-
-char * ejecutarFuncionRmDirectory(comando *unComando){
+char* ejecutarFuncionRm(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionRmBloque(comando *unComando){
+char* ejecutarFuncionRmDirectory(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionCat(comando *unComando){
+char* ejecutarFuncionRmBloque(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionMkdir(comando *unComando){
+char* ejecutarFuncionCat(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionMd5(comando *unComando){
+char* ejecutarFuncionMkdir(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionLs(comando *unComando){
+char* ejecutarFuncionMd5(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionInfo(comando *unComando){
+char* ejecutarFuncionLs(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionRename(comando *unComando){
+char* ejecutarFuncionInfo(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionMv(comando *unComando){
+char* ejecutarFuncionRename(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionCpfrom(comando *unComando){
+char* ejecutarFuncionMv(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionCpto(comando *unComando){
+char* ejecutarFuncionCpfrom(t_comando *comando) {
 
 	return "";
 }
 
-char * ejecutarFuncionCpblok(comando *unComando){
+char* ejecutarFuncionCpto(t_comando *comando) {
 
 	return "";
 }
 
+char* ejecutarFuncionCpblok(t_comando *comando) {
 
-
-void procesarComandoConsola(void *buffer,int sd){
- comando *unComando=(comando*)buffer;
- printf("Recibi el comando codigo= %d. Envio respuesta \n",unComando->funcion);
- char * respuesta="";
- switch(unComando->funcion){
- case 1:
-	 respuesta=ejecutarFuncionFormat(unComando);
-	 break;
- case 2:
-	 respuesta=ejecutarFuncionRm(unComando);
-	 break;
- case 3:
-	 respuesta=ejecutarFuncionRmDirectory(unComando);
-	 break;
- case 4:
-	 respuesta=ejecutarFuncionRmBloque(unComando);
-	 break;
- case 5:
-	 respuesta=ejecutarFuncionCat(unComando);
-	 break;
- case 6:
-	 respuesta=ejecutarFuncionMkdir(unComando);
-	 break;
- case 7:
-	 respuesta=ejecutarFuncionMd5(unComando);
-	 break;
- case 8:
-	 respuesta=ejecutarFuncionLs(unComando);
-	 break;
- case 9:
-	 respuesta=ejecutarFuncionInfo(unComando);
-	 break;
- case 10:
-	 respuesta=ejecutarFuncionRename(unComando);
-	 break;
- case 11:
-	 respuesta=ejecutarFuncionMv(unComando);
-	 break;
- case 12:
-	 respuesta=ejecutarFuncionCpfrom(unComando);
-	 break;
- case 13:
-	 respuesta=ejecutarFuncionCpto(unComando);
-	 break;
- case 14:
-	 respuesta=ejecutarFuncionCpblok(unComando);
-	 break;
- default:
-	 respuesta=strcat("Error en la consola. No se reconocio el codigo de comando enviado:",(char*)unComando->funcion);
-	 break;
-
-	 //Enviar respuesta por socket al cliente. Veremos como.
- }
-
-
-
-}
-
-void procesarMensaje(void * buffer, int sd ,header header){
-
-	switch (header.id){
-	case 1:
-		procesarComandoConsola(buffer,sd);
-		//printf("Recibi un comando de consola con id= %d",comando.funcion);
-		break;
-	default :
-		perror("Recibi verdura y no entendi nada");
-	break;
-}
-
-
-
+	return "";
 }
