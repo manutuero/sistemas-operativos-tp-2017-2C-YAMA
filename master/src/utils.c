@@ -47,7 +47,22 @@ void* deserializarSolicitudEjecutarComando(void *mensaje) {
   return comando;
 }
 
+void enviarPaquete(int socket, void* mensaje, header header){
+	int desplazamiento = 0;
+	int tamanioTotal = sizeof(header) + header.tamanio;
+    void *buffer = malloc(tamanioTotal);
 
+	memcpy(buffer + desplazamiento, &header.id, sizeof(header.id));
+	desplazamiento += sizeof(header.id);
+	memcpy(buffer + desplazamiento, &header.tamanio, sizeof(header.tamanio));
+	desplazamiento += sizeof(header.tamanio);
+	memcpy(buffer + desplazamiento, mensaje, header.tamanio);
+
+	enviarPorSocket(socket, buffer, tamanioTotal);
+
+	free(buffer);
+	free(mensaje);
+}
 
 int recibirHeader(int socket, header* header){ // myHeader es parametro de salida por eso usamos puntero
 
@@ -55,7 +70,7 @@ int recibirHeader(int socket, header* header){ // myHeader es parametro de salid
 
 	if ((bytesRecibidos = recv(socket, &((*header).id), sizeof((*header).id), 0)) <= 0) return bytesRecibidos;
 
-				bytesRecibidos = recv(socket, &((*header).tamanio), sizeof((*header).tamanio), 0);
+	bytesRecibidos = recv(socket, &((*header).tamanio), sizeof((*header).tamanio), 0);
 	return bytesRecibidos;
 }
 int recibirPorSocket(int unSocket, void * buffer, int tamanio) {

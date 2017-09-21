@@ -159,16 +159,23 @@ void masterEscuchando(int* socketMaster) {
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado){
 	//struct sockaddr_in dir;
 	int socketMaster;
-	int nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
+	int nuevoSocket , max_clients = 5 , i ;
 	int maxPuerto;
 	fd_set readfds, auxRead;
+	int socketYama;
+
+
+
+	socketYama = conectarseAYama(6669,"127.0.0.1");
+
+	mandarRutaArchivoAYama(socketYama, archivoAprocesar);
 
 	masterEscuchando(&socketMaster);
 
 	//inicializar todos los socketCliente
 	    for (i = 0; i < max_clients; i++)
 	    {
-	        socketCliente[i] = 0;
+	        //socketCliente[i] = 0;
 	    }
 
 	/********************************************************/
@@ -184,7 +191,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	FD_SET(socketMaster, &auxRead);
 
 	maxPuerto = socketMaster;
-	tamanioDir = sizeof(direccionCliente);
+	tamanioDir = sizeof(struct sockaddr_in);
 
 	//-----------------------
 
@@ -245,7 +252,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 }
 
 
-void conectarseAYama(int puerto,char* ip){
+int conectarseAYama(int puerto,char* ip){
 	struct sockaddr_in direccionYama;
 
 	direccionYama.sin_family = AF_INET;
@@ -264,4 +271,32 @@ void conectarseAYama(int puerto,char* ip){
 		}
 
 
+	printf("se conecto a YAMA\n");
+
+	return yama;
+}
+
+void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar){
+	t_rutaArchivo ruta;
+	header header;
+	header.id = 5;
+	int desplazamiento = 0, tamanioMensaje = 0;
+
+	ruta.tamanio = strlen(archivoAprocesar)+1;
+	ruta.ruta = archivoAprocesar;
+	header.tamanio = ruta.tamanio + sizeof(ruta.tamanio);
+
+	void* buffer = malloc(2*sizeof(int)+ sizeof(ruta.tamanio)+ruta.tamanio);
+
+	memcpy(buffer,&header.id,sizeof(header.id));
+	desplazamiento = sizeof(header.id);
+	memcpy(buffer+desplazamiento,&header.tamanio,sizeof(header.tamanio));
+	desplazamiento += sizeof(header.tamanio);
+	memcpy(buffer+desplazamiento,&ruta.tamanio,sizeof(ruta.tamanio));
+	desplazamiento += sizeof(ruta.tamanio);
+	memcpy(buffer+desplazamiento,ruta.ruta,ruta.tamanio);
+	tamanioMensaje = desplazamiento + ruta.tamanio;
+
+	enviarPorSocket(socketYama,buffer,tamanioMensaje);
+	free(buffer);
 }

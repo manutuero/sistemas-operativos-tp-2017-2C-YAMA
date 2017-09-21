@@ -15,9 +15,9 @@
 int main(void) {
 
 	cargarArchivoDeConfiguracion();
-	yamaEscuchando();
 	conectarseAFS();
-
+	yamaEscuchando();
+	escucharMasters();
 	while(1){}
 
 	return EXIT_SUCCESS;

@@ -39,6 +39,10 @@ typedef struct archivo{
 	char* contenido;
 }__attribute__((packed)) archivo;
 
+typedef struct rutaArchivo{
+	int tamanio;
+	char* ruta;
+}__attribute__((packed)) t_rutaArchivo;
 
 void enviarArchivo(int fd, char* buffer, char* archivo);
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido);
@@ -46,6 +50,7 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header);
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 int file_exists (char * fileName);
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
-void conectarseAYama(int puerto,char* ip);
+int conectarseAYama(int puerto,char* ip);
+void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar);
 
 #endif /* FUNCIONESMASTER_H_ */
