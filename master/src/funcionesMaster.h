@@ -40,12 +40,12 @@ typedef struct archivo{
 }__attribute__((packed)) archivo;
 
 
-
 void enviarArchivo(int fd, char* buffer, char* archivo);
 void serializarYEnviarArchivo(int fd, int tamanio, char* contenido);
 void *serializarArchivo(int tamanio, char* contenido, myHeader* header);
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 int file_exists (char * fileName);
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
+void conectarseAYama(int puerto,char* ip);
 
 #endif /* FUNCIONESMASTER_H_ */

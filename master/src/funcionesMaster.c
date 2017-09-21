@@ -23,11 +23,20 @@ void enviarArchivo(int fd, char* buffer, char* archivo) {
 	int tam = mystat.st_size;
 	buffer = (char*) malloc(tam * sizeof(char) + 1);
 
-	read(file, buffer, tam);
-	printf("Mandando un archivo de %d bytes... \n",tam);
+	//read(file, buffer, tam);
+
+	char* pmap = (char *) mmap (0, tam, PROT_READ, MAP_SHARED, file, 0);
+	int i;
+	for ( i = 0; i < tam; i++) {
+	        buffer[i] = pmap[i];
+	        putchar(buffer[i]);
+	    }
+
+
+	printf("Mandando el archivo... \n");
 	buffer[tam]='\0'; //Cierro el buffer
 	serializarYEnviarArchivo(fd,tam, buffer);
-	printf("Se mando el archivo al worker correctamente.\n");
+	printf("Se mando el archivo al worker \n");
 	close(file);
 	free(buffer);
 }
@@ -78,6 +87,7 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 	return buffer;
 }
 
+#include "funcionesMaster.h"
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
@@ -119,23 +129,41 @@ int file_exists (char * fileName)
 
 }
 
-//FUNCION CON EL SELECT PARA LOS WORKERS
-//TODO se va a cambiar por hilos mas adelante
-void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado){
-	struct sockaddr_in dir;
-	int socketMaster;
-	int opt = 1;
-	int nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
-	int maxPuerto;
-	fd_set readfds, auxRead;
+void masterEscuchando(int* socketMaster) {
 
+	struct sockaddr_in dir;
 	//configurarAddr(&dir);
 	dir.sin_family = AF_INET;
 	dir.sin_port = htons(24000);
 	dir.sin_addr.s_addr = INADDR_ANY;
 	memset(&(dir.sin_zero), '\0', 8);
 
+	*socketMaster = socket(AF_INET, SOCK_STREAM, 0);
+	// Olvidémonos del error "Address already in use" [La dirección ya se está usando]
+	int opt = 1;
+	if (setsockopt(*socketMaster, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int))
+			== -1) {
+		perror("setsockopt");
+		exit(1);
+	}
+	if (bind(*socketMaster, (struct sockaddr*) &dir, sizeof(struct sockaddr))
+			!= 0) {
+		perror("fallo el bind");
+		exit(1);
+	}
+	listen(*socketMaster, 100);
+}
 
+//FUNCION CON EL SELECT PARA LOS WORKERS
+//TODO se va a cambiar por hilos mas adelante
+void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado){
+	//struct sockaddr_in dir;
+	int socketMaster;
+	int nuevoSocket , socketCliente[30] , max_clients = 5 , i ;
+	int maxPuerto;
+	fd_set readfds, auxRead;
+
+	masterEscuchando(&socketMaster);
 
 	//inicializar todos los socketCliente
 	    for (i = 0; i < max_clients; i++)
@@ -143,20 +171,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	        socketCliente[i] = 0;
 	    }
 
-	socketMaster = socket(AF_INET, SOCK_STREAM, 0);
-
-	// Olvidémonos del error "Address already in use" [La dirección ya se está usando]
-		 if (setsockopt(socketMaster,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int)) == -1) {
-		 perror("setsockopt");
-		 exit(1);
-		 }
-
-
-	if(bind(socketMaster, (struct sockaddr *)&dir, sizeof(struct sockaddr)) != 0){
-		perror("fallo el bind");
-		exit(1);
-	}
-	listen(socketMaster, 100);
 	/********************************************************/
 
 	struct sockaddr_in direccionCliente;
@@ -199,7 +213,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 					 *Actualmente manda el primer parametro, en este caso el tranformador.
 					 * Seguramente va a haber que cambiarlo
 					 */
-					//enviarArchivo(nuevoSocket, fich, buffer, &tam, transformador);
 					enviarArchivo(nuevoSocket, buffer, transformador);
 					if(nuevoSocket > maxPuerto)
 						maxPuerto = nuevoSocket;
