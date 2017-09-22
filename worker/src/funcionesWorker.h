@@ -19,7 +19,18 @@
 #include <sys/select.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <commons/log.h>
+#include <commons/config.h>
+#include <commons/string.h>
+#include <string.h>
 
+t_log* workerLogger;
+char* NODOARCHCONFIG;
+char* IP_FILESYSTEM;
+int PUERTO_FILESYSTEM;
+char* ID_NODO;
+int PUERTO_WORKER;
+char* RUTA_DATABIN;
 
 typedef struct header{
 	int id;
@@ -31,7 +42,8 @@ typedef struct archivo{
 	char* contenido;
 }__attribute__((packed)) archivo;
 
-
+void crearLogger();
+void cargarArchivoConfiguracion(char*);
 int recibirArchivo(int cliente);
 int recibirYDeserializar(int fd, archivo* miArchivo);
 archivo *deserializarArchivo(void *buffer, int tamanio);

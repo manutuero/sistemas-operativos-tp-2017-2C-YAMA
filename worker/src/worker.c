@@ -12,6 +12,10 @@
 
 int main(void) {
 
+	crearLogger();
+	NODOARCHCONFIG = "nodoConfig.cfg";
+	cargarArchivoConfiguracion(NODOARCHCONFIG);
+
 	struct sockaddr_in dir;
 
 	dir.sin_family = AF_INET;
