@@ -54,6 +54,8 @@ void cargarArchivoConfiguracion(char*nombreArchivo){
 	  printf("\nPuerto Worker %d\n",PUERTO_WORKER);
 	  printf("\nRuta Data.bin %s\n",RUTA_DATABIN);
 	  log_info(workerLogger,"Archivo de configuracion cargado exitosamente");
+
+	//config_destroy(config);  //si se descomenta esta linea, se reduce la cantidad de memory leaks
 	}
 
 int recibirArchivo(int cliente){
@@ -71,6 +73,8 @@ int recibirArchivo(int cliente){
 	printf("Al worker le llego un archivo de %d bytes: \n%s\n",archivo->tamanio, archivo->contenido);
 	write(file, archivo->contenido, archivo->tamanio);
 	close(file);
+	free(archivo);
+	free(buffer);
 	return bytesRecibidos;
 }
 
@@ -84,6 +88,7 @@ archivo* deserializarArchivo(void *buffer, int tamanio){
 	miArchivo->contenido = malloc(miArchivo->tamanio);
 	memcpy(miArchivo->contenido, buffer+desplazamiento, miArchivo->tamanio);
 
+	free(miArchivo->contenido);
 	return miArchivo;
 
 }
