@@ -3,7 +3,7 @@
  *
  *  Created on: 11/9/2017
  *      Author: utnso
- */ 
+ */
 
 
 #include "funcionesMaster.h"
@@ -37,6 +37,7 @@ void enviarArchivo(int fd, char* buffer, char* archivo) {
 	buffer[tam]='\0'; //Cierro el buffer
 	serializarYEnviarArchivo(fd,tam, buffer);
 	printf("Se mando el archivo al worker \n");
+	munmap(pmap,tam);
 	close(file);
 	free(buffer);
 }
@@ -57,6 +58,7 @@ void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
 
 	memcpy(buffer + desplazamiento,archivoAMandar, header.tamanio);
 	enviarPorSocket(fd, buffer, tamanioTotal);
+	free(archivoAMandar);
 	free(buffer);
 }
 
@@ -72,7 +74,7 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 
 	int desplazamiento = 0;
 
-	int tamanioTotal = sizeof(paqueteArchivo->tamanio)+strlen(paqueteArchivo->contenido);
+	int tamanioTotal = sizeof(paqueteArchivo->tamanio)+(paqueteArchivo->tamanio);
 
 	void *buffer = malloc(tamanioTotal);
 
@@ -84,6 +86,8 @@ void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
 	header->tamanio+=paqueteArchivo->tamanio;
 	memcpy(buffer + desplazamiento,paqueteArchivo->contenido, paqueteArchivo->tamanio);
 
+	//free(paqueteArchivo->contenido);
+	free(paqueteArchivo);
 	return buffer;
 }
 
@@ -231,19 +235,18 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 				bytesRecibidos = recibirPorSocket(i,buffer,1000);
 				if(bytesRecibidos < 0){
 					perror("Error");
-					free(buffer);
 					exit(1);
 				}
 				if(bytesRecibidos == 0){
 					//printf("Se desconecto del fileSystem el socket %d", i);
 					 FD_CLR(i, &readfds);
 					 shutdown(i, 2);
-					 free(buffer);
 				}else{
 					 buffer[bytesRecibidos] = '\0';
 					 printf("Socket: %d -- BytesRecibidos: %d -- Buffer recibido : %s\n",i, bytesRecibidos , buffer);
 
 				}
+				 free(buffer);
 		      }
 		    }
 		}

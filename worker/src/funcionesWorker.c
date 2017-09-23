@@ -57,7 +57,7 @@ void cargarArchivoConfiguracion(char*nombreArchivo){
 	}
 
 int recibirArchivo(int cliente){
-	int file = open("/home/utnso/Escritorio/archivoSalida",O_WRONLY);
+	int file = open("/home/utnso/Escritorio/archivoSalida", O_WRONLY | O_CREAT  | O_TRUNC);
 	archivo* archivo;
 	void *buffer;
 	header header;
