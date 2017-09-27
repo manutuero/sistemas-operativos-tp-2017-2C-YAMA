@@ -24,10 +24,10 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 	}
 
 	printf("\nIP Filesystem: %s\n", IP_FILESYSTEM);
-	printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
+	/*printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
 	printf("\nID Nodo %s\n", ID_NODO);
 	printf("\nPuerto Worker %d\n", PUERTO_WORKER);
-	printf("\nRuta Data.bin %s\n", RUTA_DATABIN);
+	printf("\nRuta Data.bin %s\n", RUTA_DATABIN);*/
 	//log_info(vg_logger,"Archivo de configuracion cargado exitosamente");
 }
 
@@ -39,16 +39,19 @@ int conectarSocket(int sockfd, const char * ipDestino, int puerto) {
 	datosServidor.sin_addr.s_addr = inet_addr(ipDestino);
 	memset(&(datosServidor.sin_zero), '\0', 8);
 
-	int funcionConnect = connect(sockfd, (struct sockaddr *) &datosServidor,sizeof(struct sockaddr));
-	if(funcionConnect!=0){
+	int funcionConnect = connect(sockfd, (struct sockaddr *) &datosServidor,
+			sizeof(struct sockaddr));
+	if (funcionConnect != 0) {
 		return 0;
-	} else {return 1;}
+	} else {
+		return 1;
+	}
 }
 
 int enviarPorSocket(int unSocket, const void * mensaje, int tamanio) {
 	int bytes_enviados;
 	int total = 0;
-	tamanio=tamanio+sizeof(uint32_t)*2;
+	tamanio = tamanio + sizeof(uint32_t) * 2;
 	while (total < tamanio) {
 		bytes_enviados = send(unSocket, mensaje + total, tamanio, 0);
 
@@ -58,10 +61,10 @@ int enviarPorSocket(int unSocket, const void * mensaje, int tamanio) {
 		total += bytes_enviados;
 		tamanio -= bytes_enviados;
 	}
-	if (bytes_enviados == 0){
+	if (bytes_enviados == 0) {
 		printf("Bytes enviados igual a cero \n");
 	}
-		//manejarError("[ERROR] Funcion send");
+	//manejarError("[ERROR] Funcion send");
 
 	return bytes_enviados;
 }
@@ -148,26 +151,27 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	t_header *header = malloc(sizeof(t_header));
 	header->id = 1;
 	if (socketPrograma <= 0) {
-		printf("\n\n[ERROR] No se ha podido obtener un número de socket. Reintentar iniciar el proceso. \n");
+		printf(
+				"\n\n[ERROR] No se ha podido obtener un número de socket. Reintentar iniciar el proceso. \n");
 		return (ERROR);
 	}
 	//puts(IP_FILESYSTEM);
 	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) == FAIL) {
-		printf("\n\nNo se ha podido establecer la conexion con el FILESYSTEM. -> connect \n");
+		printf(
+				"\n\nNo se ha podido establecer la conexion con el FILESYSTEM. -> connect \n");
 		//cerrarSocket(socketPrograma);
 		//return (ERROR);
 		//		exit(EXIT_SUCCESS);
-	} else {
-		printf("conectar socket no dio FAIL \n ");
+		return 0;
 	}
 
 	//Armo struct, lo serializo y lo envio x socket. Del lado del fs lo recibe para agregarlo a la lista de nodos.
-	t_infoNodo *infoNodo= malloc(sizeof(t_infoNodo));
-	infoNodo->sdNodo=0;
+	t_infoNodo *infoNodo = malloc(sizeof(t_infoNodo));
+	infoNodo->sdNodo = 0;
 	infoNodo->idNodo = 9;
 	infoNodo->cantidadBloques = 300;
-	int largoIp=strlen(IP_FILESYSTEM);
-	infoNodo->ip = malloc(largoIp+1);
+	int largoIp = strlen(IP_FILESYSTEM);
+	infoNodo->ip = malloc(largoIp + 1);
 	strcpy(infoNodo->ip, IP_FILESYSTEM);
 
 	//printf("El ip a enviar es: %s.\n", infoNodo->ip);
@@ -175,33 +179,11 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	infoNodo->puerto = PUERTO_FILESYSTEM;
 	infoNodo->sdNodo = 0;
 	paquete = serializarInfoNodo(infoNodo, header);
-	if(enviarPorSocket(socketPrograma, paquete, header->tamanio)==(header->tamanio + sizeof(uint32_t)*2)) {
-		printf("Envio correcto al fs. Bytes enviados:  %d",header->tamanio+ sizeof(uint32_t)*2);
-
+	if (enviarPorSocket(socketPrograma, paquete, header->tamanio)
+			== (header->tamanio + sizeof(uint32_t) * 2)) {
+		printf("Informacion del nodo enviada correctamente al FileSystem \n");
 	} else {
 		printf("Error en la cantidad de bytes enviados al fs");
 	}
-
-
-	char lal[1];
-	scanf("%s",lal);
-	//El fs me va a respoder con un int para indicar que se conecto bien
-	void *buffer = malloc(sizeof(int));
-	// recibirPorSocket(socketPrograma, buffer, sizeof(int));
-	int numeroRecv = *((int *) buffer);
-	free(infoNodo);
-	free(buffer);
-	free(header);
-	numeroRecv = 1;
-	if (numeroRecv >= 1) {
-		//printf("\n\nConexion Consola establecida con el Kernel. \n");
-		// log_info(vg_logger,"Conexion Consola establecida con el Kernel.");
-		// Se fija si ya tiene numero de consola, si no es el caso, se lo asigna
-		printf("Conexion de datanode establecida con FileSystem. \n");
-		return (socketPrograma);
-	} else {
-		// manejarError("\n\nERROR CONECTANDO A FILESYSTEM\n\n");
-		//cerrarSocket(socketPrograma);
-		return (ERROR);
-	}
+	return socketPrograma;
 }
