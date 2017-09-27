@@ -7,91 +7,7 @@
 
 
 #include "funcionesMaster.h"
-
-void enviarArchivo(int fd, char* buffer, char* archivo) {
-	int file = open(archivo, O_RDWR);
-	struct stat mystat;
-	if(file==-1){
-			 perror("open");
-			 exit(1);
-	}
-	if(fstat(file,&mystat) < 0){
-			 perror("fstat");
-			 close(file);
-			 exit(1);
-		}
-	int tam = mystat.st_size;
-	buffer = (char*) malloc(tam * sizeof(char) + 1);
-
-	//read(file, buffer, tam);
-
-	char* pmap = (char *) mmap (0, tam, PROT_READ, MAP_SHARED, file, 0);
-	int i;
-	for ( i = 0; i < tam; i++) {
-	        buffer[i] = pmap[i];
-	        putchar(buffer[i]);
-	    }
-
-
-	printf("Mandando el archivo... \n");
-	buffer[tam]='\0'; //Cierro el buffer
-	serializarYEnviarArchivo(fd,tam, buffer);
-	printf("Se mando el archivo al worker \n");
-	munmap(pmap,tam);
-	close(file);
-	free(buffer);
-}
-
-void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
-	myHeader header;
-	int desplazamiento = 0;
-	void* archivoAMandar = serializarArchivo(tamanio,contenido,&header);
-	int tamanioTotal = sizeof(myHeader) + header.tamanio;
-
-	void* buffer = malloc(tamanioTotal);
-
-	memcpy(buffer + desplazamiento,&header.id, sizeof(header.id));
-	desplazamiento+=sizeof(header.id);
-
-	memcpy(buffer + desplazamiento,&header.tamanio, sizeof(header.tamanio));
-	desplazamiento+=sizeof(header.tamanio);
-
-	memcpy(buffer + desplazamiento,archivoAMandar, header.tamanio);
-	enviarPorSocket(fd, buffer, tamanioTotal);
-	free(archivoAMandar);
-	free(buffer);
-}
-
-void *serializarArchivo(int tamanio, char* contenido, myHeader* header){
-	archivo *paqueteArchivo;
-	paqueteArchivo = malloc(sizeof(int)+tamanio);
-
-	paqueteArchivo->tamanio = tamanio;
-	paqueteArchivo->contenido = contenido;
-
-
-	header->id = 4; //TODO ver cual va a ser el header
-
-	int desplazamiento = 0;
-
-	int tamanioTotal = sizeof(paqueteArchivo->tamanio)+(paqueteArchivo->tamanio);
-
-	void *buffer = malloc(tamanioTotal);
-
-
-	header->tamanio=sizeof(paqueteArchivo->tamanio);
-	memcpy(buffer + desplazamiento,&tamanio, sizeof(paqueteArchivo->tamanio));
-	desplazamiento += sizeof(paqueteArchivo->tamanio);
-
-	header->tamanio+=paqueteArchivo->tamanio;
-	memcpy(buffer + desplazamiento,paqueteArchivo->contenido, paqueteArchivo->tamanio);
-
-	//free(paqueteArchivo->contenido);
-	free(paqueteArchivo);
-	return buffer;
-}
-
-#include "funcionesMaster.h"
+//#include "../../fileSystem/src/utils/utils.h"
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
 
@@ -170,9 +86,9 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 
 
 
-	socketYama = conectarseAYama(6669,"127.0.0.1");
+	//socketYama = conectarseAYama(6669,"127.0.0.1");
 
-	mandarRutaArchivoAYama(socketYama, archivoAprocesar);
+	//mandarRutaArchivoAYama(socketYama, archivoAprocesar);
 
 	masterEscuchando(&socketMaster);
 
@@ -230,9 +146,8 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 				}
 		      }
 		      else{
-				buffer = malloc(1000);
 
-				bytesRecibidos = recibirPorSocket(i,buffer,1000);
+				//bytesRecibidos = recibirPorSocket(i,buffer,1000);
 				if(bytesRecibidos < 0){
 					perror("Error");
 					exit(1);
@@ -246,7 +161,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 					 printf("Socket: %d -- BytesRecibidos: %d -- Buffer recibido : %s\n",i, bytesRecibidos , buffer);
 
 				}
-				 free(buffer);
+				free(buffer);
 		      }
 		    }
 		}
@@ -281,25 +196,15 @@ int conectarseAYama(int puerto,char* ip){
 
 void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar){
 	t_rutaArchivo ruta;
-	header header;
-	header.id = 5;
-	int desplazamiento = 0, tamanioMensaje = 0;
+	t_header header;
 
 	ruta.tamanio = strlen(archivoAprocesar)+1;
 	ruta.ruta = archivoAprocesar;
-	header.tamanio = ruta.tamanio + sizeof(ruta.tamanio);
+	//int tamanioMensaje = header.tamanio + sizeof(header);
 
-	void* buffer = malloc(2*sizeof(int)+ sizeof(ruta.tamanio)+ruta.tamanio);
-
-	memcpy(buffer,&header.id,sizeof(header.id));
-	desplazamiento = sizeof(header.id);
-	memcpy(buffer+desplazamiento,&header.tamanio,sizeof(header.tamanio));
-	desplazamiento += sizeof(header.tamanio);
-	memcpy(buffer+desplazamiento,&ruta.tamanio,sizeof(ruta.tamanio));
-	desplazamiento += sizeof(ruta.tamanio);
-	memcpy(buffer+desplazamiento,ruta.ruta,ruta.tamanio);
-	tamanioMensaje = desplazamiento + ruta.tamanio;
-
+	void* buffer;
+	buffer = serializarRutaArchivo(&header,&ruta); //esta en utils ya que lo voy a usar para Yama-fs
+	int tamanioMensaje = header.tamanio + sizeof(header);
 	enviarPorSocket(socketYama,buffer,tamanioMensaje);
 	free(buffer);
 }

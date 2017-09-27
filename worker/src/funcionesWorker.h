@@ -23,6 +23,9 @@
 #include <commons/config.h>
 #include <commons/string.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include "utils.h"
 
 t_log* workerLogger;
 char* NODOARCHCONFIG;
@@ -32,21 +35,11 @@ char* ID_NODO;
 int PUERTO_WORKER;
 char* RUTA_DATABIN;
 
-typedef struct header{
-	int id;
-	int tamanio;
-}__attribute__((packed)) myHeader;
-
-typedef struct archivo{
-	uint32_t tamanio;
-	char* contenido;
-}__attribute__((packed)) archivo;
-
 void crearLogger();
 void cargarArchivoConfiguracion(char*);
 int recibirArchivo(int cliente);
-int recibirYDeserializar(int fd, archivo* miArchivo);
-archivo *deserializarArchivo(void *buffer, int tamanio);
+int recibirYDeserializar(int fd, t_archivo* miArchivo);
+t_archivo *deserializarArchivo(void *buffer, int tamanio);
 
 
 #endif /* FUNCIONESWORKER_H_ */

@@ -59,27 +59,43 @@ void cargarArchivoConfiguracion(char*nombreArchivo){
 	}
 
 int recibirArchivo(int cliente){
-	int file = open("/home/utnso/Escritorio/archivoSalida", O_WRONLY | O_CREAT  | O_TRUNC);
-	archivo* archivo;
+
+	FILE* file;
+
+	struct stat buf;
+	if(stat ("/home/utnso/Escritorio/archivoSalida",&buf)==0){
+		remove("/home/utnso/Escritorio/archivoSalida");
+	}
+
+	file = fopen("/home/utnso/Escritorio/archivoSalida","wb");
+
+	//int file = open("/home/utnso/Escritorio/archivoSalida", O_WRONLY | O_CREAT  | O_TRUNC);
+
+	t_archivo* archivo;
 	void *buffer;
-	header header;
+	t_header header;
 
 	int bytesRecibidos = recibirHeader(cliente, &header);
 	buffer = malloc(header.tamanio+1);
 	bytesRecibidos = recibirPorSocket(cliente,buffer,header.tamanio);
 	//Se podria hacer RecibirPaquete, dependiendo si la deserializacion va a utils o no.
-	archivo = deserializarArchivo(buffer,header.tamanio);
+	archivo = (t_archivo*) deserializarArchivo(buffer,header.tamanio);
 
 	printf("Al worker le llego un archivo de %d bytes: \n%s\n",archivo->tamanio, archivo->contenido);
-	write(file, archivo->contenido, archivo->tamanio);
-	close(file);
+	//write(file, archivo->contenido, archivo->tamanio);
+	//close(file);
+
+	fwrite(archivo->contenido, archivo->tamanio,1,file);
+	fclose(file);
+
+	free(archivo->contenido);
 	free(archivo);
 	free(buffer);
 	return bytesRecibidos;
 }
 
-archivo* deserializarArchivo(void *buffer, int tamanio){
-	archivo *miArchivo = malloc(sizeof(archivo));
+t_archivo* deserializarArchivo(void *buffer, int tamanio){
+	t_archivo *miArchivo = malloc(sizeof(t_archivo));
 
 	int desplazamiento = 0;
 	memcpy(&miArchivo->tamanio, buffer, sizeof(miArchivo->tamanio));
@@ -88,7 +104,7 @@ archivo* deserializarArchivo(void *buffer, int tamanio){
 	miArchivo->contenido = malloc(miArchivo->tamanio);
 	memcpy(miArchivo->contenido, buffer+desplazamiento, miArchivo->tamanio);
 
-	free(miArchivo->contenido);
+	//free(miArchivo->contenido);
 	return miArchivo;
 
 }

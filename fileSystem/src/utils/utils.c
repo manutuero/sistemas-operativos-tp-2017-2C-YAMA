@@ -116,3 +116,108 @@ void cerrarSocket(int socket) {
 int sonIguales(char* cadena1, char* cadena2) {
 	return strcmp(cadena1, cadena2) == 0;
 }
+
+//Funciones de archivos
+void enviarArchivo(int fd, char* buffer, char* archivo) {
+	int file = open(archivo, O_RDWR);
+	struct stat mystat;
+	if(file==-1){
+			 perror("open");
+			 exit(1);
+	}
+	if(fstat(file,&mystat) < 0){
+			 perror("fstat");
+			 close(file);
+			 exit(1);
+		}
+	int tam = mystat.st_size;
+	buffer = (char*) malloc(tam * sizeof(char) + 1);
+
+	//read(file, buffer, tam);
+
+	char* pmap = (char *) mmap (0, tam, PROT_READ, MAP_SHARED, file, 0);
+	int i;
+	for ( i = 0; i < tam; i++) {
+	        buffer[i] = pmap[i];
+	        putchar(buffer[i]);
+	    }
+
+
+	printf("Mandando el archivo... \n");
+	buffer[tam]='\0'; //Cierro el buffer
+	serializarYEnviarArchivo(fd,tam, buffer);
+	printf("Se mando el archivo al worker \n");
+	munmap(pmap,tam);
+	close(file);
+	free(buffer);
+}
+
+void* serializarRutaArchivo(t_header* header,t_rutaArchivo* ruta){
+		header->id = 5;
+		int desplazamiento = 0, tamanioMensaje = 0;
+
+		header->tamanio = ruta->tamanio + sizeof(ruta->tamanio);
+
+		void* buffer = malloc(2*sizeof(int)+ sizeof(ruta->tamanio)+ruta->tamanio);
+
+
+		memcpy(buffer,&header->id,sizeof(header->id));
+		desplazamiento = sizeof(header->id);
+		memcpy(buffer+desplazamiento,&header->tamanio,sizeof(header->tamanio));
+		desplazamiento += sizeof(header->tamanio);
+		memcpy(buffer+desplazamiento,&ruta->tamanio,sizeof(ruta->tamanio));
+		desplazamiento += sizeof(ruta->tamanio);
+		memcpy(buffer+desplazamiento,ruta->ruta,ruta->tamanio);
+		tamanioMensaje = desplazamiento + ruta->tamanio;
+
+		return buffer;
+}
+
+void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
+	t_header header;
+	int desplazamiento = 0;
+	void* archivoAMandar = serializarArchivo(tamanio,contenido,&header);
+	int tamanioTotal = sizeof(t_header) + header.tamanio;
+
+	void* buffer = malloc(tamanioTotal);
+
+	memcpy(buffer + desplazamiento,&header.id, sizeof(header.id));
+	desplazamiento+=sizeof(header.id);
+
+	memcpy(buffer + desplazamiento,&header.tamanio, sizeof(header.tamanio));
+	desplazamiento+=sizeof(header.tamanio);
+
+	memcpy(buffer + desplazamiento,archivoAMandar, header.tamanio);
+	enviarPorSocket(fd, buffer, tamanioTotal);
+	free(archivoAMandar);
+	free(buffer);
+}
+
+void *serializarArchivo(int tamanio, char* contenido, t_header* header){
+	t_archivo *paqueteArchivo;
+	paqueteArchivo = malloc(sizeof(paqueteArchivo->tamanio)+tamanio);
+
+	paqueteArchivo->tamanio = tamanio;
+	paqueteArchivo->contenido = malloc(paqueteArchivo->tamanio);
+	paqueteArchivo->contenido = contenido;
+	//strcpy(paqueteArchivo->contenido ,contenido);
+	header->id = 4; //TODO ver cual va a ser el header
+
+	int desplazamiento = 0;
+
+	int tamanioTotal = sizeof(paqueteArchivo->tamanio)+(paqueteArchivo->tamanio);
+
+	void *buffer = malloc(tamanioTotal);
+
+
+	header->tamanio=sizeof(paqueteArchivo->tamanio);
+	memcpy(buffer + desplazamiento,&tamanio, sizeof(paqueteArchivo->tamanio));
+	desplazamiento += sizeof(paqueteArchivo->tamanio);
+
+	header->tamanio+=paqueteArchivo->tamanio;
+	memcpy(buffer + desplazamiento,paqueteArchivo->contenido, paqueteArchivo->tamanio);
+
+	free(paqueteArchivo->contenido);
+	free(paqueteArchivo);
+	return buffer;
+}
