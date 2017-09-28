@@ -1,4 +1,4 @@
-#include "cosasDelFIlesystem.h"
+#include "funcionesFileSystem.h"
 
 void cargarArchivoDeConfiguracion(char* path) {
 	char cwd[1024]; // Current Working Directory. Variable donde voy a guardar el path absoluto hasta el /Debug
@@ -12,36 +12,6 @@ void cargarArchivoDeConfiguracion(char* path) {
 	}
 }
 
-int recibirHeader(int socket, t_header *header) {
-	int bytesRecibidos = 0;
-
-	if ((bytesRecibidos = recv(socket, &((*header).id), sizeof((*header).id), 0))<= 0)
-		return bytesRecibidos;
-	bytesRecibidos = recv(socket, &((*header).tamanio), sizeof((*header).tamanio), 0);
-		return bytesRecibidos;
-}
-
-int recibirPorSocket(int unSocket, void *buffer, int tamanio) {
-	int total = 0;
-	int bytesRecibidos = 0;
-
-	while (total < tamanio) {
-		bytesRecibidos = recv(unSocket, buffer, tamanio, 0);
-		if (bytesRecibidos == -1) {
-			// Error
-			perror("[ERROR] Funcion recv");
-			break;
-		}
-		if (bytesRecibidos == 0) {
-			// Desconexion
-			break;
-		}
-		total += bytesRecibidos;
-		tamanio -= bytesRecibidos;
-	}
-	printf("\nBytes recibidos: %d", bytesRecibidos);
-	return bytesRecibidos;
-}
 
 void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	uint32_t bytesACopiar = 0, desplazamiento = 0, largoIp;
@@ -233,6 +203,10 @@ void esperarConexionesDatanodes() {
 					printf("Cliente desconectado sd: %d \n", sd);
 					close(sd);
 					socketsClientes[i] = 0;
+					//SI SE DESCONECTO UN NODO BUSCARLO EN LA LISTA DE NODOS
+					//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
+					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
+					//DESCONECTADO A NO DISPONIBLES
 					break;
 				}
 
@@ -251,14 +225,17 @@ void esperarConexionesDatanodes() {
 					t_infoNodo infoNodo = deserializarInfoNodo(buffer, header.tamanio);
 
 					// Crear funcion que maneje la lista de struct t_infoNodo. "add" infoNodo por ejemplo.
+					//Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
+					//SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
 					printf("***************************************\n");
 					printf("sdNodo: %d\n", infoNodo.sdNodo);
 					printf("idNodo: %d\n", infoNodo.idNodo);
 					printf("cantidadBloques: %d\n", infoNodo.cantidadBloques);
 					printf("puerto: %d\n", infoNodo.puerto);
 					printf("ip: %s\n", infoNodo.ip);
+					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
+					//BLOQUES DE ESE NODO
 				}
-
 				//printf("Paquete recibido. \n Mensaje: %s usuario: %s \n ",nuevoPacketeRecbido.message,nuevoPacketeRecbido.username);
 				free(buffer);
 			}
@@ -269,27 +246,7 @@ void esperarConexionesDatanodes() {
 
 }
 
-int nuevoSocket() {
-	int sd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET: addres family => IPv4, 0  => opciones default.
-	if (sd == -1)
-		perror("Error al solicitar un nuevo socket.");
-	return sd;
-}
 
-int conectarSocket(int sockfd, const char * ipDestino, int puerto) {
-	struct sockaddr_in datosServidor;
-
-	datosServidor.sin_family = AF_INET;
-	datosServidor.sin_port = htons(puerto);
-	datosServidor.sin_addr.s_addr = inet_addr(ipDestino);
-	memset(&(datosServidor.sin_zero), '\0', 8);
-
-	int funcionConnect = connect(sockfd, (struct sockaddr *) &datosServidor,
-			sizeof(struct sockaddr));
-	if (funcionConnect == -1)
-		return -1;
-	return 0;
-}
 
 /* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.
  * Quedara a la espera de la respuesta de este para mostrar el resultado de la operacion por pantalla.

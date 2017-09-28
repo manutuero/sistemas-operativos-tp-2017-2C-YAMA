@@ -1,4 +1,4 @@
-#include "funcionesFIleSystem.h"
+#include "funcionesFileSystem.h"
 
 int estadoFs = 0;
 
@@ -7,7 +7,7 @@ int main(void) {
 	cargarArchivoDeConfiguracion(ARCHCONFIG);
 
 	// Espera que se conecten todos los datanodes para alcanzar un estado "estable", no dejar entrar a YAMA hasta que eso pase.
-	// es  un hilo
+	// es  un hilo ya que una vez que queda estable, sigue escuchando conexiones
 	esperarConexionesDatanodes();
 
 	while(estadoFs == 0){ //Cambia a 1 cuando hay una copia de cada bloque disponible
@@ -16,6 +16,7 @@ int main(void) {
 	}
 
 	//iniciar hilo consola
+
 
 	return EXIT_SUCCESS;
 }

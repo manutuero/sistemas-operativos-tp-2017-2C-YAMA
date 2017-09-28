@@ -13,6 +13,7 @@
 #include <commons/config.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 typedef struct{
 	uint32_t id;
