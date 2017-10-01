@@ -21,9 +21,8 @@ int main(void) {
 	dir.sin_family = AF_INET;
 	dir.sin_port = htons(24000);
 	dir.sin_addr.s_addr = INADDR_ANY;
-	//memset(&(dir.sin_zero), '\0', 8);
+	memset(&(dir.sin_zero), '\0', 8);
 
-	FILE* fich;
 	int cliente;
 
 	cliente = socket(AF_INET, SOCK_STREAM, 0);

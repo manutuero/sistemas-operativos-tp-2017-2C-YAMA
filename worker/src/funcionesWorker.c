@@ -60,41 +60,54 @@ void cargarArchivoConfiguracion(char*nombreArchivo){
 
 int recibirArchivo(int cliente){
 
-	FILE* file;
-
 	struct stat buf;
 	if(stat ("/home/utnso/Escritorio/archivoSalida",&buf)==0){
 		remove("/home/utnso/Escritorio/archivoSalida");
 	}
 
-	file = fopen("/home/utnso/Escritorio/archivoSalida","wb");
+	//FILE* file;
+	//file = fopen("/home/utnso/Escritorio/archivoSalida","wb");
+	int file = open("/home/utnso/Escritorio/archivoSalida", O_WRONLY | O_CREAT  | O_TRUNC);
 
-	//int file = open("/home/utnso/Escritorio/archivoSalida", O_WRONLY | O_CREAT  | O_TRUNC);
-
-	t_archivo* archivo;
 	void *buffer;
 	t_header header;
 
 	int bytesRecibidos = recibirHeader(cliente, &header);
-	buffer = malloc(header.tamanio+1);
+	//memset(file,0,header.tamanio-sizeof(uint32_t));
+
+	buffer = malloc(header.tamanio);
+	//memset(buffer,0,header.tamanio);
+
 	bytesRecibidos = recibirPorSocket(cliente,buffer,header.tamanio);
+	if(bytesRecibidos>0){
+
+	t_archivo* archivo;
+
 	//Se podria hacer RecibirPaquete, dependiendo si la deserializacion va a utils o no.
-	archivo = (t_archivo*) deserializarArchivo(buffer,header.tamanio);
+	archivo = (t_archivo*) deserializarArchivo(buffer);
+	//deserializarArchivo(buffer,&archivo);
 
 	printf("Al worker le llego un archivo de %d bytes: \n%s\n",archivo->tamanio, archivo->contenido);
-	//write(file, archivo->contenido, archivo->tamanio);
-	//close(file);
 
-	fwrite(archivo->contenido, archivo->tamanio,1,file);
-	fclose(file);
+	printf("Bytes del archivo: %d\n",archivo->tamanio);
+
+	//fwrite((char*)archivo->contenido, archivo->tamanio,1,file);
+	//fclose(file);
+	write(file, archivo->contenido, archivo->tamanio);
+	close(file);
 
 	free(archivo->contenido);
 	free(archivo);
 	free(buffer);
 	return bytesRecibidos;
+	}
+	else{
+		perror("Error al recibir el archivo");
+		return 0;
+	}
 }
 
-t_archivo* deserializarArchivo(void *buffer, int tamanio){
+t_archivo* deserializarArchivo(void *buffer){
 	t_archivo *miArchivo = malloc(sizeof(t_archivo));
 
 	int desplazamiento = 0;
@@ -103,8 +116,10 @@ t_archivo* deserializarArchivo(void *buffer, int tamanio){
 
 	miArchivo->contenido = malloc(miArchivo->tamanio);
 	memcpy(miArchivo->contenido, buffer+desplazamiento, miArchivo->tamanio);
+	//miArchivo->contenido[miArchivo->tamanio]='\0';
 
 	//free(miArchivo->contenido);
+
 	return miArchivo;
 
 }

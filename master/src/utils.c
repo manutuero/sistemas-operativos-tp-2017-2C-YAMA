@@ -143,14 +143,64 @@ void enviarArchivo(int fd, char* buffer, char* archivo) {
 
 
 	printf("Mandando el archivo... \n");
-	buffer[tam]='\0'; //Cierro el buffer
+	//buffer[tam]='\0'; //Cierro el buffer
 	serializarYEnviarArchivo(fd,tam, buffer);
-	printf("Se mando el archivo al worker \n");
+
+	printf("se mando un archivo de %d bytes al worker\n",tam);
 	munmap(pmap,tam);
 	close(file);
 	free(buffer);
 }
 
+
+//funciones de archivos
+void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
+	t_header header;
+	int desplazamiento = 0;
+	void* archivoAMandar = serializarArchivo(tamanio,contenido,&header);
+	int tamanioTotal = sizeof(t_header) + header.tamanio;
+
+	void* buffer = malloc(tamanioTotal);
+
+	memmove(buffer + desplazamiento,&header.id, sizeof(header.id));
+	desplazamiento+=sizeof(header.id);
+
+	memmove(buffer + desplazamiento,&header.tamanio, sizeof(header.tamanio));
+	desplazamiento+=sizeof(header.tamanio);
+
+	memmove(buffer + desplazamiento,archivoAMandar, header.tamanio);
+	enviarPorSocket(fd, buffer, tamanioTotal);
+
+	free(archivoAMandar);
+	free(buffer);
+}
+void *serializarArchivo(int tamanio, char* contenido, t_header* header){
+	t_archivo *paqueteArchivo;
+	paqueteArchivo = malloc(sizeof(paqueteArchivo)+tamanio);
+
+	paqueteArchivo->tamanio = tamanio;
+	//paqueteArchivo->contenido = malloc(paqueteArchivo->tamanio);
+	paqueteArchivo->contenido = contenido;
+	//strcpy(paqueteArchivo->contenido ,contenido);
+	//paqueteArchivo->contenido[paqueteArchivo->tamanio];
+
+	header->id = 4; //TODO ver cual va a ser el header
+
+	int desplazamiento = 0;
+	int tamanioTotal = sizeof(paqueteArchivo->tamanio)+(paqueteArchivo->tamanio);
+
+	void *buffer = malloc(tamanioTotal);
+	header->tamanio=sizeof(paqueteArchivo->tamanio);
+	memmove(buffer + desplazamiento,&paqueteArchivo->tamanio, sizeof(paqueteArchivo->tamanio));
+	desplazamiento += sizeof(paqueteArchivo->tamanio);
+
+	header->tamanio+=paqueteArchivo->tamanio;
+	memmove(buffer + desplazamiento,paqueteArchivo->contenido,(int) paqueteArchivo->tamanio);
+
+	//free(paqueteArchivo->contenido);
+	free(paqueteArchivo);
+	return buffer;
+}
 void* serializarRutaArchivo(t_header* header,t_rutaArchivo* ruta){
 		header->id = 5;
 		int desplazamiento = 0, tamanioMensaje = 0;
@@ -170,55 +220,4 @@ void* serializarRutaArchivo(t_header* header,t_rutaArchivo* ruta){
 		tamanioMensaje = desplazamiento + ruta->tamanio;
 
 		return buffer;
-}
-
-
-//funciones de archivos
-void serializarYEnviarArchivo(int fd, int tamanio, char* contenido){
-	t_header header;
-	int desplazamiento = 0;
-	void* archivoAMandar = serializarArchivo(tamanio,contenido,&header);
-	int tamanioTotal = sizeof(t_header) + header.tamanio;
-
-	void* buffer = malloc(tamanioTotal);
-
-	memcpy(buffer + desplazamiento,&header.id, sizeof(header.id));
-	desplazamiento+=sizeof(header.id);
-
-	memcpy(buffer + desplazamiento,&header.tamanio, sizeof(header.tamanio));
-	desplazamiento+=sizeof(header.tamanio);
-
-	memcpy(buffer + desplazamiento,archivoAMandar, header.tamanio);
-	enviarPorSocket(fd, buffer, tamanioTotal);
-	free(archivoAMandar);
-	free(buffer);
-}
-
-void *serializarArchivo(int tamanio, char* contenido, t_header* header){
-	t_archivo *paqueteArchivo;
-	paqueteArchivo = malloc(sizeof(paqueteArchivo->tamanio)+tamanio);
-
-	paqueteArchivo->tamanio = tamanio;
-	paqueteArchivo->contenido = malloc(paqueteArchivo->tamanio);
-	paqueteArchivo->contenido = contenido;
-	//strcpy(paqueteArchivo->contenido ,contenido);
-	header->id = 4; //TODO ver cual va a ser el header
-
-	int desplazamiento = 0;
-
-	int tamanioTotal = sizeof(paqueteArchivo->tamanio)+(paqueteArchivo->tamanio);
-
-	void *buffer = malloc(tamanioTotal);
-
-
-	header->tamanio=sizeof(paqueteArchivo->tamanio);
-	memcpy(buffer + desplazamiento,&tamanio, sizeof(paqueteArchivo->tamanio));
-	desplazamiento += sizeof(paqueteArchivo->tamanio);
-
-	header->tamanio+=paqueteArchivo->tamanio;
-	memcpy(buffer + desplazamiento,paqueteArchivo->contenido, paqueteArchivo->tamanio);
-
-	free(paqueteArchivo->contenido);
-	free(paqueteArchivo);
-	return buffer;
 }

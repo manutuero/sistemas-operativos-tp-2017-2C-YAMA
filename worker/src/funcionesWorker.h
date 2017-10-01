@@ -39,7 +39,7 @@ void crearLogger();
 void cargarArchivoConfiguracion(char*);
 int recibirArchivo(int cliente);
 int recibirYDeserializar(int fd, t_archivo* miArchivo);
-t_archivo *deserializarArchivo(void *buffer, int tamanio);
+t_archivo* deserializarArchivo(void *buffer);
 
 
 #endif /* FUNCIONESWORKER_H_ */

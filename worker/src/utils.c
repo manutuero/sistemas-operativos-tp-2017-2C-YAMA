@@ -26,7 +26,7 @@ int recibirPorSocket(int unSocket, void * buffer, int tamanio) {
 	int bytesRecibidos;
 
 	while (total < tamanio) {
-		bytesRecibidos = recv(unSocket, buffer + total, tamanio, 0);
+		bytesRecibidos = recv(unSocket, buffer + total, tamanio, MSG_WAITALL);
 		if (bytesRecibidos == -1) {
 			// Error
 			perror("[ERROR] Funcion recv");

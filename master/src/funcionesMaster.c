@@ -82,7 +82,7 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	int nuevoSocket , max_clients = 5 , i ;
 	int maxPuerto;
 	fd_set readfds, auxRead;
-	int socketYama;
+	//int socketYama;
 
 
 
@@ -146,22 +146,24 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 				}
 		      }
 		      else{
-
-				//bytesRecibidos = recibirPorSocket(i,buffer,1000);
+		    	char*  buffer = malloc(1001);
+				bytesRecibidos = recibirPorSocket(i,buffer,1000);
 				if(bytesRecibidos < 0){
 					perror("Error");
+					free(buffer);
+					//break;
 					exit(1);
 				}
 				if(bytesRecibidos == 0){
 					//printf("Se desconecto del fileSystem el socket %d", i);
 					 FD_CLR(i, &readfds);
+					//free(buffer);
 					 shutdown(i, 2);
 				}else{
 					 buffer[bytesRecibidos] = '\0';
 					 printf("Socket: %d -- BytesRecibidos: %d -- Buffer recibido : %s\n",i, bytesRecibidos , buffer);
-
+						free(buffer);
 				}
-				free(buffer);
 		      }
 		    }
 		}

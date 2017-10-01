@@ -13,6 +13,10 @@
 #include <commons/config.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 
 typedef struct{
 	uint32_t id;
