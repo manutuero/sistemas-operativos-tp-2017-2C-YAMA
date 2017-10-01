@@ -95,7 +95,7 @@ t_infoNodo deserializarInfoNodo(void* mensaje, int tamanioPayload) {
 	return infoNodo;
 }
 
-void esperarConexionesDatanodes() {
+void * esperarConexionesDatanodes() {
 	int socketServidor, numeroClientes = 10, socketsClientes[10] = { }, opt = 1,
 			addrlen, max_sd, i, sd, actividad, socketEntrante;
 	struct sockaddr_in address;
@@ -124,7 +124,7 @@ void esperarConexionesDatanodes() {
 		exit(EXIT_FAILURE);
 	}
 
-	printf("\nEscuchando en el puerto: %d\n", PUERTO);
+	//printf("\nEscuchando en el puerto: %d\n", PUERTO);
 
 	/* Especifica un maximo de BACKLOG conexiones pendientes por parte del socketServidor
 	 IMPORTANTE: listen() es una syscall BLOQUEANTE. socketServidor es el que escucha. */

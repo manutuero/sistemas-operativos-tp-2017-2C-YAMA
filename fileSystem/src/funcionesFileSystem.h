@@ -12,6 +12,8 @@
 #include <commons/string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include "consola/funcionesConsola.h"
+#include "utils.h"
 
 #define BACKLOG 3
 
@@ -24,11 +26,6 @@ char *ARCHCONFIG;
 int PUERTO;
 extern int estadoFs;
 
-/* Estructuras */
-typedef struct {
-	uint32_t id;
-	uint32_t tamanio;
-} __attribute__((packed)) t_header; // esto teoricamente reduce el padding
 
 
 typedef struct {
@@ -44,13 +41,11 @@ void cargarArchivoDeConfiguracion(char*);
 
 int nuevoSocket();
 
-int recibirHeader(int, t_header*);
-
 int recibirPorSocket(int, void*, int);
 
 t_infoNodo deserializarInfoNodo(void*, int);
 
-void esperarConexionesDatanodes();
+void* esperarConexionesDatanodes();
 
 /*	La funcion recibirá una ruta completa, el nombre del archivo, el tipo (texto o binario) y los datos
 	correspondientes. Responderá con un mensaje confirmando el resultado de la operación.*/

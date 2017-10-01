@@ -1,0 +1,26 @@
+#Makefile para el modelo Cliente-Servidor presentado como ejemplo.
+
+COMPILER=gcc
+BIN_PATH=bin
+# CURRENT_DIR := $(shell pwd)
+DIR := ${CURDIR}
+
+all:
+	mkdir -p $(BIN_PATH)
+	$(COMPILER)  $(DIR)/utils/utils.c $(DIR)/fileSystem/src/fileSystem.c  $(DIR)/fileSystem/src/funcionesFileSystem.c  $(DIR)/fileSystem/src/consola/consola.c $(DIR)/fileSystem/src/consola/funcionesConsola.c -o FILESYSTEM -lcommons -lpthread -lreadline
+
+clean:
+	rm -rf bin
+
+client:
+	mkdir -p $(BIN_PATH)
+	$(COMPILER)  $(DIR)/utils/utils.c $(DIR)/utils/utils.h $(DIR)/fileSystem/src/fileSystem.c  $(DIR)/fileSystem/src/funcionesFileSystem.c  $(DIR)/fileSystem/src/consola/consola.c $(DIR)/fileSystem/src/consola/funcionesConsola.c -o FILESYSTEM -lcommons -lpthread -lreadline
+
+
+# Contemplamos algunos Alias para subsanar posibles diferencias de escritura
+
+cliente:
+	make client
+
+
+# Sistemas Operativos, Universidad Tecnologica Nacional, Facultad Regional Buenos Aires. 2014.

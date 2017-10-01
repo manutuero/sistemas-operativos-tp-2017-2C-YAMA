@@ -2,7 +2,6 @@
 
 void* deserializar(void* mensaje, t_header header) {
 	void* buffer = NULL;
-
 	switch (header.id) {
 	default:
 		perror("Error. Se ha recibido un header desconocido.");

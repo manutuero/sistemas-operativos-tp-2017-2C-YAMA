@@ -1,5 +1,3 @@
-
-
 #ifndef UTILS_H_
 #define UTILS_H_
 
@@ -11,29 +9,45 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <stdint.h>
-
-enum headers {SOLICITUD_EJECUTAR_COMANDO_CONSOLA = 1};
+#include <sys/select.h>
+#include <commons/config.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <pthread.h>
 
 typedef struct{
-	int funcion;
-	int opcion;
-	char *parametro1;
-	char *parametro2;
-	int bloque;
-	int idNodo;
-	} comando;
+	uint32_t id;
+	uint32_t tamanio;
+} __attribute__((packed)) t_header;
+
+typedef struct {
+	uint32_t tamanio;
+	char* contenido;
+}__attribute__((packed)) t_archivo;
+
 typedef struct{
-	int id;
-	int tamanio;
+	uint32_t tamanio;
+	char* ruta;
+}__attribute__((packed)) t_rutaArchivo;
 
-} header;
-/* Recibe un mensaje serializado y devuelve un puntero generico (void) al buffer de memoria donde estara la respuesta deserializada del mensaje. */
-void* deserializar(void* mensaje, header header);
+/* Variables globales */
+int PUERTO;
 
-void* deserializarSolicitudEjecutarComando(void*);
-int recibirHeader(int, header*);
-void * recibirPaquete(int, header);
+void* deserializar(void*, t_header);
+int recibirHeader(int, t_header*);
+void* recibirPaquete(int, t_header);
 int recibirPorSocket(int, void *, int);
-int enviarPorSocket(int, const void * , int);
+int enviarPorSocket(int, const void*, int);
+int nuevoSocket();
+int conectarSocket(int , const char*, int);
+void enviarPaquete(int, void*, t_header);
+void cerrarSocket(int);
+int sonIguales(char*, char*); // devuelve la diferencia del largo de la primer cadena con la segunda
 
-#endif /* UTILS_H_ */
+/*funciones de envio de archivos*/
+void enviarArchivo(int fd, char* buffer, char* archivo);
+void serializarYEnviarArchivo(int fd, int tamanio, char* contenido);
+void *serializarArchivo(int tamanio, char* contenido, t_header* header);
+void* serializarRutaArchivo(t_header* header,t_rutaArchivo* ruta);
+
+#endif
