@@ -1,6 +1,7 @@
 #ifndef FUNCIONESCONSOLA_H_
 #define FUNCIONESCONSOLA_H_
-#include "../utils/utils.h"
+#include "../utils.h"
+
 
 typedef struct {
 	int funcion;
@@ -30,5 +31,5 @@ char* invocarFuncionMv(char**);
 char* invocarFuncionCpfrom(char**);
 char* invocarFuncionCpto(char**);
 char* invocarFuncionCpblok(char**);
-
+void* levantarConsola();
 #endif
