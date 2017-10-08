@@ -27,7 +27,13 @@ void * levantarConsola() {
 			if (sonIguales(argumentos[0], "format")) {
 				invocarFuncionFormat(argumentos);
 				break;
-			} else
+			}
+			if(sonIguales(argumentos[0],"exit"))
+			{
+				printf("Que tenga un buen dia");
+				break;
+			}
+			else
 				printf("el comando ingresado no es valido.\n");
 			break;
 
@@ -124,5 +130,5 @@ void * levantarConsola() {
 				break;
 	}
 
-	return;
+	return EXIT_SUCCESS;
 }

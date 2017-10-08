@@ -365,3 +365,224 @@ char* getResultado(int resultado) {
 		return "erroneo";
 	}
 }
+
+
+t_directory directoriosAGuardar[100] = {
+			{ 0, "/", -1 },
+
+};
+
+t_directory directoriosGuardados[100] = {}; // Inicializo el array de estructuras
+
+t_directory directorios[100] = {};
+
+void validarMetadata(char* path) {
+	//faltaria sumar aunque sea 1 al malloc por '\0'?
+	char *newPath = malloc(strlen(path) + strlen("/metadata"));
+
+	if (newPath) {
+		newPath[0] = '\0';
+		strcat(newPath, path);
+		strcat(newPath, "/metadata");
+	} else {
+		fprintf(stderr, "malloc fallido!.\n");
+	}
+
+	DIR* directoryPointer = opendir(newPath);
+
+	if (directoryPointer) {
+		// El directorio existe.
+		closedir(directoryPointer);
+	}
+	// Si el directorio no existe
+	else if (ENOENT == errno) {
+		mkdir("metadata", 0777); // Le damos todos los permisos, por ahora.
+		closedir(directoryPointer);
+	}
+
+	free(newPath);
+}
+
+void persistirDirectorios(t_directory directorios[], char* path) {
+	int i;
+	char *newPath = malloc(strlen(path) + strlen("/metadata/directorios.dat"));
+
+	if (newPath != NULL) {
+		newPath[0] = '\0';
+		strcat(newPath, path);
+		strcat(newPath, "/metadata/directorios.dat");
+	} else {
+		fprintf(stderr, "malloc fallido!.\n");
+	}
+
+	FILE *filePointer = fopen(newPath, "w+b");
+	fseek(filePointer, 0, SEEK_SET);
+
+	if (!filePointer) {
+		fprintf(stderr, "Error. No se puede abrir el archivo");
+	}
+
+	for (i = 0; i < 100; i++) {
+		fwrite(&directorios[i], sizeof(t_directory), 1, filePointer);
+	}
+
+
+	fclose(filePointer);
+	free(newPath);
+}
+
+void obtenerDirectorios(t_directory directorios[], char* path) {
+	int i;
+	char *newPath = malloc(strlen(path) + strlen("/metadata/directorios.dat"));
+
+	if (newPath) {
+		newPath[0] = '\0';
+		strcat(newPath, path);
+		strcat(newPath, "/metadata/directorios.dat");
+	} else {
+		fprintf(stderr, "malloc fallido!.\n");
+	}
+
+	FILE *filePointer = fopen(newPath, "r+b");
+	fseek(filePointer, 0, SEEK_SET);
+
+	if (!filePointer) {
+		fprintf(stderr, "Error. No se puede abrir el archivo");
+	}
+
+	for (i = 0; i < 100; i++) {
+		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
+	}
+
+	fclose(filePointer);
+}
+
+void mostrar(t_directory directorios[]) {
+	int i;
+	printf("index			nombre						padre\n");
+	for (i = 0; i < 100; i++) {
+		printf("%d			%s						%d\n",
+				directorios[i].index,
+				directorios[i].nombre,
+				directorios[i].padre);
+	}
+}
+
+int existeDirectorio(char* path,int * padre){
+	int i;
+
+	for (i=0;i<100;i++)
+	{
+		if((strcmp(path,directorios[i].nombre)==0)&&(directorios[i].padre=*padre))
+		{
+			*padre = (int) directorios[i].padre;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+
+int buscarPrimerLugarLibre(){
+	int posicion=0,i;
+
+	for(i=0;i<100;i++)
+	{
+		if(strcmp(directorios[i].nombre,"")==0){
+			posicion=i;
+			break;
+		}
+	}
+
+	return posicion;
+}
+
+
+void mkDirFS(char * path){
+	int coincidencias =0;
+	int padre = 0;
+	int i;
+	int cantidadPartesPath;
+	int posicionLibre = -1;
+	char ** pathSeparado;
+
+	pathSeparado = string_split(path,"/");
+	cantidadPartesPath = cantidadArgumentos(pathSeparado);
+	for(i=0;(i<cantidadPartesPath);i++)
+	{
+		if (existeDirectorio(pathSeparado[i],&padre))
+			coincidencias++;
+		else
+			break;
+	}
+
+	switch(coincidencias-cantidadPartesPath)
+	{
+		case 0:
+
+			printf("El directorio ya existe");
+			break;
+
+		case 1:
+			posicionLibre = buscarPrimerLugarLibre();
+			if (posicionLibre!=-1)
+			{
+				crearDirectorioLogico(pathSeparado[cantidadPartesPath-1],padre,posicionLibre);
+				crearDirectorioFisico(posicionLibre);
+			}
+			else
+				printf("La tabla de directorios esta completa");
+			break;
+
+		default:
+			printf("El directorio no se puede crear. La ruta no existe");
+	}
+}
+
+void crearDirectorioLogico(char* nombre, int padre, int indice){
+
+	directorios[indice].index=indice;
+	cargarNombre(nombre,indice);
+	directorios[indice].padre=padre;
+
+}
+
+void cargarNombre(char* name,int indice){
+	int i=0;
+	while (name[i]!='\0')
+	{
+		directorios[indice].nombre[i]=name[i];
+		i++;
+	}
+
+	directorios[indice].nombre[i]='\0';
+
+}
+void crearDirectorioFisico(int indice){
+	char* path = string_itoa(indice);
+	char *newPath = malloc(strlen(path) + strlen("/metadata/archivos/")+1);
+
+		if (newPath) {
+			newPath= "/metadata/archivos/";
+			strcat(newPath, path);
+		} else {
+			fprintf(stderr, "malloc fallido!.\n");
+		}
+
+		DIR* directoryPointer = opendir(newPath);
+
+		if (directoryPointer) {
+			// El directorio existe.
+			closedir(directoryPointer);
+		}
+		// Si el directorio no existe
+		else if (ENOENT == errno) {
+			mkdir(path, 0777); // Le damos todos los permisos, por ahora.
+			closedir(directoryPointer);
+		}
+
+		free(newPath);
+}
+
+
+
