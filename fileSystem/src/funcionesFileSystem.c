@@ -1,6 +1,6 @@
 #include "funcionesFileSystem.h"
 
-void cargarArchivoDeConfiguracion(char* path) {
+void cargarArchivoDeConfiguracionFS(char* path) {
 	char cwd[1024]; // Current Working Directory. Variable donde voy a guardar el path absoluto hasta el /Debug
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path); // String que va a tener el path absoluto para pasarle al config_create
@@ -11,7 +11,6 @@ void cargarArchivoDeConfiguracion(char* path) {
 		PUERTO = config_get_int_value(config, "PUERTO");
 	}
 }
-
 
 void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	uint32_t bytesACopiar = 0, desplazamiento = 0, largoIp;
@@ -44,10 +43,10 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	memcpy(payload + desplazamiento, infoNodo->ip, largoIp);
 	desplazamiento += largoIp;
 
-	header->tamanio = desplazamiento; // Modificamos por referencia al argumento header.
+	header->tamanioPayload = desplazamiento; // Modificamos por referencia al argumento header.
 
 	/* Serializamos y anteponemos el header */
-	void *paquete = malloc(sizeof(uint32_t)*2 + header->tamanio);
+	void *paquete = malloc(sizeof(uint32_t) * 2 + header->tamanioPayload);
 	desplazamiento = 0; // volvemos a empezar..
 
 	bytesACopiar = sizeof(uint32_t);
@@ -55,10 +54,10 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, &header->tamanio, bytesACopiar);
+	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	memcpy(paquete + desplazamiento, payload, header->tamanio);
+	memcpy(paquete + desplazamiento, payload, header->tamanioPayload);
 
 	return paquete;
 }
@@ -88,7 +87,7 @@ t_infoNodo deserializarInfoNodo(void* mensaje, int tamanioPayload) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = tamanioIp;
-	infoNodo.ip = malloc(tamanioIp+1);
+	infoNodo.ip = malloc(tamanioIp + 1);
 	memcpy(infoNodo.ip, mensaje + desplazamiento, bytesACopiar);
 	infoNodo.ip[tamanioIp] = '\0';
 	desplazamiento += bytesACopiar;
@@ -212,17 +211,18 @@ void * esperarConexionesDatanodes() {
 
 				//Si entra aca recibi un header que va a tener la info de quien se conecto.
 				else {
-					printf("Header : %d.\n", header.tamanio);
+					printf("Header : %d.\n", header.tamanioPayload);
 				}
 
-				buffer = malloc(header.tamanio);
+				buffer = malloc(header.tamanioPayload);
 
 				//Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
-				if (recibirPorSocket(sd, buffer, header.tamanio) <= 0) {
+				if (recibirPorSocket(sd, buffer, header.tamanioPayload) <= 0) {
 					perror(
 							"Error. El payload no se pudo recibir correctamente.");
 				} else {
-					t_infoNodo infoNodo = deserializarInfoNodo(buffer, header.tamanio);
+					t_infoNodo infoNodo = deserializarInfoNodo(buffer,
+							header.tamanioPayload);
 
 					// Crear funcion que maneje la lista de struct t_infoNodo. "add" infoNodo por ejemplo.
 					//Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
@@ -247,99 +247,94 @@ void * esperarConexionesDatanodes() {
 }
 
 //Crea un array de tipo t_bitmap y lo carga al archivo
-void cargarArchivoBitmap(FILE* arch,int tamanioDatabin){
+void cargarArchivoBitmap(FILE* arch, int tamanioDatabin) {
 	int i;
 	t_bitMap arrayBitmap[tamanioDatabin];
-	for(i=0;i<(tamanioDatabin);i++){
-		arrayBitmap[i].estadoBLoque='L';
+	for (i = 0; i < (tamanioDatabin); i++) {
+		arrayBitmap[i].estadoBLoque = 'L';
 	}
-	for(i=0;i<(tamanioDatabin);i++){
-		fwrite(&arrayBitmap[i],sizeof(char),1,arch);
+	for (i = 0; i < (tamanioDatabin); i++) {
+		fwrite(&arrayBitmap[i], sizeof(char), 1, arch);
 	}
-
 }
 
-int verificarExistenciaArchBitmap(char*nombreArchBitmap,char*path){
-
+int verificarExistenciaArchBitmap(char*nombreArchBitmap, char*path) {
 	DIR* directorio;
+	directorio = opendir(path);
 
-	  directorio=opendir(path);
+	if (directorio == NULL) { // Aca se verifica si el directorio a bitmaps existe
+		closedir(directorio);
+		return 2;
+	}
+	closedir(directorio);
 
-	  if (directorio==NULL) {  // Aca se verifica si el directorio a bitmaps existe
-		  closedir(directorio);
-		  return 2;
-	  }
-	  closedir(directorio);
-
-	  if(access(nombreArchBitmap,F_OK) !=-1){
-		  return 1;
-	  }
-	    return 0;
+	if (access(nombreArchBitmap, F_OK) != -1) {
+		return 1;
+	}
+	return 0;
 
 }
 
 // Esta funcion crea un archivo bitmap con el nombre id del nodo y
 // tamanio de databin,verifica si existe de antes y si no lo crea.
-void crearArchivoBitmapNodo(int idNodo,int tamanioDatabinNodo){
-	char*nombreArchBitmap=armarNombreArchBitmap(idNodo);
+void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
+	char*nombreArchBitmap = armarNombreArchBitmap(idNodo);
 	FILE* arch;
 
-	switch (verificarExistenciaArchBitmap(nombreArchBitmap,pathBitmap)){
+	switch (verificarExistenciaArchBitmap(nombreArchBitmap, pathBitmap)) {
 
 	case 0:
-		arch= fopen(nombreArchBitmap,"w+");
-		cargarArchivoBitmap(arch,tamanioDatabinNodo);
+		arch = fopen(nombreArchBitmap, "w+");
+		cargarArchivoBitmap(arch, tamanioDatabinNodo);
 		fclose(arch);
-	break;
+		break;
 
 	case 1:
 		printf("Archivo bitmap ya existe");
-	break;
+		break;
 
 	case 2:
-		printf("La carpeta bitmaps no existe");// validacion de carpeta bitmap
-	break;
+		printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
+		break;
 	}
 
 }
 
 //Accede al numero de bloque en el array y modifica su estado
-void liberarBloqueBitmapNodo(int numBloque,int idNodo){
-	char* nombreArchBitmap=armarNombreArchBitmap(idNodo);
+void liberarBloqueBitmapNodo(int numBloque, int idNodo) {
+	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
 	FILE* arch;
 	t_bitMap regActualizado;
-	regActualizado.estadoBLoque='L';
+	regActualizado.estadoBLoque = 'L';
 
-	arch = fopen(nombreArchBitmap,"r+");
-	fseek(arch,(numBloque-1),SEEK_SET);
-	fwrite(&regActualizado,sizeof(t_bitMap),1,arch);
+	arch = fopen(nombreArchBitmap, "r+");
+	fseek(arch, (numBloque - 1), SEEK_SET);
+	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
 	fclose(arch);
 }
 
-void ocuparBloqueBitmapNodo(int numBloque,int idNodo){
-	char* nombreArchBitmap=armarNombreArchBitmap(idNodo);
+void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
+	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
 	FILE* arch;
 	t_bitMap regActualizado;
-	regActualizado.estadoBLoque='O';
+	regActualizado.estadoBLoque = 'O';
 
-	arch = fopen(nombreArchBitmap,"r+");
-	fseek(arch,(numBloque-1),SEEK_SET);
-	fwrite(&regActualizado,sizeof(t_bitMap),1,arch);
+	arch = fopen(nombreArchBitmap, "r+");
+	fseek(arch, (numBloque - 1), SEEK_SET);
+	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
 	fclose(arch);
 }
 
 //arma el path nombre del bitmap a partir del id del nodo
-char* armarNombreArchBitmap(int idNodo){
-	char* nombreArchBitmap=string_new();
-	char* idNodoString=string_itoa(idNodo);
-	string_append(&nombreArchBitmap,pathBitmap);
-	string_append(&nombreArchBitmap,idNodoString);
-	string_append(&nombreArchBitmap,".dat");
+char* armarNombreArchBitmap(int idNodo) {
+	char* nombreArchBitmap = string_new();
+	char* idNodoString = string_itoa(idNodo);
+	string_append(&nombreArchBitmap, pathBitmap);
+	string_append(&nombreArchBitmap, idNodoString);
+	string_append(&nombreArchBitmap, ".dat");
 
 	return nombreArchBitmap;
 }
-
-
 
 /* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.
  * Quedara a la espera de la respuesta de este para mostrar el resultado de la operacion por pantalla.
@@ -366,15 +361,13 @@ char* getResultado(int resultado) {
 	}
 }
 
-
-t_directory directoriosAGuardar[100] = {
-			{ 0, "/", -1 },
+t_directory directoriosAGuardar[100] = { { 0, "/", -1 },
 
 };
 
-t_directory directoriosGuardados[100] = {}; // Inicializo el array de estructuras
+t_directory directoriosGuardados[100] = { }; // Inicializo el array de estructuras
 
-t_directory directorios[100] = {};
+t_directory directorios[100] = { };
 
 void validarMetadata(char* path) {
 	//faltaria sumar aunque sea 1 al malloc por '\0'?
@@ -426,7 +419,6 @@ void persistirDirectorios(t_directory directorios[], char* path) {
 		fwrite(&directorios[i], sizeof(t_directory), 1, filePointer);
 	}
 
-
 	fclose(filePointer);
 	free(newPath);
 }
@@ -461,20 +453,17 @@ void mostrar(t_directory directorios[]) {
 	int i;
 	printf("index			nombre						padre\n");
 	for (i = 0; i < 100; i++) {
-		printf("%d			%s						%d\n",
-				directorios[i].index,
-				directorios[i].nombre,
+		printf("%d			%s						%d\n", directorios[i].index, directorios[i].nombre,
 				directorios[i].padre);
 	}
 }
 
-int existeDirectorio(char* path,int * padre){
+int existeDirectorio(char* path, int * padre) {
 	int i;
 
-	for (i=0;i<100;i++)
-	{
-		if((strcmp(path,directorios[i].nombre)==0)&&(directorios[i].padre=*padre))
-		{
+	for (i = 0; i < 100; i++) {
+		if ((strcmp(path, directorios[i].nombre) == 0)
+				&& (directorios[i].padre = *padre)) {
 			*padre = (int) directorios[i].padre;
 			return 1;
 		}
@@ -482,14 +471,12 @@ int existeDirectorio(char* path,int * padre){
 	return 0;
 }
 
+int buscarPrimerLugarLibre() {
+	int posicion = 0, i;
 
-int buscarPrimerLugarLibre(){
-	int posicion=0,i;
-
-	for(i=0;i<100;i++)
-	{
-		if(strcmp(directorios[i].nombre,"")==0){
-			posicion=i;
+	for (i = 0; i < 100; i++) {
+		if (strcmp(directorios[i].nombre, "") == 0) {
+			posicion = i;
 			break;
 		}
 	}
@@ -497,92 +484,82 @@ int buscarPrimerLugarLibre(){
 	return posicion;
 }
 
-
-void mkDirFS(char * path){
-	int coincidencias =0;
+void mkDirFS(char * path) {
+	int coincidencias = 0;
 	int padre = 0;
 	int i;
 	int cantidadPartesPath;
 	int posicionLibre = -1;
 	char ** pathSeparado;
 
-	pathSeparado = string_split(path,"/");
+	pathSeparado = string_split(path, "/");
 	cantidadPartesPath = cantidadArgumentos(pathSeparado);
-	for(i=0;(i<cantidadPartesPath);i++)
-	{
-		if (existeDirectorio(pathSeparado[i],&padre))
+	for (i = 0; (i < cantidadPartesPath); i++) {
+		if (existeDirectorio(pathSeparado[i], &padre))
 			coincidencias++;
 		else
 			break;
 	}
 
-	switch(coincidencias-cantidadPartesPath)
-	{
-		case 0:
+	switch (coincidencias - cantidadPartesPath) {
+	case 0:
 
-			printf("El directorio ya existe");
-			break;
+		printf("El directorio ya existe");
+		break;
 
-		case 1:
-			posicionLibre = buscarPrimerLugarLibre();
-			if (posicionLibre!=-1)
-			{
-				crearDirectorioLogico(pathSeparado[cantidadPartesPath-1],padre,posicionLibre);
-				crearDirectorioFisico(posicionLibre);
-			}
-			else
-				printf("La tabla de directorios esta completa");
-			break;
+	case 1:
+		posicionLibre = buscarPrimerLugarLibre();
+		if (posicionLibre != -1) {
+			crearDirectorioLogico(pathSeparado[cantidadPartesPath - 1], padre,
+					posicionLibre);
+			crearDirectorioFisico(posicionLibre);
+		} else
+			printf("La tabla de directorios esta completa");
+		break;
 
-		default:
-			printf("El directorio no se puede crear. La ruta no existe");
+	default:
+		printf("El directorio no se puede crear. La ruta no existe");
 	}
 }
 
-void crearDirectorioLogico(char* nombre, int padre, int indice){
-
-	directorios[indice].index=indice;
-	cargarNombre(nombre,indice);
-	directorios[indice].padre=padre;
-
+void crearDirectorioLogico(char* nombre, int padre, int indice) {
+	directorios[indice].index = indice;
+	cargarNombre(nombre, indice);
+	directorios[indice].padre = padre;
 }
 
-void cargarNombre(char* name,int indice){
-	int i=0;
-	while (name[i]!='\0')
-	{
-		directorios[indice].nombre[i]=name[i];
+void cargarNombre(char* name, int indice) {
+	int i = 0;
+	while (name[i] != '\0') {
+		directorios[indice].nombre[i] = name[i];
 		i++;
 	}
 
-	directorios[indice].nombre[i]='\0';
-
+	directorios[indice].nombre[i] = '\0';
 }
-void crearDirectorioFisico(int indice){
+
+void crearDirectorioFisico(int indice) {
 	char* path = string_itoa(indice);
-	char *newPath = malloc(strlen(path) + strlen("/metadata/archivos/")+1);
+	char *newPath = malloc(strlen(path) + strlen("/metadata/archivos/") + 1);
 
-		if (newPath) {
-			newPath= "/metadata/archivos/";
-			strcat(newPath, path);
-		} else {
-			fprintf(stderr, "malloc fallido!.\n");
-		}
+	if (newPath) {
+		newPath = "/metadata/archivos/";
+		strcat(newPath, path);
+	} else {
+		fprintf(stderr, "malloc fallido!.\n");
+	}
 
-		DIR* directoryPointer = opendir(newPath);
+	DIR* directoryPointer = opendir(newPath);
 
-		if (directoryPointer) {
-			// El directorio existe.
-			closedir(directoryPointer);
-		}
-		// Si el directorio no existe
-		else if (ENOENT == errno) {
-			mkdir(path, 0777); // Le damos todos los permisos, por ahora.
-			closedir(directoryPointer);
-		}
+	if (directoryPointer) {
+		// El directorio existe.
+		closedir(directoryPointer);
+	}
+	// Si el directorio no existe
+	else if (ENOENT == errno) {
+		mkdir(path, 0777); // Le damos todos los permisos, por ahora.
+		closedir(directoryPointer);
+	}
 
-		free(newPath);
+	free(newPath);
 }
-
-
-

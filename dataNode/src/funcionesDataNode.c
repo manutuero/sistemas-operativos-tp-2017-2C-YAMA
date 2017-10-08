@@ -1,7 +1,6 @@
 #include "funcionesDataNode.h"
 
-void cargarArchivoConfiguracion(char*nombreArchivo) {
-
+void cargarArchivoConfiguracionDatanode(char*nombreArchivo) {
 	char cwd[1024]; // Variable donde voy a guardar el path absoluto
 	char * pathArchConfig = string_from_format("%s/%s",
 			getcwd(cwd, sizeof(cwd)), nombreArchivo); // String que va a tener el path absoluto para pasarle al config_create
@@ -25,76 +24,10 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 
 	printf("\nIP Filesystem: %s\n", IP_FILESYSTEM);
 	/*printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
-	printf("\nID Nodo %s\n", ID_NODO);
-	printf("\nPuerto Worker %d\n", PUERTO_WORKER);
-	printf("\nRuta Data.bin %s\n", RUTA_DATABIN);*/
+	 printf("\nID Nodo %s\n", ID_NODO);
+	 printf("\nPuerto Worker %d\n", PUERTO_WORKER);
+	 printf("\nRuta Data.bin %s\n", RUTA_DATABIN);*/
 	//log_info(vg_logger,"Archivo de configuracion cargado exitosamente");
-}
-
-int conectarSocket(int sockfd, const char * ipDestino, int puerto) {
-	struct sockaddr_in datosServidor;
-
-	datosServidor.sin_family = AF_INET;
-	datosServidor.sin_port = htons(puerto);
-	datosServidor.sin_addr.s_addr = inet_addr(ipDestino);
-	memset(&(datosServidor.sin_zero), '\0', 8);
-
-	int funcionConnect = connect(sockfd, (struct sockaddr *) &datosServidor,
-			sizeof(struct sockaddr));
-	if (funcionConnect != 0) {
-		return 0;
-	} else {
-		return 1;
-	}
-}
-
-int enviarPorSocket(int unSocket, const void * mensaje, int tamanio) {
-	int bytes_enviados;
-	int total = 0;
-	tamanio = tamanio + sizeof(uint32_t) * 2;
-	while (total < tamanio) {
-		bytes_enviados = send(unSocket, mensaje + total, tamanio, 0);
-
-		if (bytes_enviados == FAIL) {
-			break;
-		}
-		total += bytes_enviados;
-		tamanio -= bytes_enviados;
-	}
-	if (bytes_enviados == 0) {
-		printf("Bytes enviados igual a cero \n");
-	}
-	//manejarError("[ERROR] Funcion send");
-
-	return bytes_enviados;
-}
-
-int recibirPorSocket(int unSocket, void * buffer, int tamanio) {
-	int total = 0;
-	int bytesRecibidos;
-
-	while (total < tamanio) {
-		bytesRecibidos = recv(unSocket, buffer + total, tamanio, 0);
-		if (bytesRecibidos == FAIL) {
-			// Error
-			perror("[ERROR] Funcion recv");
-			break;
-		}
-		if (bytesRecibidos == 0) {
-			// Desconexion
-			break;
-		}
-		total += bytesRecibidos;
-		tamanio -= bytesRecibidos;
-	}
-	return bytesRecibidos;
-}	// retorna -1 si fallo, 0 si se desconecto o los bytes recibidos
-
-void cerrarSocket(int unSocket) {
-	int funcionClose = shutdown(unSocket, 2);
-
-	if (funcionClose == -1)
-		printf("Error al cerrar socket");
 }
 
 void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
@@ -127,10 +60,10 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	memcpy(payload + desplazamiento, infoNodo->ip, largoIp);
 	desplazamiento += largoIp;
 
-	header->tamanio = desplazamiento; // Modificamos por referencia al argumento header.
+	header->tamanioPayload = desplazamiento; // Modificamos por referencia al argumento header.
 
 	/* Serializamos y anteponemos el header */
-	void *paquete = malloc(sizeof(uint32_t) * 2 + header->tamanio);
+	void *paquete = malloc(sizeof(uint32_t) * 2 + header->tamanioPayload);
 	desplazamiento = 0; // volvemos a empezar..
 
 	bytesACopiar = sizeof(uint32_t);
@@ -138,10 +71,10 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, &header->tamanio, bytesACopiar);
+	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	memcpy(paquete + desplazamiento, payload, header->tamanio);
+	memcpy(paquete + desplazamiento, payload, header->tamanioPayload);
 	free(payload);
 	return paquete;
 }
@@ -179,11 +112,113 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	infoNodo->puerto = PUERTO_FILESYSTEM;
 	infoNodo->sdNodo = 0;
 	paquete = serializarInfoNodo(infoNodo, header);
-	if (enviarPorSocket(socketPrograma, paquete, header->tamanio)
-			== (header->tamanio + sizeof(uint32_t) * 2)) {
-		printf("Informacion del nodo enviada correctamente al FileSystem \n");
+	if (enviarPorSocket(socketPrograma, paquete, header->tamanioPayload)
+			== (header->tamanioPayload + sizeof(uint32_t) * 2)) {
+		printf("Informacion del nodo enviada correctamente al FileSystem.\n");
 	} else {
-		printf("Error en la cantidad de bytes enviados al fs");
+		printf("Error en la cantidad de bytes enviados al filesystem.\n");
 	}
 	return socketPrograma;
+}
+
+void setBloque(int numero, char* datos) {
+	int fileDescriptor;
+	size_t bytesAEscribir = strlen(datos), tamanioArchivo;
+	off_t desplazamiento = numero * UN_BLOQUE;
+	char *regionDeMapeo;
+
+	FILE *filePointer = fopen(RUTA_DATABIN, "r+");
+
+	// Valida que el archivo exista. Caso contrario lanza error.
+	if (!filePointer) {
+		perror(
+				"[ERROR]. El archivo 'data.bin' no existe en la ruta especificada.");
+		exit(EXIT_FAILURE);
+	}
+
+	// Estructura que contiene informacion del estado de archivos y dispositivos.
+	struct stat st;
+	stat(RUTA_DATABIN, &st);
+	tamanioArchivo = st.st_size;
+
+	// Valida que se disponga del tamaño suficiente para realizar la escritura.
+	if (tamanioArchivo < bytesAEscribir) {
+		perror(
+				"[ERROR]. No se dispone de tamaño suficiente en la base de datos.");
+		exit(EXIT_FAILURE);
+	}
+
+	fileDescriptor = fileno(filePointer);
+
+	if (desplazamiento >= tamanioArchivo) {
+		perror("[ERROR]. El desplazamiento se paso del EOF.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (desplazamiento + bytesAEscribir > tamanioArchivo)
+		bytesAEscribir = tamanioArchivo - desplazamiento;
+	/* No puedo mostrar bytes pasando el EOF */
+
+	regionDeMapeo = mmap(NULL, bytesAEscribir,
+	PROT_READ | PROT_WRITE,
+	MAP_SHARED, fileDescriptor, desplazamiento);
+
+	if (regionDeMapeo == MAP_FAILED) {
+		perror("[ERROR]. No se pudo reservar la region de mapeo.");
+		exit(EXIT_FAILURE);
+	}
+
+	strncpy(regionDeMapeo, datos, bytesAEscribir);
+
+	// Libero la region de mapeo solicitada.
+	munmap(regionDeMapeo, bytesAEscribir);
+	fclose(filePointer);
+}
+
+char* getBloque(int numero) {
+	int fileDescriptor;
+	size_t bytesALeer = UN_BLOQUE, tamanioArchivo;
+	off_t desplazamiento = numero * UN_BLOQUE;
+	char *regionDeMapeo, *data = malloc(bytesALeer);
+
+	FILE *filePointer = fopen(RUTA_DATABIN, "r");
+
+	// Valida que el archivo exista. Caso contrario lanza error.
+	if (!filePointer) {
+		perror(
+				"[ERROR]. El archivo 'data.bin' no existe en la ruta especificada.");
+		exit(EXIT_FAILURE);
+	}
+
+	// Estructura que contiene informacion del estado de archivos y dispositivos.
+	struct stat st;
+	stat(RUTA_DATABIN, &st);
+	tamanioArchivo = st.st_size;
+
+	if (desplazamiento >= tamanioArchivo) {
+		perror("[ERROR]. El desplazamiento se paso del EOF.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (desplazamiento + bytesALeer > tamanioArchivo)
+		bytesALeer = tamanioArchivo - desplazamiento;
+	/* No puedo mostrar bytes pasando el EOF */
+
+	fileDescriptor = fileno(filePointer);
+
+	regionDeMapeo = mmap(NULL, bytesALeer,
+	PROT_READ, MAP_SHARED, fileDescriptor, desplazamiento);
+
+	if (regionDeMapeo == MAP_FAILED) {
+		perror("[ERROR]. No se pudo reservar la region de mapeo.");
+		exit(EXIT_FAILURE);
+	}
+
+	strncpy(data, regionDeMapeo, bytesALeer);
+
+	// Libero la region de mapeo solicitada.
+	munmap(regionDeMapeo, bytesALeer);
+	fclose(filePointer);
+
+	return data;
 }

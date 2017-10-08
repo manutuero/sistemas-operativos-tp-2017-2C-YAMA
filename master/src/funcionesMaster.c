@@ -1,17 +1,6 @@
-/*
- * funcionesMaster.c
- *
- *  Created on: 11/9/2017
- *      Author: utnso
- */
-
-
 #include "funcionesMaster.h"
-//#include "../../fileSystem/src/utils/utils.h"
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado){
-
-
 	char * comienzo ="yamafs:/";
 		if(string_starts_with(archivoAprocesar,comienzo)<=0){
 			printf("Parametro archivo a procesar invalido.: %s \n",archivoAprocesar);
@@ -22,19 +11,17 @@ int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar
 			return 0;
 		}
 
-		if(!file_exists(transformador)){
+		if(!file_exists(transformador)) {
 			printf("El programa transformador no se encuentra en : %s  \n",transformador);
 			return 0;
 		}
-		if(!file_exists(reductor)){
+		if(!file_exists(reductor)) {
 			printf("El programa reductor no se encuentra en : %s  \n",reductor);
 			return 0;
-			}
-
-
+		}
 	return 1;
-
 }
+
 //Chequea existencia de archivo en linux
 int file_exists (char * fileName)
 {
@@ -50,7 +37,6 @@ int file_exists (char * fileName)
 }
 
 void masterEscuchando(int* socketMaster) {
-
 	struct sockaddr_in dir;
 	//configurarAddr(&dir);
 	dir.sin_family = AF_INET;
@@ -83,8 +69,6 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 	int maxPuerto;
 	fd_set readfds, auxRead;
 	//int socketYama;
-
-
 
 	//socketYama = conectarseAYama(6669,"127.0.0.1");
 
@@ -190,7 +174,6 @@ int conectarseAYama(int puerto,char* ip){
 			exit(1);
 		}
 
-
 	printf("se conecto a YAMA\n");
 
 	return yama;
@@ -206,7 +189,7 @@ void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar){
 
 	void* buffer;
 	buffer = serializarRutaArchivo(&header,&ruta); //esta en utils ya que lo voy a usar para Yama-fs
-	int tamanioMensaje = header.tamanio + sizeof(header);
+	int tamanioMensaje = header.tamanioPayload + sizeof(header);
 	enviarPorSocket(socketYama,buffer,tamanioMensaje);
 	free(buffer);
 }

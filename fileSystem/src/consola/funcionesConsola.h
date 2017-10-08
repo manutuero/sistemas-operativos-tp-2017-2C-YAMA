@@ -1,18 +1,15 @@
 #ifndef FUNCIONESCONSOLA_H_
 #define FUNCIONESCONSOLA_H_
-#include "../utils.h"
 
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <utils.h>
+#include <ctype.h>
 
-typedef struct {
-	int funcion;
-	int opcion;
-	char *parametro1;
-	char *parametro2;
-	int bloque;
-	int idNodo;
-} t_comando;
+/* Defines */
+#define ESPACIO " "
 
-//Firmas de funciones
+/* Firmas de funciones */
 int cantidadArgumentos(char**);
 void inicializarComando(t_comando*);
 int validarParametro(char*);

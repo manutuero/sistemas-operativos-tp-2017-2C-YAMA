@@ -1,14 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <commons/string.h>
-#include <readline/readline.h>
-#include <readline/history.h>
 #include "funcionesConsola.h"
-#define ESPACIO " "
 
 void * levantarConsola() {
-	char *linea, resultado;
+	char *linea;
+	//char *resultado;
 	char **argumentos;
 	int cantidadElementos;
 
@@ -28,12 +22,10 @@ void * levantarConsola() {
 				invocarFuncionFormat(argumentos);
 				break;
 			}
-			if(sonIguales(argumentos[0],"exit"))
-			{
+			if (sonIguales(argumentos[0], "exit")) {
 				printf("Que tenga un buen dia");
 				break;
-			}
-			else
+			} else
 				printf("el comando ingresado no es valido.\n");
 			break;
 
@@ -44,27 +36,27 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "cat")) {
-				 invocarFuncionCat(argumentos);
+				invocarFuncionCat(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "mkdir")) {
-				 invocarFuncionMkdir(argumentos);
+				invocarFuncionMkdir(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "MD5")) {
-				 invocarFuncionMd5(argumentos);
+				invocarFuncionMd5(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "ls")) {
-				 invocarFuncionLs(argumentos);
+				invocarFuncionLs(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "info")) {
-				 invocarFuncionInfo(argumentos);
+				invocarFuncionInfo(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);
@@ -74,27 +66,27 @@ void * levantarConsola() {
 
 		case 3:
 			if (sonIguales(argumentos[0], "rename")) {
-				  invocarFuncionRename(argumentos);
+				invocarFuncionRename(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "rm")) {
-				  invocarFuncionRmDirectory(argumentos);
+				invocarFuncionRmDirectory(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "mv")) {
-				  invocarFuncionMv(argumentos);
+				invocarFuncionMv(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "cpfrom")) {
-				  invocarFuncionCpfrom(argumentos);
+				invocarFuncionCpfrom(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "cpto")) {
-				  invocarFuncionCpto(argumentos);
+				invocarFuncionCpto(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);
@@ -103,7 +95,7 @@ void * levantarConsola() {
 
 		case 4:
 			if (sonIguales(argumentos[0], "cpblock")) {
-				  invocarFuncionCpblok(argumentos);
+				invocarFuncionCpblok(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);
@@ -112,7 +104,7 @@ void * levantarConsola() {
 
 		case 5:
 			if (sonIguales(argumentos[0], "rm")) {
-				  invocarFuncionRmBloque(argumentos);
+				invocarFuncionRmBloque(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);
@@ -130,5 +122,6 @@ void * levantarConsola() {
 				break;
 	}
 
+	free(linea);
 	return EXIT_SUCCESS;
 }
