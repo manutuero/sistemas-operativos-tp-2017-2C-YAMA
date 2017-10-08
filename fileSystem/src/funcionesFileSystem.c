@@ -246,6 +246,99 @@ void * esperarConexionesDatanodes() {
 
 }
 
+//Crea un array de tipo t_bitmap y lo carga al archivo
+void cargarArchivoBitmap(FILE* arch,int tamanioDatabin){
+	int i;
+	t_bitMap arrayBitmap[tamanioDatabin];
+	for(i=0;i<(tamanioDatabin);i++){
+		arrayBitmap[i].estadoBLoque='L';
+	}
+	for(i=0;i<(tamanioDatabin);i++){
+		fwrite(&arrayBitmap[i],sizeof(char),1,arch);
+	}
+
+}
+
+int verificarExistenciaArchBitmap(char*nombreArchBitmap,char*path){
+
+	DIR* directorio;
+
+	  directorio=opendir(path);
+
+	  if (directorio==NULL) {  // Aca se verifica si el directorio a bitmaps existe
+		  closedir(directorio);
+		  return 2;
+	  }
+	  closedir(directorio);
+
+	  if(access(nombreArchBitmap,F_OK) !=-1){
+		  return 1;
+	  }
+	    return 0;
+
+}
+
+// Esta funcion crea un archivo bitmap con el nombre id del nodo y
+// tamanio de databin,verifica si existe de antes y si no lo crea.
+void crearArchivoBitmapNodo(int idNodo,int tamanioDatabinNodo){
+	char*nombreArchBitmap=armarNombreArchBitmap(idNodo);
+	FILE* arch;
+
+	switch (verificarExistenciaArchBitmap(nombreArchBitmap,pathBitmap)){
+
+	case 0:
+		arch= fopen(nombreArchBitmap,"w+");
+		cargarArchivoBitmap(arch,tamanioDatabinNodo);
+		fclose(arch);
+	break;
+
+	case 1:
+		printf("Archivo bitmap ya existe");
+	break;
+
+	case 2:
+		printf("La carpeta bitmaps no existe");// validacion de carpeta bitmap
+	break;
+	}
+
+}
+
+//Accede al numero de bloque en el array y modifica su estado
+void liberarBloqueBitmapNodo(int numBloque,int idNodo){
+	char* nombreArchBitmap=armarNombreArchBitmap(idNodo);
+	FILE* arch;
+	t_bitMap regActualizado;
+	regActualizado.estadoBLoque='L';
+
+	arch = fopen(nombreArchBitmap,"r+");
+	fseek(arch,(numBloque-1),SEEK_SET);
+	fwrite(&regActualizado,sizeof(t_bitMap),1,arch);
+	fclose(arch);
+}
+
+void ocuparBloqueBitmapNodo(int numBloque,int idNodo){
+	char* nombreArchBitmap=armarNombreArchBitmap(idNodo);
+	FILE* arch;
+	t_bitMap regActualizado;
+	regActualizado.estadoBLoque='O';
+
+	arch = fopen(nombreArchBitmap,"r+");
+	fseek(arch,(numBloque-1),SEEK_SET);
+	fwrite(&regActualizado,sizeof(t_bitMap),1,arch);
+	fclose(arch);
+}
+
+//arma el path nombre del bitmap a partir del id del nodo
+char* armarNombreArchBitmap(int idNodo){
+	char* nombreArchBitmap=string_new();
+	char* idNodoString=string_itoa(idNodo);
+	string_append(&nombreArchBitmap,pathBitmap);
+	string_append(&nombreArchBitmap,idNodoString);
+	string_append(&nombreArchBitmap,".dat");
+
+	return nombreArchBitmap;
+}
+
 
 
 /* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.

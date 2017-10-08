@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -26,7 +28,9 @@ char *ARCHCONFIG;
 int PUERTO;
 extern int estadoFs;
 
-
+typedef struct {
+	char estadoBLoque;
+}t_bitMap;
 
 typedef struct {
 	uint32_t sdNodo;
@@ -38,6 +42,16 @@ typedef struct {
 
 /* Firmas de funciones */
 void cargarArchivoDeConfiguracion(char*);
+
+/* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
+Para correr estas funciones cada uno deberia modificar el path para que le funcione */
+char* pathBitmap = "/home/utnso/Desarrollo/tp-2017-2c-The_Ponchos/fileSystem/metadata/bitmaps/";
+void cargarArchivoBitmap(FILE*,int);
+int verificarExistenciaArchBitmap(char*,char*);
+void crearArchivoBitmapNodo(int ,int);
+void liberarBloqueBitmapNodo(int,int);
+void ocuparBloqueBitmapNodo(int,int);
+char* armarNombreArchBitmap(int );
 
 int nuevoSocket();
 
