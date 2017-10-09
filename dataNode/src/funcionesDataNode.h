@@ -16,6 +16,9 @@ int PUERTO_FILESYSTEM;
 char* ID_NODO;
 int PUERTO_WORKER;
 char* RUTA_DATABIN;
+FILE *filePointer;
+int fileDescriptor;
+t_log* logger;
 
 /* TADS */
 typedef struct {
@@ -32,5 +35,8 @@ char* getBloque(int numero);
 void* serializarInfoNodo(t_infoNodo*, t_header*);
 void cargarArchivoConfiguracionDatanode(char*);
 int conectarAfilesystem(char*, int);
+void abrirDatabin();
+void cerrarDatabin();
+void crearLoggerDatanode();
 
 #endif

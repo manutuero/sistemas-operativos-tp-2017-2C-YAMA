@@ -22,12 +22,7 @@ void cargarArchivoConfiguracionDatanode(char*nombreArchivo) {
 		RUTA_DATABIN = config_get_string_value(config, "RUTA_DATABIN");
 	}
 
-	printf("\nIP Filesystem: %s\n", IP_FILESYSTEM);
-	/*printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
-	 printf("\nID Nodo %s\n", ID_NODO);
-	 printf("\nPuerto Worker %d\n", PUERTO_WORKER);
-	 printf("\nRuta Data.bin %s\n", RUTA_DATABIN);*/
-	//log_info(vg_logger,"Archivo de configuracion cargado exitosamente");
+	log_info(logger, "Cargando archivo de configuracion...Hecho.");
 }
 
 void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
@@ -78,23 +73,19 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	free(payload);
 	return paquete;
 }
+
+
 int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
-	void * paquete;
+	log_info(logger, "Conectandose al FileSystem...");
+	void *paquete;
 	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
 	t_header *header = malloc(sizeof(t_header));
 	header->id = 1;
 	if (socketPrograma <= 0) {
-		printf(
-				"\n\n[ERROR] No se ha podido obtener un número de socket. Reintentar iniciar el proceso. \n");
+		log_error(logger, "No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
 		return (ERROR);
 	}
-	//puts(IP_FILESYSTEM);
-	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) == FAIL) {
-		printf(
-				"\n\nNo se ha podido establecer la conexion con el FILESYSTEM. -> connect \n");
-		//cerrarSocket(socketPrograma);
-		//return (ERROR);
-		//		exit(EXIT_SUCCESS);
+	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) != FAIL) {
 		return 0;
 	}
 
@@ -107,34 +98,23 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	infoNodo->ip = malloc(largoIp + 1);
 	strcpy(infoNodo->ip, IP_FILESYSTEM);
 
-	//printf("El ip a enviar es: %s.\n", infoNodo->ip);
-
 	infoNodo->puerto = PUERTO_FILESYSTEM;
 	infoNodo->sdNodo = 0;
 	paquete = serializarInfoNodo(infoNodo, header);
 	if (enviarPorSocket(socketPrograma, paquete, header->tamanioPayload)
 			== (header->tamanioPayload + sizeof(uint32_t) * 2)) {
-		printf("Informacion del nodo enviada correctamente al FileSystem.\n");
+		log_info(logger, "Informacion del nodo enviada correctamente al FileSystem.");
 	} else {
-		printf("Error en la cantidad de bytes enviados al filesystem.\n");
+		log_error(logger, "Error en la cantidad de bytes enviados al filesystem.");
 	}
 	return socketPrograma;
 }
 
+
 void setBloque(int numero, char* datos) {
-	int fileDescriptor;
 	size_t bytesAEscribir = strlen(datos), tamanioArchivo;
 	off_t desplazamiento = numero * UN_BLOQUE;
 	char *regionDeMapeo;
-
-	FILE *filePointer = fopen(RUTA_DATABIN, "r+");
-
-	// Valida que el archivo exista. Caso contrario lanza error.
-	if (!filePointer) {
-		perror(
-				"[ERROR]. El archivo 'data.bin' no existe en la ruta especificada.");
-		exit(EXIT_FAILURE);
-	}
 
 	// Estructura que contiene informacion del estado de archivos y dispositivos.
 	struct stat st;
@@ -143,15 +123,12 @@ void setBloque(int numero, char* datos) {
 
 	// Valida que se disponga del tamaño suficiente para realizar la escritura.
 	if (tamanioArchivo < bytesAEscribir) {
-		perror(
-				"[ERROR]. No se dispone de tamaño suficiente en la base de datos.");
+		log_error(logger, "No se dispone de tamaño suficiente en la base de datos.");
 		exit(EXIT_FAILURE);
 	}
 
-	fileDescriptor = fileno(filePointer);
-
 	if (desplazamiento >= tamanioArchivo) {
-		perror("[ERROR]. El desplazamiento se paso del EOF.\n");
+		log_error(logger, "El desplazamiento sobrepaso el fin de archivo (EOF).");
 		exit(EXIT_FAILURE);
 	}
 
@@ -164,31 +141,20 @@ void setBloque(int numero, char* datos) {
 	MAP_SHARED, fileDescriptor, desplazamiento);
 
 	if (regionDeMapeo == MAP_FAILED) {
-		perror("[ERROR]. No se pudo reservar la region de mapeo.");
+		log_error(logger, "No se pudo reservar la region de mapeo.");
 		exit(EXIT_FAILURE);
 	}
 
 	strncpy(regionDeMapeo, datos, bytesAEscribir);
-
 	// Libero la region de mapeo solicitada.
 	munmap(regionDeMapeo, bytesAEscribir);
-	fclose(filePointer);
+	log_info(logger, "Realizando escritura del bloque %d...Hecho.", numero);
 }
 
 char* getBloque(int numero) {
-	int fileDescriptor;
 	size_t bytesALeer = UN_BLOQUE, tamanioArchivo;
 	off_t desplazamiento = numero * UN_BLOQUE;
 	char *regionDeMapeo, *data = malloc(bytesALeer);
-
-	FILE *filePointer = fopen(RUTA_DATABIN, "r");
-
-	// Valida que el archivo exista. Caso contrario lanza error.
-	if (!filePointer) {
-		perror(
-				"[ERROR]. El archivo 'data.bin' no existe en la ruta especificada.");
-		exit(EXIT_FAILURE);
-	}
 
 	// Estructura que contiene informacion del estado de archivos y dispositivos.
 	struct stat st;
@@ -196,7 +162,7 @@ char* getBloque(int numero) {
 	tamanioArchivo = st.st_size;
 
 	if (desplazamiento >= tamanioArchivo) {
-		perror("[ERROR]. El desplazamiento se paso del EOF.\n");
+		log_error(logger, "El desplazamiento sobrepaso el fin de archivo (EOF).");
 		exit(EXIT_FAILURE);
 	}
 
@@ -204,21 +170,43 @@ char* getBloque(int numero) {
 		bytesALeer = tamanioArchivo - desplazamiento;
 	/* No puedo mostrar bytes pasando el EOF */
 
-	fileDescriptor = fileno(filePointer);
-
 	regionDeMapeo = mmap(NULL, bytesALeer,
 	PROT_READ, MAP_SHARED, fileDescriptor, desplazamiento);
 
 	if (regionDeMapeo == MAP_FAILED) {
-		perror("[ERROR]. No se pudo reservar la region de mapeo.");
+		log_error(logger, "No se pudo reservar la region de mapeo.");
 		exit(EXIT_FAILURE);
 	}
 
 	strncpy(data, regionDeMapeo, bytesALeer);
-
-	// Libero la region de mapeo solicitada.
-	munmap(regionDeMapeo, bytesALeer);
-	fclose(filePointer);
-
+	munmap(regionDeMapeo, bytesALeer); // Libero la region de mapeo solicitada.
+	log_info(logger, "Realizando lectura del bloque %d...Hecho.", numero);
 	return data;
+}
+
+void abrirDatabin() {
+	filePointer = fopen(RUTA_DATABIN, "r+");
+	// Valida que el archivo exista. Caso contrario lanza error.
+	if (!filePointer) {
+		log_error(logger, "El archivo 'data.bin' no existe en la ruta especificada.");
+		exit(EXIT_FAILURE);
+	}
+	fileDescriptor = fileno(filePointer);
+	log_info(logger, "Abriendo data.bin...Hecho.");
+}
+
+void cerrarDatabin() {
+	fclose(filePointer);
+	log_info(logger, "Cerrando data.bin...Hecho.");
+}
+
+void crearLoggerDatanode() {
+	char cwd[1024];
+	char *path = string_new();
+	string_append(&path, getcwd(cwd, sizeof(cwd)));
+	string_append(&path, "/datanode.log");
+
+	char *fileName = strdup("datanode.log");
+	logger = log_create(fileName, path, true, LOG_LEVEL_INFO);
+	free(fileName);
 }
