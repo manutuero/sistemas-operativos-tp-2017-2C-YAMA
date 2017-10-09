@@ -18,7 +18,6 @@ int PUERTO_WORKER;
 char* RUTA_DATABIN;
 FILE *filePointer;
 int fileDescriptor;
-t_log* logger;
 
 /* TADS */
 typedef struct {
@@ -37,6 +36,5 @@ void cargarArchivoConfiguracionDatanode(char*);
 int conectarAfilesystem(char*, int);
 void abrirDatabin();
 void cerrarDatabin();
-void crearLoggerDatanode();
 
 #endif
