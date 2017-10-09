@@ -121,6 +121,22 @@ void recibirRutaDeArchivoAProcesar(int socketMaster) {
 	} else {
 		buffer = malloc(header.tamanioPayload);
 		recibirPorSocket(socketMaster, buffer, header.tamanioPayload);
+		//se lo manda a FS
+/*
+		char* bufferFS;
+		int desplazamiento = 0;
+		bufferFS = malloc(header.tamanio + 8);
+		memcpy(bufferFS, &header.id, sizeof(header.id));
+		desplazamiento += sizeof(header.id);
+
+		memcpy(bufferFS+desplazamiento,&header.tamanio, sizeof(header.tamanio));
+
+		memcpy(bufferFS+desplazamiento,buffer, header.tamanio);
+
+		enviarPorSocket(socketFS,bufferFS,header.tamanio + desplazamiento);
+		free(bufferFS);
+*/
+
 		t_rutaArchivo* ruta = (t_rutaArchivo*) deserializarRutaArchivo(buffer);
 		printf("me llego la ruta %s\n", ruta->ruta);
 	}
