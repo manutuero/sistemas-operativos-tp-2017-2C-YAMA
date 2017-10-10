@@ -6,7 +6,7 @@ char* pathBitmap = "/home/utnso/Desarrollo/tp-2017-2c-The_Ponchos/fileSystem/met
 int main(void) {
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
-
+/*
 	// Espera que se conecten todos los datanodes para alcanzar un estado "estable", no dejar entrar a YAMA hasta que eso pase.
 	// es  un hilo ya que una vez que queda estable, sigue escuchando conexiones
 	//esperarConexionesDatanodes();
@@ -23,5 +23,14 @@ int main(void) {
 	}
 
 	free(pathBitmap);
+*/
+
+	//almacenarArchivo("/home/utnso/thePonchos", "nuevo.bin", BINARIO, string_repeat('a',1048600));
+
+	printf("%d\n", esValido("sadas"));
+	char *s = string_repeat('a',1048600);
+	string_append(&s,"\n");
+	printf("%d\n", esValido(s));
+
 	return 0;
 }

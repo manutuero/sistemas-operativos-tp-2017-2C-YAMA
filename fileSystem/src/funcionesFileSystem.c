@@ -1,11 +1,14 @@
 #include "funcionesFileSystem.h"
 
 void cargarArchivoDeConfiguracionFS(char* path) {
-	char cwd[1024]; // Current Working Directory. Variable donde voy a guardar el path absoluto hasta el /Debug
-	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
-			path); // String que va a tener el path absoluto para pasarle al config_create
+	char cwd[1024];
+	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)), path);
 	t_config *config = config_create(pathArchConfig);
-	//log_info(vg_logger, "El directorio sobre el que se esta trabajando es %s.", pathArchConfig);
+
+	if(!config) {
+		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		exit(EXIT_FAILURE);
+	}
 
 	if (config_has_property(config, "PUERTO")) {
 		PUERTO = config_get_int_value(config, "PUERTO");
@@ -325,7 +328,7 @@ void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
 	fclose(arch);
 }
 
-//arma el path nombre del bitmap a partir del id del nodo
+// Arma el path nombre del bitmap a partir del id del nodo
 char* armarNombreArchBitmap(int idNodo) {
 	char* nombreArchBitmap = string_new();
 	char* idNodoString = string_itoa(idNodo);
@@ -336,16 +339,61 @@ char* armarNombreArchBitmap(int idNodo) {
 	return nombreArchBitmap;
 }
 
+unsigned int esValido(char *registro) {
+	unsigned int i;
+	for(i = 0; registro[i] != '\n'; i++);
+	return (registro[i] < UN_MEGABYTE)? 1 : 0;
+}
+
 /* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.
  * Quedara a la espera de la respuesta de este para mostrar el resultado de la operacion por pantalla.
  */
 int almacenarArchivo(char* path, char* nombre, int tipo, char* datos) {
+	// 1- Cortar archivos, balancear L/E en nodos(recorrido circular con aux)...
+	int i;
+	size_t offset = 0, largoDatos = strlen(datos);
+	size_t cantidadBloques = (largoDatos / UN_MEGABYTE) + 1;
+	t_bloque bloques[cantidadBloques];
 
-	// 1- planificar nodos, cortar archivos...
+	printf("largo datos: %d\n", strlen(datos));
+	printf("cantBloques: %d\n", cantidadBloques);
+
+	if(tipo == TEXTO) {
+		for(i = 0; i < cantidadBloques; i++) {
+			bloques[i].contenidoBloque = malloc(UN_BLOQUE);
+
+
+			if(largoDatos >= UN_MEGABYTE) {
+
+			}
+		}
+	} else if (tipo == BINARIO) {
+		for(i = 0; i < cantidadBloques; i++) {
+			bloques[i].contenidoBloque = malloc(UN_BLOQUE);
+			if (largoDatos >= UN_MEGABYTE) {
+				bloques[i].bytesOcupados = UN_MEGABYTE;
+				strncpy(bloques[i].contenidoBloque, datos + offset, UN_MEGABYTE);
+				largoDatos -= UN_MEGABYTE;
+				offset += UN_MEGABYTE;
+			} else {
+				bloques[i].bytesOcupados = largoDatos;
+				strncpy(bloques[i].contenidoBloque, datos + offset, largoDatos);
+			}
+		}
+	} else {
+		perror("Error al recibir el tipo de archivo.");
+	}
+
+	printf("Bytes ocupados	Contenido bloque\n");
+	for(i=0; i< cantidadBloques; i++) {
+		printf("%d	%s\n", bloques[i].bytesOcupados,  bloques[i].contenidoBloque);
+	}
 
 	// 2- enviar info al nodo
 
 	// 3- recibir confirmacion (resultado)
+
+	/* RECORDAR LIBERAR EL ARRAY DE T_BLOQUE !!! CON UN FOR POR CADA CONTENIDOBLOQUE*/
 
 	return 0;
 }

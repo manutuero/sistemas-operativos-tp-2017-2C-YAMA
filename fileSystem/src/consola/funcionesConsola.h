@@ -1,9 +1,9 @@
 #ifndef FUNCIONESCONSOLA_H_
 #define FUNCIONESCONSOLA_H_
 
+#include <utils.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <utils.h>
 #include <ctype.h>
 
 /* Defines */

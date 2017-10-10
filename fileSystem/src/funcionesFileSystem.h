@@ -6,12 +6,14 @@
 #include <dirent.h>
 
 #define BACKLOG 3
+#define UN_MEGABYTE 1048576
+#define UN_BLOQUE sizeof(char)*UN_MEGABYTE
 
 /* Enums */
 enum tiposDeArchivos {
 	BINARIO, TEXTO
 };
-enum resultadosOperacion {
+enum resultadosDeOperacion {
 	ERROR = -1, EXITO
 };
 
@@ -19,6 +21,9 @@ enum resultadosOperacion {
 char *ARCHCONFIG;
 int PUERTO;
 extern int estadoFs;
+/* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
+ Para correr estas funciones cada uno deberia modificar el path para que le funcione */
+extern char* pathBitmap;
 
 /*********************** Estructuras ************************/
 
@@ -53,25 +58,25 @@ typedef struct bloque {
 	int nodoCopia1;
 	int bloqueCopia1;
 	struct bloque* siguiente;
-} t_bloque;
+} t_bloque_arch;
 
 typedef struct {
 	char* nombre;
 	char tipo;
 	int tamanio;
-	t_bloque primerBloque;
+	t_bloque_arch primerBloque;
 } composicionArchivo;
 
+typedef struct {
+	size_t bytesOcupados;
+	char* contenidoBloque;
+} t_bloque;
+
 /*********************** Firmas de funciones ************************/
-/* Firma funciones de archivo de configuracion */
+/* Firmas de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char*);
 
-/* Firma funciones de bitmaps */
-
-/* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
- Para correr estas funciones cada uno deberia modificar el path para que le funcione */
-extern char* pathBitmap;
-
+/* Firmas de funciones para bitmaps */
 void cargarArchivoBitmap(FILE*, int);
 int verificarExistenciaArchBitmap(char*, char*);
 void crearArchivoBitmapNodo(int, int);
@@ -79,40 +84,32 @@ void liberarBloqueBitmapNodo(int, int);
 void ocuparBloqueBitmapNodo(int, int);
 char* armarNombreArchBitmap(int);
 
+/* Firmas de funciones para mensajes */
+void* esperarConexionesDatanodes();
+void* serializarInfoNodo(t_infoNodo*, t_header*);
 t_infoNodo deserializarInfoNodo(void*, int);
 
-void* esperarConexionesDatanodes();
-
-/*	La funcion recibirá una ruta completa, el nombre del archivo, el tipo (texto o binario) y los datos
- correspondientes. Responderá con un mensaje confirmando el resultado de la operación.*/
-int almacenarArchivo(char*, char*, int, char*); // Datos podria ser un struct en vez de un char* ... cosa para discutir en grupo.
-
-char* getResultado(int);
-
-void* serializarInfoNodo(t_infoNodo*, t_header*);
+/**** API filesystem ****/
+int almacenarArchivo(char* path, char* nombreArchivo, int tipo, char* data);
 
 /* Firma Funciones de directorios */
-
-//Verifica la existencia del directorio en el array de directorios en memoria
+// Verifica la existencia del directorio en el array de directorios en memoria
 int existeDirectorio(char*, int*);
 
-//Implentacion del mkdir de consola
+// Implentacion del mkdir de consola
 void mkDirFS(char *);
 
-//Buscar primer indice vacio del array de directorios
+// Buscar primer indice vacio del array de directorios
 int buscarPrimerLugarLibre(void);
 
-//Hasta encontrar una mejor forma si cambia el struct t_directory en nombre a char* eliminar
+// Hasta encontrar una mejor forma si cambia el struct t_directory en nombre a char* eliminar
 void cargarNombre(char *, int);
 
-//Dada una posicion libre del array de directorio carga en la misma los datos del nuevo directorio
+// Dada una posicion libre del array de directorio carga en la misma los datos del nuevo directorio
 void crearDirectorioLogico(char*, int, int);
 
-//Crea el directorio propiamente dicho(en FS de linux)
+// Crea el directorio propiamente dicho(en FS de linux)
 void crearDirectorioFisico(int);
-
-//Funcion que reemplaza la de las commons
-void stringAppend(char** original, char* stringToAdd);
 
 // Verifica la existencia del directorio metadata en el path dado, si no existe lo crea.
 void validarMetadata(char* path);
@@ -125,5 +122,10 @@ void obtenerDirectorios(t_directory directorios[], char* path);
 
 // Posible implementacion de LS
 void mostrar(t_directory directorios[]);
+
+/* Auxiliares */
+char* getResultado(int);
+void stringAppend(char** original, char* stringToAdd);
+unsigned int esValido(char* registro);
 
 #endif

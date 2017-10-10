@@ -27,7 +27,7 @@ void * levantarConsola() {
 				break;
 			} else
 				printf("el comando ingresado no es valido.\n");
-			break;
+				break;
 
 		case 2:
 			if (sonIguales(argumentos[0], "rm")) {
@@ -118,10 +118,9 @@ void * levantarConsola() {
 		}
 
 		if (argumentos[0] != NULL)
-			if (strcmp(argumentos[0], "exit") == 0)
+			if (sonIguales(argumentos[0], "exit") == 0)
 				break;
 	}
 
-	free(linea);
 	return EXIT_SUCCESS;
 }
