@@ -2,10 +2,11 @@
 
 void cargarArchivoConfiguracionDatanode(char *nombreArchivo) {
 	char cwd[1024]; // Variable donde voy a guardar el path absoluto
-	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)), nombreArchivo);
+	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+			nombreArchivo);
 	t_config *config = config_create(pathArchConfig);
 
-	if(!config) {
+	if (!config) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
@@ -76,14 +77,14 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	return paquete;
 }
 
-
 int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	void *paquete;
 	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
 	t_header *header = malloc(sizeof(t_header));
 	header->id = 1;
 	if (socketPrograma <= 0) {
-		perror("No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+		perror(
+				"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
 		return (ERROR);
 	}
 	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) != FAIL) {
@@ -110,7 +111,6 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	}
 	return socketPrograma;
 }
-
 
 void setBloque(int numero, char* datos) {
 	size_t bytesAEscribir = strlen(datos), tamanioArchivo;
@@ -195,4 +195,51 @@ void abrirDatabin() {
 
 void cerrarDatabin() {
 	fclose(filePointer);
+}
+
+void escucharFileSystem(int socketFs) {
+	int status = 1;
+	t_header headerFs;
+	while (status) {
+
+		status = recibirHeader(socketFs, &headerFs);
+		//status = recibirPorSocket(socketFs, buffer, 3);
+		if (status > 0) {
+			printf("Recibido header : %d  payload: %d \n", headerFs.id,
+					headerFs.tamanioPayload);
+			void * payload = malloc(headerFs.tamanioPayload);
+			void *numeroDeBloqueRecibido=malloc(sizeof(uint32_t));
+			void* bloqueRecibido;
+			switch (headerFs.id) {
+
+			case 3: //Peticion de lectura de bloque
+				recibirPorSocket(socketFs, payload, headerFs.tamanioPayload);//Recibo directamente ya que solo es un numero
+				int numeroDeBloque;
+				numeroDeBloque = *(int*) payload;
+				printf("Numero de bloque: %d \n", numeroDeBloque);
+				char bloque[UN_BLOQUE];
+				strcpy(bloque, getBloque(numeroDeBloque));
+				printf("Bloque traido: %s \n", bloque);
+				send(socketFs, (void*) bloque, UN_BLOQUE, 0);
+				break;
+
+			case 4: //Peticion de escritura
+				//Hago dos recv. uno para el numero de bloque y otro para el bloque entero.
+				recibirPorSocket(socketFs,numeroDeBloqueRecibido,sizeof(uint32_t));
+				//Recibo bloque
+				bloqueRecibido=malloc(headerFs.tamanioPayload);
+				recibirPorSocket(socketFs, bloqueRecibido, headerFs.tamanioPayload);//Recibo directamente ya que solo es un numero
+				setBloque(*(int*)numeroDeBloqueRecibido,(char*)bloqueRecibido);
+				break;
+			default: {
+				printf("recibi cualquier header: %d", headerFs.id);
+				break;
+			}
+
+			}
+			free(payload);
+			free(bloqueRecibido);
+			free(numeroDeBloqueRecibido);
+		}
+	}
 }
