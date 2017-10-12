@@ -341,11 +341,10 @@ char* armarNombreArchBitmap(int idNodo) {
 	return nombreArchBitmap;
 }
 
-unsigned int esValido(char *registro) {
-	unsigned int i;
-	for (i = 0; registro[i] != '\n'; i++)
-		;
-	return (registro[i] < UN_MEGABYTE) ? 1 : 0;
+void recomponer(char **registros, int cantidadRegistros) {
+	int j;
+	for(j = 0; j < cantidadRegistros; j++)
+		string_append(&registros[j], "\n");
 }
 
 /* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.
@@ -353,52 +352,91 @@ unsigned int esValido(char *registro) {
  */
 int almacenarArchivo(char* path, char* nombre, int tipo, char* datos) {
 	// 1- Cortar archivos, balancear L/E en nodos(recorrido circular con aux)...
-	int i;
-	size_t offset = 0, largoDatos = strlen(datos);
-	size_t cantidadBloques = (largoDatos / UN_MEGABYTE) + 1;
-	t_bloque bloques[cantidadBloques];
+		int i = 0, numeroBloque = 0;
+		size_t offset = 0, bytesOcupados = 0, tamanio = strlen(datos);
+	    char registroPartido = 0;
 
-	printf("largo datos: %d\n", strlen(datos));
-	printf("cantBloques: %d\n", cantidadBloques);
+		if (tipo == TEXTO) {
+			size_t tamanioRegistro, bytesDisponibles = UN_MEGABYTE;
+			char *registro = malloc(UN_BLOQUE);
+			t_list *bloquesAEscribir = list_create();
 
-	if (tipo == TEXTO) {
-		for (i = 0; i < cantidadBloques; i++) {
-			bloques[i].contenidoBloque = malloc(UN_BLOQUE);
+			t_bloque_texto *bloque = malloc(sizeof(t_bloque_texto));
+			bloque->contenido = malloc(UN_BLOQUE);
+			strcpy(bloque->contenido, "");
 
-			if (largoDatos >= UN_MEGABYTE) {
+			char **registros = string_split(datos, "\n");
+			int cantidadRegistros = strlen(registros) / sizeof(registros[0]);
 
+			recomponer(registros, cantidadRegistros);
+			while (i < cantidadRegistros) {
+				tamanioRegistro = strlen(registros[i]);
+				if(tamanioRegistro <= bytesDisponibles) {
+					bytesOcupados += tamanioRegistro;
+					bloque->numeroBloque = numeroBloque;
+					bloque->bytesOcupados = bytesOcupados; // El ultimo byte ocupado
+					string_append(&bloque->contenido, registros[i]);
+					if(registroPartido) {
+						list_add(bloquesAEscribir, bloque);
+						guardarBloqueEnNodo(9, (uint32_t)numeroBloque, (void*)&bloque->contenido); // borrar
+						registroPartido = 0;
+					}
+					bytesDisponibles -= tamanioRegistro;
+					i++;
+				} else if(tamanioRegistro < UN_MEGABYTE) {
+					list_add(bloquesAEscribir, bloque);
+					guardarBloqueEnNodo(9, (uint32_t)numeroBloque, (void*)&bloque->contenido); // borrar
+					bloque = malloc(sizeof(t_bloque_texto));
+					bloque->contenido = malloc(UN_BLOQUE);
+					strcpy(bloque->contenido, "");
+					numeroBloque++;
+					bytesDisponibles = UN_MEGABYTE;
+					bytesOcupados = 0;
+					registroPartido = 1;
+				} else {
+					perror("[ERROR]: El tamaño del registro es mayor que 1 MiB. Abortando operacion de escritura...");
+					exit(EXIT_FAILURE);
+				}
 			}
-		}
-	} else if (tipo == BINARIO) {
-		for (i = 0; i < cantidadBloques; i++) {
-			bloques[i].contenidoBloque = malloc(UN_BLOQUE);
-			if (largoDatos >= UN_MEGABYTE) {
-				bloques[i].bytesOcupados = UN_MEGABYTE;
-				strncpy(bloques[i].contenidoBloque, datos + offset,
-				UN_MEGABYTE);
-				largoDatos -= UN_MEGABYTE;
-				offset += UN_MEGABYTE;
-			} else {
-				bloques[i].bytesOcupados = largoDatos;
-				strncpy(bloques[i].contenidoBloque, datos + offset, largoDatos);
+
+			if(tamanioRegistro <= bytesDisponibles) {
+				list_add(bloquesAEscribir, bloque);
+				guardarBloqueEnNodo(9, (uint32_t)numeroBloque, (void*)bloque->contenido); // borrar
 			}
+
+			list_destroy(bloquesAEscribir);
+			free(bloque);
+			free(registro);
+		} else if (tipo == BINARIO) {
+
+			size_t cantidadBloques = (tamanio / UN_MEGABYTE) + 1;
+			t_bloque_binario bloques[cantidadBloques];
+
+			for (i = 0; i < cantidadBloques; i++) {
+				bloques[i].contenidoBloque = malloc(UN_BLOQUE);
+
+				if (tamanio >= UN_MEGABYTE) {
+					bloques[i].bytesOcupados = UN_MEGABYTE;
+					strncpy(bloques[i].contenidoBloque, datos + offset, UN_MEGABYTE);
+					tamanio -= UN_MEGABYTE;
+					offset += UN_MEGABYTE;
+
+				} else {
+					bloques[i].bytesOcupados = tamanio;
+					strncpy(bloques[i].contenidoBloque, datos + offset, tamanio);
+				}
+			}
+			int rta=guardarBloqueEnNodo(9, i,(void*) bloques[0].contenidoBloque);
+		} else {
+			perror("Error al recibir el tipo de archivo.");
 		}
-	} else {
-		perror("Error al recibir el tipo de archivo.");
-	}
 
-	printf("Bytes ocupados	Contenido bloque\n");
-	for (i = 0; i < cantidadBloques; i++) {
-		printf("%d	%s\n", bloques[i].bytesOcupados, bloques[i].contenidoBloque);
-	}
+		// 2- enviar info al nodo
 
-	// 2- enviar info al nodo
+		// 3- recibir confirmacion (resultado)
 
-	// 3- recibir confirmacion (resultado)
-
-	/* RECORDAR LIBERAR EL ARRAY DE T_BLOQUE !!! CON UN FOR POR CADA CONTENIDOBLOQUE*/
-
-	return 0;
+		/* RECORDAR LIBERAR EL ARRAY DE T_BLOQUE !!! CON UN FOR POR CADA CONTENIDOBLOQUE*/
+		return 0;
 }
 
 char* getResultado(int resultado) {
@@ -573,13 +611,17 @@ void mkDirFS(char * path) {
 	}
 }
 
- void* serializarSetBloque(void* bloque, uint32_t *numeroBloque) {
+ void* serializarSetBloque(void* bloque, uint32_t numBloque) {
+
+	uint32_t *numeroBloque=malloc(sizeof(uint32_t));
+	*numeroBloque=numBloque;
 	t_header *header = malloc(sizeof(t_header));
 	//header->id=malloc(sizeof(uint32_t));
-	header->id = 4;
+	header->id = 4; // solicitud escribir bloque
 	header->tamanioPayload = UN_BLOQUE + sizeof(uint32_t);
-	int desplazamiento = 0; // volvemos a empezar..
-	void *paquete=malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
+	int desplazamiento = 0;
+	void *paquete = malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
+
 	int bytesACopiar = sizeof(uint32_t);
 	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
 	desplazamiento += bytesACopiar;
@@ -591,16 +633,16 @@ void mkDirFS(char * path) {
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(paquete + desplazamiento, numeroBloque, bytesACopiar);
 	desplazamiento += bytesACopiar;
-
 	//copia el bloque al paquete, el tamanio de payload es la suma del bloque y el numero de bloque
 	memcpy(paquete + desplazamiento, bloque, UN_BLOQUE);
 	free(header);
+	free(numeroBloque);
 	return paquete;
 }
 
-int guardarBloqueEnNodo(int nodo, uint32_t *numeroBloque, void* bloque) {
-	int rta=0;
-	void * paquete =serializarSetBloque(bloque, numeroBloque);
+int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void* bloque) {
+	int rta = 0;
+	void *paquete = serializarSetBloque(bloque, numeroBloque);
 	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
 	int socketNodo = socketNodoConectado; //Se usa para testear .
 	//enviarPorSocket(socketNodo, bloque, UN_BLOQUE + sizeof(uint32_t));

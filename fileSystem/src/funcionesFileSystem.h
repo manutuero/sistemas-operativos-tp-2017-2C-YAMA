@@ -4,6 +4,7 @@
 #include "consola/funcionesConsola.h"
 #include <errno.h>
 #include <dirent.h>
+#include <commons/collections/list.h>
 
 #define BACKLOG 3
 #define UN_MEGABYTE 1048576
@@ -73,6 +74,18 @@ typedef struct {
 	char* contenidoBloque;
 } t_bloque;
 
+// Por ahora... vamos a terminar usando t_bloque cuando manu haga que binario no use array
+typedef struct {
+	size_t bytesOcupados;
+	char* contenidoBloque;
+} t_bloque_binario;
+
+typedef struct {
+	int numeroBloque;
+	size_t bytesOcupados;
+	char *contenido;
+} t_bloque_texto;
+
 /*********************** Firmas de funciones ************************/
 /* Firmas de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char*);
@@ -127,7 +140,8 @@ void mostrar(t_directory directorios[]);
 /* Auxiliares */
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
-unsigned int esValido(char* registro);
-int guardarBloqueEnNodo(int, uint32_t *, void* );
+void recomponer(char **registros, int cantidadRegistros);
+int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
+int guardarBloqueEnNodo(int, uint32_t, void*);
 
 #endif
