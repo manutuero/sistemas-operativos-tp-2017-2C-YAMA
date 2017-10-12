@@ -181,6 +181,7 @@ char* getBloque(int numero) {
 	strncpy(data, regionDeMapeo, bytesALeer);
 	munmap(regionDeMapeo, bytesALeer); // Libero la region de mapeo solicitada.
 	return data;
+	free(regionDeMapeo);
 }
 
 void abrirDatabin() {
@@ -204,32 +205,35 @@ void escucharFileSystem(int socketFs) {
 
 		status = recibirHeader(socketFs, &headerFs);
 		//status = recibirPorSocket(socketFs, buffer, 3);
-		if (status > 0) {
+		if ((status > 0) && headerFs.id > 0) {
 			printf("Recibido header : %d  payload: %d \n", headerFs.id,
 					headerFs.tamanioPayload);
-			void * payload = malloc(headerFs.tamanioPayload);
-			void *numeroDeBloqueRecibido=malloc(sizeof(uint32_t));
+			void *numeroDeBloqueRecibido = malloc(sizeof(uint32_t));
 			void* bloqueRecibido;
+			char *bloque;
 			switch (headerFs.id) {
-
 			case 3: //Peticion de lectura de bloque
-				recibirPorSocket(socketFs, payload, headerFs.tamanioPayload);//Recibo directamente ya que solo es un numero
-				int numeroDeBloque;
-				numeroDeBloque = *(int*) payload;
-				printf("Numero de bloque: %d \n", numeroDeBloque);
-				char bloque[UN_BLOQUE];
-				strcpy(bloque, getBloque(numeroDeBloque));
+
+				bloque = getBloque(headerFs.tamanioPayload);
 				printf("Bloque traido: %s \n", bloque);
 				send(socketFs, (void*) bloque, UN_BLOQUE, 0);
+				free(bloque);
 				break;
-
 			case 4: //Peticion de escritura
 				//Hago dos recv. uno para el numero de bloque y otro para el bloque entero.
-				recibirPorSocket(socketFs,numeroDeBloqueRecibido,sizeof(uint32_t));
-				//Recibo bloque
-				bloqueRecibido=malloc(headerFs.tamanioPayload);
-				recibirPorSocket(socketFs, bloqueRecibido, headerFs.tamanioPayload);//Recibo directamente ya que solo es un numero
-				setBloque(*(int*)numeroDeBloqueRecibido,(char*)bloqueRecibido);
+				recv(socketFs, numeroDeBloqueRecibido, sizeof(uint32_t),
+				MSG_WAITALL);
+				bloqueRecibido = malloc(UN_BLOQUE);
+				recibirPorSocket(socketFs, bloqueRecibido, UN_BLOQUE);//Recibo directamente ya que solo es un numero
+				setBloque(*(int*) numeroDeBloqueRecibido,
+						(char*) bloqueRecibido);
+				int *respuesta = malloc(sizeof(uint32_t));
+				printf("Bloque recibido: %s",(char*)bloqueRecibido);
+				puts("");
+				*respuesta = 1;	//set bloque deberia devolver un valor si estuvo todo ok
+				send(socketFs, (void*) respuesta, sizeof(uint32_t), 0);
+				free(respuesta);
+				free(bloqueRecibido);
 				break;
 			default: {
 				printf("recibi cualquier header: %d", headerFs.id);
@@ -237,9 +241,8 @@ void escucharFileSystem(int socketFs) {
 			}
 
 			}
-			free(payload);
-			free(bloqueRecibido);
 			free(numeroDeBloqueRecibido);
+
 		}
 	}
 }
