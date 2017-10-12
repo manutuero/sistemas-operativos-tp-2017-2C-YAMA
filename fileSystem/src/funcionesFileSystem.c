@@ -2,10 +2,11 @@
 
 void cargarArchivoDeConfiguracionFS(char* path) {
 	char cwd[1024];
-	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)), path);
+	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+			path);
 	t_config *config = config_create(pathArchConfig);
 
-	if(!config) {
+	if (!config) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
@@ -176,17 +177,17 @@ void * esperarConexionesDatanodes() {
 			}
 
 			//inform user of socket number - used in send and receive commands
-			printf(
-					"Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
-					socketEntrante, inet_ntoa(address.sin_addr), PUERTO);
+			//printf(
+			//	"Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
+			//socketEntrante, inet_ntoa(address.sin_addr), PUERTO);
 
 			//Agrego el nuevo socket al array
 			for (i = 0; i < numeroClientes; i++) {
 				//Busco una pos vacia en la lista de clientes para guardar el socket entrante
 				if (socketsClientes[i] == 0) {
 					socketsClientes[i] = socketEntrante;
-					printf("Se agrego el nuevo socket en la posicion: %d.\n",
-							i);
+					//printf("Se agrego el nuevo socket en la posicion: %d.\n",
+					//	i);
 					break;
 				}
 			}
@@ -202,7 +203,7 @@ void * esperarConexionesDatanodes() {
 				// desconexion
 				if (recibirHeader(sd, &header) == 0) {
 					//getpeername(sd, (struct sockaddr*) &address, (socklen_t*) &addrlen);
-					printf("Cliente desconectado sd: %d \n", sd);
+					//printf("Cliente desconectado sd: %d \n", sd);
 					close(sd);
 					socketsClientes[i] = 0;
 					//SI SE DESCONECTO UN NODO BUSCARLO EN LA LISTA DE NODOS
@@ -214,7 +215,7 @@ void * esperarConexionesDatanodes() {
 
 				//Si entra aca recibi un header que va a tener la info de quien se conecto.
 				else {
-					printf("Header : %d.\n", header.tamanioPayload);
+					//printf("Header : %d.\n", header.tamanioPayload);
 				}
 
 				buffer = malloc(header.tamanioPayload);
@@ -230,14 +231,15 @@ void * esperarConexionesDatanodes() {
 					// Crear funcion que maneje la lista de struct t_infoNodo. "add" infoNodo por ejemplo.
 					//Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
 					//SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
-					printf("***************************************\n");
-					printf("sdNodo: %d\n", infoNodo.sdNodo);
-					printf("idNodo: %d\n", infoNodo.idNodo);
-					printf("cantidadBloques: %d\n", infoNodo.cantidadBloques);
-					printf("puerto: %d\n", infoNodo.puerto);
-					printf("ip: %s\n", infoNodo.ip);
+					/*printf("***************************************\n");
+					 printf("sdNodo: %d\n", infoNodo.sdNodo);
+					 printf("idNodo: %d\n", infoNodo.idNodo);
+					 printf("cantidadBloques: %d\n", infoNodo.cantidadBloques);
+					 printf("puerto: %d\n", infoNodo.puerto);
+					 printf("ip: %s\n", infoNodo.ip);*/
 					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 					//BLOQUES DE ESE NODO
+					socketNodoConectado = sd;
 				}
 				//printf("Paquete recibido. \n Mensaje: %s usuario: %s \n ",nuevoPacketeRecbido.message,nuevoPacketeRecbido.username);
 				free(buffer);
@@ -341,8 +343,9 @@ char* armarNombreArchBitmap(int idNodo) {
 
 unsigned int esValido(char *registro) {
 	unsigned int i;
-	for(i = 0; registro[i] != '\n'; i++);
-	return (registro[i] < UN_MEGABYTE)? 1 : 0;
+	for (i = 0; registro[i] != '\n'; i++)
+		;
+	return (registro[i] < UN_MEGABYTE) ? 1 : 0;
 }
 
 /* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.
@@ -358,21 +361,21 @@ int almacenarArchivo(char* path, char* nombre, int tipo, char* datos) {
 	printf("largo datos: %d\n", strlen(datos));
 	printf("cantBloques: %d\n", cantidadBloques);
 
-	if(tipo == TEXTO) {
-		for(i = 0; i < cantidadBloques; i++) {
+	if (tipo == TEXTO) {
+		for (i = 0; i < cantidadBloques; i++) {
 			bloques[i].contenidoBloque = malloc(UN_BLOQUE);
 
-
-			if(largoDatos >= UN_MEGABYTE) {
+			if (largoDatos >= UN_MEGABYTE) {
 
 			}
 		}
 	} else if (tipo == BINARIO) {
-		for(i = 0; i < cantidadBloques; i++) {
+		for (i = 0; i < cantidadBloques; i++) {
 			bloques[i].contenidoBloque = malloc(UN_BLOQUE);
 			if (largoDatos >= UN_MEGABYTE) {
 				bloques[i].bytesOcupados = UN_MEGABYTE;
-				strncpy(bloques[i].contenidoBloque, datos + offset, UN_MEGABYTE);
+				strncpy(bloques[i].contenidoBloque, datos + offset,
+				UN_MEGABYTE);
 				largoDatos -= UN_MEGABYTE;
 				offset += UN_MEGABYTE;
 			} else {
@@ -385,8 +388,8 @@ int almacenarArchivo(char* path, char* nombre, int tipo, char* datos) {
 	}
 
 	printf("Bytes ocupados	Contenido bloque\n");
-	for(i=0; i< cantidadBloques; i++) {
-		printf("%d	%s\n", bloques[i].bytesOcupados,  bloques[i].contenidoBloque);
+	for (i = 0; i < cantidadBloques; i++) {
+		printf("%d	%s\n", bloques[i].bytesOcupados, bloques[i].contenidoBloque);
 	}
 
 	// 2- enviar info al nodo
@@ -568,6 +571,99 @@ void mkDirFS(char * path) {
 	default:
 		printf("El directorio no se puede crear. La ruta no existe");
 	}
+}
+
+ void* serializarSetBloque(void* bloque, uint32_t *numeroBloque) {
+	t_header *header = malloc(sizeof(t_header));
+	//header->id=malloc(sizeof(uint32_t));
+	header->id = 4;
+	header->tamanioPayload = UN_BLOQUE + sizeof(uint32_t);
+	int desplazamiento = 0; // volvemos a empezar..
+	void *paquete=malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
+	int bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, numeroBloque, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	//copia el bloque al paquete, el tamanio de payload es la suma del bloque y el numero de bloque
+	memcpy(paquete + desplazamiento, bloque, UN_BLOQUE);
+	free(header);
+	return paquete;
+}
+
+int guardarBloqueEnNodo(int nodo, uint32_t *numeroBloque, void* bloque) {
+	int rta=0;
+	void * paquete =serializarSetBloque(bloque, numeroBloque);
+	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
+	int socketNodo = socketNodoConectado; //Se usa para testear .
+	//enviarPorSocket(socketNodo, bloque, UN_BLOQUE + sizeof(uint32_t));
+	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
+	void *respuesta = malloc(sizeof(uint32_t));
+	//int recibidos = recv(socketNodo, respuesta, sizeof(uint32_t), MSG_WAITALL);
+	int recibidos = recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t));
+	if (recibidos > 0) {	//  no hubo error en el send
+		if (*(int*) respuesta == 1) {//La respuesta fue 1, el bloque se guardo correctamente.
+			printf("Bloque guardado correctamente");
+			rta =1;
+		} else {
+			printf("algo paso y no se guardo el bloque");
+			rta= 0;
+		}
+	} else {
+		rta= 0;
+	}
+	free(respuesta);
+	free(paquete);
+	return rta;
+}
+
+int getNodo(int nodoNumero) {
+	//Tiene que buscar en la lista de nodos conectados, por ahora trae el unico conectado
+	return socketNodoConectado;
+}
+
+void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete) {
+	t_header *header = malloc(sizeof(t_header));
+	//header->id=malloc(sizeof(uint32_t));
+	header->id = id;
+	header->tamanioPayload = numBloque;
+	int desplazamiento = 0;
+	int bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
+	desplazamiento += bytesACopiar;
+	free(header);
+}
+
+int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
+	int rta=0;
+	int socketNodo = getNodo(nodo);
+	void *paquete = malloc(sizeof(uint32_t) * 2);
+	serializarHeaderTraerBloque(3, numBloque, paquete);
+	int bytesEnviados = enviarPorSocket(socketNodo, paquete,
+			0);
+	if (bytesEnviados <= 0) {
+		printf("Error al enviar peticion al nodo \n");
+		rta= 0;
+	} else {
+
+		if (recibirPorSocket(socketNodo, bloque, UN_BLOQUE) > 0) {
+			rta= 1;
+		} else
+			rta= 0;
+	}
+	free(paquete);
+	return rta;
 }
 
 void crearDirectorioLogico(char* nombre, int padre, int indice) {

@@ -5,6 +5,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <ctype.h>
+#include "../funcionesFileSystem.h"
 
 /* Defines */
 #define ESPACIO " "

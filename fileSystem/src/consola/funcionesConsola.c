@@ -50,10 +50,28 @@ char** cargarArgumentos(char* linea) {
 char* invocarFuncionFormat(char **argumentos) {
 	t_comando comando;
 	inicializarComando(&comando);
-
 	comando.funcion = 1;
 	printf("Funcion de format.\n");
-	return "<default>";
+	int *numBloque = malloc(sizeof(int));
+	*numBloque = 9;
+	char bloque[UN_BLOQUE] = "Estoy guardando un bloquecin. Esperemos que funcione";
+	int rta =guardarBloqueEnNodo(9,numBloque,(void*) bloque);
+	if (rta == 1) {
+		puts("");
+		printf("Se guardo el bloque correctamente");
+
+	} else {
+		printf("error al guardar bloque");
+	}
+
+	void *bloqueTraido=malloc(UN_BLOQUE);
+
+	if(traerBloqueNodo(9,*numBloque,bloqueTraido)>0){
+		printf("--------Bloque traido con la funcion traer bloque: %s ------- \n",(char*)bloqueTraido);
+	} else {puts("Error al traer bloque");}
+	free(numBloque);
+	free(bloqueTraido);
+	return "";
 }
 
 char* invocarFuncionRm(char **argumentos) {

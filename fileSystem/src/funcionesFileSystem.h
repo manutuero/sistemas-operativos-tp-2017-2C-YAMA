@@ -48,6 +48,7 @@ typedef struct {
 	int padre;
 } t_directory;
 
+int socketNodoConectado;
 extern t_directory directorios[100];
 
 /* Estructuras de archivos */
@@ -127,5 +128,6 @@ void mostrar(t_directory directorios[]);
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 unsigned int esValido(char* registro);
+int guardarBloqueEnNodo(int, uint32_t *, void* );
 
 #endif

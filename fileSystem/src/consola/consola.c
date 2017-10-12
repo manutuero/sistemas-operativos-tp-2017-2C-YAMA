@@ -19,15 +19,18 @@ void * levantarConsola() {
 		switch (cantidadElementos) {
 		case 1:
 			if (sonIguales(argumentos[0], "format")) {
+				printf("Funcion format \n");
 				invocarFuncionFormat(argumentos);
+			//	puts("vuelve a la principa");
 				break;
 			}
 			if (sonIguales(argumentos[0], "exit")) {
-				printf("Que tenga un buen dia");
+				puts("Que tenga un buen dia");
+				return EXIT_SUCCESS;
 				break;
 			} else
 				printf("el comando ingresado no es valido.\n");
-				break;
+			break;
 
 		case 2:
 			if (sonIguales(argumentos[0], "rm")) {
@@ -117,10 +120,6 @@ void * levantarConsola() {
 
 		}
 
-		if (argumentos[0] != NULL)
-			if (sonIguales(argumentos[0], "exit") == 0)
-				break;
 	}
-
 	return EXIT_SUCCESS;
 }
