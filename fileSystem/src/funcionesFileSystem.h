@@ -2,18 +2,13 @@
 #define FUNCIONALMACENARARCHIVOFILESYSTEM_SRC_COSASDELFILESYSTEM_H_
 
 #include "consola/funcionesConsola.h"
+#include "API/fileSystemAPI.h"
 #include <errno.h>
 #include <dirent.h>
-#include <commons/collections/list.h>
 
 #define BACKLOG 3
-#define UN_MEGABYTE 1048576
-#define UN_BLOQUE sizeof(char)*UN_MEGABYTE
 
 /* Enums */
-enum tiposDeArchivos {
-	BINARIO, TEXTO
-};
 enum resultadosDeOperacion {
 	ERROR = -1, EXITO
 };
@@ -24,7 +19,7 @@ int PUERTO;
 extern int estadoFs;
 /* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
  Para correr estas funciones cada uno deberia modificar el path para que le funcione */
-extern char* pathBitmap;
+extern char *pathBitmap;
 
 /*********************** Estructuras ************************/
 
@@ -69,29 +64,13 @@ typedef struct {
 	t_bloque_arch primerBloque;
 } composicionArchivo;
 
-typedef struct {
-	size_t bytesOcupados;
-	char* contenidoBloque;
-} t_bloque;
-
-// Por ahora... vamos a terminar usando t_bloque cuando manu haga que binario no use array
-typedef struct {
-	size_t bytesOcupados;
-	char* contenidoBloque;
-} t_bloque_binario;
-
-typedef struct {
-	int numeroBloque;
-	size_t bytesOcupados;
-	char *contenido;
-} t_bloque_texto;
-
 /*********************** Firmas de funciones ************************/
 /* Firmas de funciones para archivo de configuracion */
-void cargarArchivoDeConfiguracionFS(char*);
+void cargarArchivoDeConfiguracionFS(char *path);
 
 /* Firmas de funciones para bitmaps */
-void cargarArchivoBitmap(FILE*, int);
+// Crea un array de tipo t_bitmap y lo carga al archivo.
+void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin);
 int verificarExistenciaArchBitmap(char*, char*);
 void crearArchivoBitmapNodo(int, int);
 void liberarBloqueBitmapNodo(int, int);
@@ -100,47 +79,34 @@ char* armarNombreArchBitmap(int);
 
 /* Firmas de funciones para mensajes */
 void* esperarConexionesDatanodes();
-void* serializarInfoNodo(t_infoNodo*, t_header*);
-t_infoNodo deserializarInfoNodo(void*, int);
+void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header);
+t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
 
-/**** API filesystem ****/
-int almacenarArchivo(char* path, char* nombreArchivo, int tipo, char* data);
-
-/* Firma Funciones de directorios */
-// Verifica la existencia del directorio en el array de directorios en memoria
-int existeDirectorio(char*, int*);
-
-// Implentacion del mkdir de consola
-void mkDirFS(char *);
-
-// Buscar primer indice vacio del array de directorios
+/* Firmas de funciones para directorios */
+// Verifica la existencia del directorio en el array de directorios cargado en memoria.
+int existeDirectorio(char *path, int *padre);
+// Implementacion del comando mkdir de consola.
+void mkDirFS(char *path);
+// Buscar primer indice vacio del array de directorios.
 int buscarPrimerLugarLibre(void);
-
 // Hasta encontrar una mejor forma si cambia el struct t_directory en nombre a char* eliminar
 void cargarNombre(char *, int);
-
 // Dada una posicion libre del array de directorio carga en la misma los datos del nuevo directorio
 void crearDirectorioLogico(char*, int, int);
-
 // Crea el directorio propiamente dicho(en FS de linux)
 void crearDirectorioFisico(int);
-
 // Verifica la existencia del directorio metadata en el path dado, si no existe lo crea.
 void validarMetadata(char* path);
-
 // Persiste un array de directorios en el archivo path/metadata/directorios.dat (la ruta se genera sola)
 void persistirDirectorios(t_directory directorios[], char* path);
-
 // Carga el array pasado como argumento con los directorios que se encuentran almacenados en el archivo path/metadata/directorios.dat.
 void obtenerDirectorios(t_directory directorios[], char* path);
-
-// Posible implementacion de LS
+// Posible implementacion de ls
 void mostrar(t_directory directorios[]);
 
 /* Auxiliares */
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
-void recomponer(char **registros, int cantidadRegistros);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(int, uint32_t, void*);
 

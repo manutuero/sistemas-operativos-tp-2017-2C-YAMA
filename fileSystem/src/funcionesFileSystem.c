@@ -1,6 +1,6 @@
 #include "funcionesFileSystem.h"
 
-void cargarArchivoDeConfiguracionFS(char* path) {
+void cargarArchivoDeConfiguracionFS(char *path) {
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
@@ -16,10 +16,11 @@ void cargarArchivoDeConfiguracionFS(char* path) {
 	}
 }
 
-void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
+void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header) {
 	uint32_t bytesACopiar = 0, desplazamiento = 0, largoIp;
 
-	void *payload = malloc(sizeof(uint32_t) * 5); // reservo 4 uint32_t para los primeros 4 campos del struct + 1 para el largo del string ip.
+	// reservo 4 uint32_t para los primeros 4 campos del struct + 1 para el largo del string ip.
+	void *payload = malloc(sizeof(uint32_t) * 5);
 
 	/* Serializamos el payload */
 	bytesACopiar = sizeof(uint32_t);
@@ -66,7 +67,7 @@ void* serializarInfoNodo(t_infoNodo* infoNodo, t_header* header) {
 	return paquete;
 }
 
-t_infoNodo deserializarInfoNodo(void* mensaje, int tamanioPayload) {
+t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload) {
 	t_infoNodo infoNodo;
 	uint32_t desplazamiento = 0, bytesACopiar = 0, tamanioIp = 0;
 
@@ -98,7 +99,7 @@ t_infoNodo deserializarInfoNodo(void* mensaje, int tamanioPayload) {
 	return infoNodo;
 }
 
-void * esperarConexionesDatanodes() {
+void* esperarConexionesDatanodes() {
 	int socketServidor, numeroClientes = 10, socketsClientes[10] = { }, opt = 1,
 			addrlen, max_sd, i, sd, actividad, socketEntrante;
 	struct sockaddr_in address;
@@ -251,33 +252,31 @@ void * esperarConexionesDatanodes() {
 
 }
 
-//Crea un array de tipo t_bitmap y lo carga al archivo
-void cargarArchivoBitmap(FILE* arch, int tamanioDatabin) {
+void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin) {
 	int i;
 	t_bitMap arrayBitmap[tamanioDatabin];
 	for (i = 0; i < (tamanioDatabin); i++) {
 		arrayBitmap[i].estadoBLoque = 'L';
 	}
 	for (i = 0; i < (tamanioDatabin); i++) {
-		fwrite(&arrayBitmap[i], sizeof(char), 1, arch);
+		fwrite(&arrayBitmap[i], sizeof(char), 1, archivo);
 	}
 }
 
-int verificarExistenciaArchBitmap(char*nombreArchBitmap, char*path) {
-	DIR* directorio;
-	directorio = opendir(path);
+int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
+	DIR *directorio = opendir(path);
 
-	if (directorio == NULL) { // Aca se verifica si el directorio a bitmaps existe
+	if (!directorio) { // Verifica si el directorio a bitmaps existe.
 		closedir(directorio);
 		return 2;
 	}
+
 	closedir(directorio);
 
 	if (access(nombreArchBitmap, F_OK) != -1) {
 		return 1;
 	}
 	return 0;
-
 }
 
 // Esta funcion crea un archivo bitmap con el nombre id del nodo y
@@ -285,24 +284,19 @@ int verificarExistenciaArchBitmap(char*nombreArchBitmap, char*path) {
 void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
 	char*nombreArchBitmap = armarNombreArchBitmap(idNodo);
 	FILE* arch;
-
 	switch (verificarExistenciaArchBitmap(nombreArchBitmap, pathBitmap)) {
-
 	case 0:
 		arch = fopen(nombreArchBitmap, "w+");
 		cargarArchivoBitmap(arch, tamanioDatabinNodo);
 		fclose(arch);
 		break;
-
 	case 1:
 		printf("Archivo bitmap ya existe");
 		break;
-
 	case 2:
 		printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
 		break;
 	}
-
 }
 
 //Accede al numero de bloque en el array y modifica su estado
@@ -339,115 +333,6 @@ char* armarNombreArchBitmap(int idNodo) {
 	string_append(&nombreArchBitmap, ".dat");
 
 	return nombreArchBitmap;
-}
-
-void recomponer(char **registros, int cantidadRegistros) {
-	int j;
-	for(j = 0; j < cantidadRegistros; j++)
-		string_append(&registros[j], "\n");
-}
-
-/* Esta funcion, desde el lado del filesystem solamente enviara por socket lo necesario al proceso datanode para que el se ocupe de almacenar.
- * Quedara a la espera de la respuesta de este para mostrar el resultado de la operacion por pantalla.
- */
-int almacenarArchivo(char* path, char* nombre, int tipo, char* datos) {
-	// 1- Cortar archivos, balancear L/E en nodos(recorrido circular con aux)...
-		int i = 0, numeroBloque = 0;
-		size_t offset = 0, bytesOcupados = 0, tamanio = strlen(datos);
-	    char registroPartido = 0;
-
-		if (tipo == TEXTO) {
-			size_t tamanioRegistro, bytesDisponibles = UN_MEGABYTE;
-			char *registro = malloc(UN_BLOQUE);
-			t_list *bloquesAEscribir = list_create();
-
-			t_bloque_texto *bloque = malloc(sizeof(t_bloque_texto));
-			bloque->contenido = malloc(UN_BLOQUE);
-			strcpy(bloque->contenido, "");
-
-			char **registros = string_split(datos, "\n");
-			int cantidadRegistros = strlen(registros) / sizeof(registros[0]);
-
-			recomponer(registros, cantidadRegistros);
-			while (i < cantidadRegistros) {
-				tamanioRegistro = strlen(registros[i]);
-				if(tamanioRegistro <= bytesDisponibles) {
-					bytesOcupados += tamanioRegistro;
-					bloque->numeroBloque = numeroBloque;
-					bloque->bytesOcupados = bytesOcupados; // El ultimo byte ocupado
-					string_append(&bloque->contenido, registros[i]);
-					if(registroPartido) {
-						list_add(bloquesAEscribir, bloque);
-						guardarBloqueEnNodo(9, (uint32_t)numeroBloque, (void*)&bloque->contenido); // borrar
-						registroPartido = 0;
-					}
-					bytesDisponibles -= tamanioRegistro;
-					i++;
-				} else if(tamanioRegistro < UN_MEGABYTE) {
-					list_add(bloquesAEscribir, bloque);
-					guardarBloqueEnNodo(9, (uint32_t)numeroBloque, (void*)&bloque->contenido); // borrar
-					bloque = malloc(sizeof(t_bloque_texto));
-					bloque->contenido = malloc(UN_BLOQUE);
-					strcpy(bloque->contenido, "");
-					numeroBloque++;
-					bytesDisponibles = UN_MEGABYTE;
-					bytesOcupados = 0;
-					registroPartido = 1;
-				} else {
-					perror("[ERROR]: El tamaño del registro es mayor que 1 MiB. Abortando operacion de escritura...");
-					exit(EXIT_FAILURE);
-				}
-			}
-
-			if(tamanioRegistro <= bytesDisponibles) {
-				list_add(bloquesAEscribir, bloque);
-				guardarBloqueEnNodo(9, (uint32_t)numeroBloque, (void*)bloque->contenido); // borrar
-			}
-
-			list_destroy(bloquesAEscribir);
-			free(bloque);
-			free(registro);
-		} else if (tipo == BINARIO) {
-
-			size_t cantidadBloques = (tamanio / UN_MEGABYTE) + 1;
-			t_bloque_binario bloques[cantidadBloques];
-
-			for (i = 0; i < cantidadBloques; i++) {
-				bloques[i].contenidoBloque = malloc(UN_BLOQUE);
-
-				if (tamanio >= UN_MEGABYTE) {
-					bloques[i].bytesOcupados = UN_MEGABYTE;
-					strncpy(bloques[i].contenidoBloque, datos + offset, UN_MEGABYTE);
-					tamanio -= UN_MEGABYTE;
-					offset += UN_MEGABYTE;
-
-				} else {
-					bloques[i].bytesOcupados = tamanio;
-					strncpy(bloques[i].contenidoBloque, datos + offset, tamanio);
-				}
-			}
-			int rta=guardarBloqueEnNodo(9, i,(void*) bloques[0].contenidoBloque);
-		} else {
-			perror("Error al recibir el tipo de archivo.");
-		}
-
-		// 2- enviar info al nodo
-
-		// 3- recibir confirmacion (resultado)
-
-		/* RECORDAR LIBERAR EL ARRAY DE T_BLOQUE !!! CON UN FOR POR CADA CONTENIDOBLOQUE*/
-		return 0;
-}
-
-char* getResultado(int resultado) {
-	switch (resultado) {
-	case EXITO:
-		return "exitoso";
-	case ERROR:
-		return "erroneo";
-	default:
-		return "erroneo";
-	}
 }
 
 t_directory directoriosAGuardar[100] = { { 0, "/", -1 },
@@ -547,12 +432,11 @@ void mostrar(t_directory directorios[]) {
 	}
 }
 
-int existeDirectorio(char* path, int * padre) {
+int existeDirectorio(char *path, int *padre) {
 	int i;
-
 	for (i = 0; i < 100; i++) {
-		if ((strcmp(path, directorios[i].nombre) == 0)
-				&& (directorios[i].padre = *padre)) {
+		if ((sonIguales(path, directorios[i].nombre)) && (directorios[i].padre =
+				*padre)) {
 			*padre = (int) directorios[i].padre;
 			return 1;
 		}
@@ -562,7 +446,6 @@ int existeDirectorio(char* path, int * padre) {
 
 int buscarPrimerLugarLibre() {
 	int posicion = 0, i;
-
 	for (i = 0; i < 100; i++) {
 		if (strcmp(directorios[i].nombre, "") == 0) {
 			posicion = i;
@@ -573,7 +456,7 @@ int buscarPrimerLugarLibre() {
 	return posicion;
 }
 
-void mkDirFS(char * path) {
+void mkDirFS(char *path) {
 	int coincidencias = 0;
 	int padre = 0;
 	int i;
@@ -611,10 +494,10 @@ void mkDirFS(char * path) {
 	}
 }
 
- void* serializarSetBloque(void* bloque, uint32_t numBloque) {
+void* serializarSetBloque(void* bloque, uint32_t numBloque) {
 
-	uint32_t *numeroBloque=malloc(sizeof(uint32_t));
-	*numeroBloque=numBloque;
+	uint32_t *numeroBloque = malloc(sizeof(uint32_t));
+	*numeroBloque = numBloque;
 	t_header *header = malloc(sizeof(t_header));
 	//header->id=malloc(sizeof(uint32_t));
 	header->id = 4; // solicitud escribir bloque
@@ -653,13 +536,13 @@ int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void* bloque) {
 	if (recibidos > 0) {	//  no hubo error en el send
 		if (*(int*) respuesta == 1) {//La respuesta fue 1, el bloque se guardo correctamente.
 			printf("Bloque guardado correctamente");
-			rta =1;
+			rta = 1;
 		} else {
 			printf("algo paso y no se guardo el bloque");
-			rta= 0;
+			rta = 0;
 		}
 	} else {
-		rta= 0;
+		rta = 0;
 	}
 	free(respuesta);
 	free(paquete);
@@ -688,21 +571,20 @@ void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete)
 }
 
 int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
-	int rta=0;
+	int rta = 0;
 	int socketNodo = getNodo(nodo);
 	void *paquete = malloc(sizeof(uint32_t) * 2);
 	serializarHeaderTraerBloque(3, numBloque, paquete);
-	int bytesEnviados = enviarPorSocket(socketNodo, paquete,
-			0);
+	int bytesEnviados = enviarPorSocket(socketNodo, paquete, 0);
 	if (bytesEnviados <= 0) {
 		printf("Error al enviar peticion al nodo \n");
-		rta= 0;
+		rta = 0;
 	} else {
 
 		if (recibirPorSocket(socketNodo, bloque, UN_BLOQUE) > 0) {
-			rta= 1;
+			rta = 1;
 		} else
-			rta= 0;
+			rta = 0;
 	}
 	free(paquete);
 	return rta;

@@ -22,7 +22,5 @@ int main(void) {
 	}
 
 	free(pathBitmap);
-
-	//almacenarArchivo("/home/utnso/thePonchos", "nuevo.bin", BINARIO, string_repeat('a',1048600));
 	return 0;
 }

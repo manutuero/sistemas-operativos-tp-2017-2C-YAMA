@@ -52,12 +52,13 @@ char* invocarFuncionFormat(char **argumentos) {
 	inicializarComando(&comando);
 	comando.funcion = 1;
 	printf("Funcion de format.\n");
-	char *s = string_repeat('a', 8);
-	string_append(&s,"\n");
-	string_append(&s,"bbbb\n");
-	string_append(&s,"cc\n");
+	char *path = "/home/utnso/thePonchos";
 
-	almacenarArchivo("/home/utnso/thePonchos", "nuevo.bin", BINARIO, s);
+	FILE *datos = fopen(path, "r");
+	almacenarArchivo(path, "nuevo.bin", BINARIO, datos);
+
+	free(path);
+	fclose(datos);
 	return "";
 }
 
