@@ -23,13 +23,17 @@ typedef struct {
 	char *contenido;
 } t_bloque;
 
+
+/* API */
+int almacenarArchivo(char* path, char* nombreArchivo, int tipo, FILE *datos); // stream de datos
+
+/* Auxiliares*/
 void escribirStreamConFormato(FILE *stream, char *format, ...);
 char* nuevoArchivo();
-int almacenarArchivo(char* path, char* nombreArchivo, int tipo, FILE *datos); // stream de datos
 void liberarBLoque(t_bloque* bloque);
 int proximoRegistro(FILE *datos, char *registro);
-int parsearArchivoDeTexto(FILE *datos);
-int parsearArchivoBinario(FILE *datos);
+t_list* parsearArchivoDeTexto(FILE *datos);
+t_list* parsearArchivoBinario(FILE *datos);
 void limpiar(char* string, size_t largo);
 t_bloque* nuevoBloque(uint32_t numeroBloque);
 

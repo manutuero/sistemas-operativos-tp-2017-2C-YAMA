@@ -1,5 +1,13 @@
 #include "funcionesFileSystem.h"
 
+/* Inicializacion de variables globales */
+int estadoFs = ESTABLE;
+char *pathBitmap = "/home/utnso/thePonchos/metadata/bitmaps";
+
+t_directory directoriosAGuardar[100] = { { 0, "/", -1 },}; // PREGUNTAR A LOS CHICOS ??
+t_directory directoriosGuardados[100] = { }, directorios[100] = { };
+
+/* Implementacion de funciones */
 void cargarArchivoDeConfiguracionFS(char *path) {
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
@@ -13,6 +21,20 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 
 	if (config_has_property(config, "PUERTO")) {
 		PUERTO = config_get_int_value(config, "PUERTO");
+	} else {
+		perror("No existe la clave 'PUERTO' en el archivo de configuracion.");
+	}
+
+	if (config_has_property(config, "CANTIDAD_NODOS_ESPERADOS")) {
+		CANTIDAD_NODOS_ESPERADOS = config_get_int_value(config, "CANTIDAD_NODOS_ESPERADOS");
+	} else {
+		perror("No existe la clave 'CANTIDAD_NODOS_ESPERADOS' en el archivo de configuracion.");
+	}
+
+	if (config_has_property(config, "PATH_METADATA")) {
+		PATH_METADATA = config_get_string_value(config, "PATH_METADATA");
+	} else {
+		perror("No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
 	}
 }
 
@@ -128,8 +150,6 @@ void* esperarConexionesDatanodes() {
 		exit(EXIT_FAILURE);
 	}
 
-	//printf("\nEscuchando en el puerto: %d\n", PUERTO);
-
 	/* Especifica un maximo de BACKLOG conexiones pendientes por parte del socketServidor
 	 IMPORTANTE: listen() es una syscall BLOQUEANTE. socketServidor es el que escucha. */
 	if (listen(socketServidor, BACKLOG) < 0) {
@@ -240,6 +260,7 @@ void* esperarConexionesDatanodes() {
 					 printf("ip: %s\n", infoNodo.ip);*/
 					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 					//BLOQUES DE ESE NODO
+
 					socketNodoConectado = sd;
 				}
 				//printf("Paquete recibido. \n Mensaje: %s usuario: %s \n ",nuevoPacketeRecbido.message,nuevoPacketeRecbido.username);
@@ -335,14 +356,6 @@ char* armarNombreArchBitmap(int idNodo) {
 	return nombreArchBitmap;
 }
 
-t_directory directoriosAGuardar[100] = { { 0, "/", -1 },
-
-};
-
-t_directory directoriosGuardados[100] = { }; // Inicializo el array de estructuras
-
-t_directory directorios[100] = { };
-
 void validarMetadata(char* path) {
 	//faltaria sumar aunque sea 1 al malloc por '\0'?
 	char *newPath = malloc(strlen(path) + strlen("/metadata"));
@@ -370,23 +383,15 @@ void validarMetadata(char* path) {
 	free(newPath);
 }
 
-void persistirDirectorios(t_directory directorios[], char* path) {
+void persistirDirectorios(t_directory directorios[]) {
 	int i;
-	char *newPath = malloc(strlen(path) + strlen("/metadata/directorios.dat"));
-
-	if (newPath != NULL) {
-		newPath[0] = '\0';
-		strcat(newPath, path);
-		strcat(newPath, "/metadata/directorios.dat");
-	} else {
-		fprintf(stderr, "malloc fallido!.\n");
-	}
-
-	FILE *filePointer = fopen(newPath, "w+b");
-	fseek(filePointer, 0, SEEK_SET);
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/directorios.dat");
+	FILE *filePointer = fopen(path, "w+b");
 
 	if (!filePointer) {
-		fprintf(stderr, "Error. No se puede abrir el archivo");
+		perror("Error. No se puede abrir el archivo");
 	}
 
 	for (i = 0; i < 100; i++) {
@@ -394,26 +399,17 @@ void persistirDirectorios(t_directory directorios[], char* path) {
 	}
 
 	fclose(filePointer);
-	free(newPath);
 }
 
-void obtenerDirectorios(t_directory directorios[], char* path) {
+void obtenerDirectorios(t_directory directorios[]) {
 	int i;
-	char *newPath = malloc(strlen(path) + strlen("/metadata/directorios.dat"));
-
-	if (newPath) {
-		newPath[0] = '\0';
-		strcat(newPath, path);
-		strcat(newPath, "/metadata/directorios.dat");
-	} else {
-		fprintf(stderr, "malloc fallido!.\n");
-	}
-
-	FILE *filePointer = fopen(newPath, "r+b");
-	fseek(filePointer, 0, SEEK_SET);
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/directorios.dat");
+	FILE *filePointer = fopen(path, "r+b");
 
 	if (!filePointer) {
-		fprintf(stderr, "Error. No se puede abrir el archivo");
+		perror("Error. No se puede abrir el archivo");
 	}
 
 	for (i = 0; i < 100; i++) {
@@ -494,8 +490,7 @@ void mkDirFS(char *path) {
 	}
 }
 
-void* serializarSetBloque(void* bloque, uint32_t numBloque) {
-
+void* serializarSetBloque(void *bloque, uint32_t numBloque) {
 	uint32_t *numeroBloque = malloc(sizeof(uint32_t));
 	*numeroBloque = numBloque;
 	t_header *header = malloc(sizeof(t_header));
@@ -518,12 +513,12 @@ void* serializarSetBloque(void* bloque, uint32_t numBloque) {
 	desplazamiento += bytesACopiar;
 	//copia el bloque al paquete, el tamanio de payload es la suma del bloque y el numero de bloque
 	memcpy(paquete + desplazamiento, bloque, UN_BLOQUE);
-	free(header);
 	free(numeroBloque);
+	free(header);
 	return paquete;
 }
 
-int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void* bloque) {
+int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void *bloque) {
 	int rta = 0;
 	void *paquete = serializarSetBloque(bloque, numeroBloque);
 	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
@@ -630,4 +625,40 @@ void crearDirectorioFisico(int indice) {
 	}
 
 	free(newPath);
+}
+
+/* Asumimos que el directorio metadata fue creado por el sistema, por lo cual
+ * si hay un estado anterior este directorio deberia existir.
+*/
+bool hayEstadoAnterior() {
+	bool hayEstado;
+	DIR *directorio = opendir(PATH_METADATA);
+
+	if(!directorio) {
+		hayEstado = false;
+	} else {
+		hayEstado = true;
+	}
+
+	closedir(directorio);
+	return hayEstado;
+}
+
+void cargarEstructurasAdministrativas() {
+	cargarTablaDeDirectorios();
+	// ... las demas
+}
+
+void cargarTablaDeDirectorios() {
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/directorios.dat");
+
+	FILE *filePointer = fopen(path, "r+b");
+
+	if(!filePointer)
+		puts("[Error]: No se encontro la tabla de directorios.");
+
+	obtenerDirectorios(directorios);
+	mostrar(directorios); // borrar luego
 }

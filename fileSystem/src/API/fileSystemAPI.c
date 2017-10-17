@@ -1,18 +1,26 @@
 #include "fileSystemAPI.h"
+#include "../funcionesFileSystem.h"
 
 int almacenarArchivo(char* path, char* nombreArchivo, int tipo, FILE *datos) {
-	int resultado = 0;
+	t_list *bloques;
 
+	// 1) Validar contra las estructuras administrativas.
+
+	// 2) Parsear archivo en bloques, segun su tipo. HECHO
 	if (tipo == TEXTO) {
-		resultado = parsearArchivoDeTexto(datos);
+		bloques = parsearArchivoDeTexto(datos);
 	} else if (tipo == BINARIO) {
-		resultado = parsearArchivoBinario(datos);
+		bloques = parsearArchivoBinario(datos);
 	} else {
 		puts("[ERROR]: El tipo de archivo no es valido.");
 		exit(EXIT_FAILURE);
 	}
 
-	return resultado;
+	// 3) Balancear nodos por cantidad de bloques disponible
+
+	// 4) Enviar. HECHO
+
+	return 0; // Resultado de operacion de escritura.
 }
 
 /* Funcion que uso para escribir sobre un stream, con la posibilidad de
@@ -60,7 +68,7 @@ t_bloque* nuevoBloque(uint32_t numeroBloque) {
 	return bloque;
 }
 
-int parsearArchivoDeTexto(FILE *datos) {
+t_list* parsearArchivoDeTexto(FILE *datos) {
 	char *registro = malloc(UN_BLOQUE);
 	size_t tamanioRegistro = 0, bytesDisponibles = UN_MEGABYTE;
 	uint32_t numeroBloque = 0;
@@ -72,9 +80,16 @@ int parsearArchivoDeTexto(FILE *datos) {
 
 	while (TRUE) {
 		tamanioRegistro = proximoRegistro(datos, registro);
+
 		// Si llego al final del stream (EOF) salgo del bucle.
-		if (feof(datos))
+		if (feof(datos)) {
+			memcpy(bloque->contenido + bloque->bytesOcupados, registro,
+					tamanioRegistro);
+
+			bloque->bytesOcupados += tamanioRegistro;
+			bytesDisponibles -= tamanioRegistro;
 			break;
+		}
 
 		/* Debo ver si hay lugar en el bloque para guardarlo.
 		 * En caso afirmativo, escribe en el bloque y decrementa la cantidad de bytes disponibles. */
@@ -97,23 +112,13 @@ int parsearArchivoDeTexto(FILE *datos) {
 		}
 	}
 
-	/*// Mostrar bloques
-	printf("Cantidad de bloques: %d\n\n", bloques->elements_count);
-	int x;
-	for (x = 0; x < bloques->elements_count; x++) {
-		bloque = list_get(bloques, x);
-		printf("Numero bloque: %d\n", bloque->numeroBloque);
-		printf("Bytes ocupados: %d\n", bloque->bytesOcupados);
-		printf("%s", bloque->contenido);
-	}*/
-
 	// Libero recursos
 	free(registro);
-	list_destroy_and_destroy_elements(bloques, (void*) liberarBLoque); // NO HAY QUE DESTRUIR LA LISTA, ES SOLO PARA EJEMPLO
-	return EXIT_SUCCESS;
+
+	return bloques;
 }
 
-int parsearArchivoBinario(FILE *datos) {
+t_list* parsearArchivoBinario(FILE *datos) {
 	int largo = 0;
 	char caracter;
 	uint32_t numeroBloque = 0;
@@ -142,19 +147,7 @@ int parsearArchivoBinario(FILE *datos) {
 		}
 	}
 
-	/*// Mostrar bloques
-	printf("Cantidad de bloques: %d\n", bloques->elements_count);
-	int x;
-	for (x = 0; x < bloques->elements_count; x++) {
-		printf("Bloque n° %d\n", x);
-		bloque = list_get(bloques, x);
-		printf("Bytes ocupados: %d	contenido: %s", bloque->bytesOcupados,
-				bloque->contenido);
-	}*/
-
-	// Libero recursos
-	list_destroy_and_destroy_elements(bloques, (void*) liberarBLoque); // NO HAY QUE DESTRUIR LA LISTA, ES SOLO PARA EJEMPLO
-	return EXIT_SUCCESS;
+	return bloques;
 }
 
 void limpiar(char* string, size_t largo) {

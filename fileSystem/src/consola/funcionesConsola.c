@@ -52,12 +52,15 @@ char* invocarFuncionFormat(char **argumentos) {
 	inicializarComando(&comando);
 	comando.funcion = 1;
 	printf("Funcion de format.\n");
-	char *path = "/home/utnso/thePonchos";
+	char *path = "/home/utnso/thePonchos/prueba.txt";
 
 	FILE *datos = fopen(path, "r");
-	almacenarArchivo(path, "nuevo.bin", BINARIO, datos);
 
-	free(path);
+	if(!datos)
+		perror("El archivo no existe en la ruta especificada.");
+
+	almacenarArchivo(path, "asdadas", TEXTO, datos);
+
 	fclose(datos);
 	return "";
 }

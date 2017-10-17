@@ -1,6 +1,7 @@
 #ifndef FUNCIONALMACENARARCHIVOFILESYSTEM_SRC_COSASDELFILESYSTEM_H_
 #define FUNCIONALMACENARARCHIVOFILESYSTEM_SRC_COSASDELFILESYSTEM_H_
 
+#include <stdbool.h>
 #include "consola/funcionesConsola.h"
 #include "API/fileSystemAPI.h"
 #include <errno.h>
@@ -13,16 +14,23 @@ enum resultadosDeOperacion {
 	ERROR = -1, EXITO
 };
 
+enum estados {
+	ESTABLE, NO_ESTABLE
+};
+
 /* Variables globales */
 char *ARCHCONFIG;
 int PUERTO;
+int CANTIDAD_NODOS_ESPERADOS;
+char *PATH_METADATA;
+int socketNodoConectado;
 extern int estadoFs;
 /* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
  Para correr estas funciones cada uno deberia modificar el path para que le funcione */
 extern char *pathBitmap;
+extern t_list *nodos;
 
 /*********************** Estructuras ************************/
-
 /* Estructuras de bitmaps */
 typedef struct {
 	char estadoBLoque;
@@ -37,15 +45,18 @@ typedef struct {
 	char *ip;
 } t_infoNodo;
 
+typedef struct {
+	uint32_t socketDescriptor;
+	uint32_t idNodo;
+	uint32_t bloquesDisponibles;
+} t_nodo;
+
 /* Estructuras de directorios */
 typedef struct {
 	int index;
 	char nombre[255];
 	int padre;
 } t_directory;
-
-int socketNodoConectado;
-extern t_directory directorios[100];
 
 /* Estructuras de archivos */
 typedef struct bloque {
@@ -63,6 +74,8 @@ typedef struct {
 	int tamanio;
 	t_bloque_arch primerBloque;
 } composicionArchivo;
+
+extern t_directory directorios[100];
 
 /*********************** Firmas de funciones ************************/
 /* Firmas de funciones para archivo de configuracion */
@@ -97,12 +110,17 @@ void crearDirectorioLogico(char*, int, int);
 void crearDirectorioFisico(int);
 // Verifica la existencia del directorio metadata en el path dado, si no existe lo crea.
 void validarMetadata(char* path);
-// Persiste un array de directorios en el archivo path/metadata/directorios.dat (la ruta se genera sola)
-void persistirDirectorios(t_directory directorios[], char* path);
-// Carga el array pasado como argumento con los directorios que se encuentran almacenados en el archivo path/metadata/directorios.dat.
-void obtenerDirectorios(t_directory directorios[], char* path);
+// Persiste un array de directorios en el archivo PATH_METADA/metadata/directorios.dat
+void persistirDirectorios(t_directory directorios[]);
+// Carga el array pasado como argumento con los directorios que se encuentran almacenados en el archivo PATH_METADA/metadata/directorios.dat
+void obtenerDirectorios(t_directory directorios[]);
 // Posible implementacion de ls
 void mostrar(t_directory directorios[]);
+
+/* Firmas de funciones para validaciones */
+bool hayEstadoAnterior();
+void cargarEstructurasAdministrativas();
+void cargarTablaDeDirectorios();
 
 /* Auxiliares */
 char* getResultado(int);
