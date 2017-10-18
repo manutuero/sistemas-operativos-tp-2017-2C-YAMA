@@ -4,10 +4,12 @@
 int estadoFs = ESTABLE;
 char *pathBitmap = "/home/utnso/thePonchos/metadata/bitmaps";
 
-t_directory directoriosAGuardar[100] = { { 0, "/", -1 },}; // PREGUNTAR A LOS CHICOS ??
-t_directory directoriosGuardados[100] = { }, directorios[100] = { };
+t_directory directoriosAGuardar[100] = { { 0, "/", -1 }, }; // PREGUNTAR A LOS CHICOS ??
+t_directory directorios[100] = { };
+t_list *nodos;
 
-/* Implementacion de funciones */
+/*********************** Implementacion de funciones ************************/
+/* Implementacion de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char *path) {
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
@@ -26,18 +28,106 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 	}
 
 	if (config_has_property(config, "CANTIDAD_NODOS_ESPERADOS")) {
-		CANTIDAD_NODOS_ESPERADOS = config_get_int_value(config, "CANTIDAD_NODOS_ESPERADOS");
+		CANTIDAD_NODOS_ESPERADOS = config_get_int_value(config,
+				"CANTIDAD_NODOS_ESPERADOS");
 	} else {
-		perror("No existe la clave 'CANTIDAD_NODOS_ESPERADOS' en el archivo de configuracion.");
+		perror(
+				"No existe la clave 'CANTIDAD_NODOS_ESPERADOS' en el archivo de configuracion.");
 	}
 
 	if (config_has_property(config, "PATH_METADATA")) {
 		PATH_METADATA = config_get_string_value(config, "PATH_METADATA");
 	} else {
-		perror("No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
+		perror(
+				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
 	}
 }
 
+/* Implementacion de funciones para bitmaps */
+void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin) {
+	int i;
+	t_bitMap arrayBitmap[tamanioDatabin];
+	for (i = 0; i < (tamanioDatabin); i++) {
+		arrayBitmap[i].estadoBLoque = 'L';
+	}
+	for (i = 0; i < (tamanioDatabin); i++) {
+		fwrite(&arrayBitmap[i], sizeof(char), 1, archivo);
+	}
+}
+
+int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
+	DIR *directorio = opendir(path);
+
+	if (!directorio) { // Verifica si el directorio a bitmaps existe.
+		closedir(directorio);
+		return 2;
+	}
+
+	closedir(directorio);
+
+	if (access(nombreArchBitmap, F_OK) != -1) {
+		return 1;
+	}
+	return 0;
+}
+
+// Esta funcion crea un archivo bitmap con el nombre id del nodo y
+// tamanio de databin,verifica si existe de antes y si no lo crea.
+void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
+	char*nombreArchBitmap = armarNombreArchBitmap(idNodo);
+	FILE* arch;
+	switch (verificarExistenciaArchBitmap(nombreArchBitmap, pathBitmap)) {
+	case 0:
+		arch = fopen(nombreArchBitmap, "w+");
+		cargarArchivoBitmap(arch, tamanioDatabinNodo);
+		fclose(arch);
+		break;
+	case 1:
+		printf("Archivo bitmap ya existe");
+		break;
+	case 2:
+		printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
+		break;
+	}
+}
+
+//Accede al numero de bloque en el array y modifica su estado
+void liberarBloqueBitmapNodo(int numBloque, int idNodo) {
+	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
+	FILE* arch;
+	t_bitMap regActualizado;
+	regActualizado.estadoBLoque = 'L';
+
+	arch = fopen(nombreArchBitmap, "r+");
+	fseek(arch, (numBloque - 1), SEEK_SET);
+	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
+	fclose(arch);
+}
+
+void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
+	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
+	FILE* arch;
+	t_bitMap regActualizado;
+	regActualizado.estadoBLoque = 'O';
+
+	arch = fopen(nombreArchBitmap, "r+");
+	fseek(arch, (numBloque - 1), SEEK_SET);
+	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
+	fclose(arch);
+}
+
+// Arma el path nombre del bitmap a partir del id del nodo
+char* armarNombreArchBitmap(int idNodo) {
+	char* nombreArchBitmap = string_new();
+	char* idNodoString = string_itoa(idNodo);
+	string_append(&nombreArchBitmap, pathBitmap);
+	string_append(&nombreArchBitmap, idNodoString);
+	string_append(&nombreArchBitmap, ".dat");
+
+	return nombreArchBitmap;
+}
+
+/* Implementacion de funciones para mensajes */
 void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header) {
 	uint32_t bytesACopiar = 0, desplazamiento = 0, largoIp;
 
@@ -260,7 +350,6 @@ void* esperarConexionesDatanodes() {
 					 printf("ip: %s\n", infoNodo.ip);*/
 					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 					//BLOQUES DE ESE NODO
-
 					socketNodoConectado = sd;
 				}
 				//printf("Paquete recibido. \n Mensaje: %s usuario: %s \n ",nuevoPacketeRecbido.message,nuevoPacketeRecbido.username);
@@ -273,116 +362,102 @@ void* esperarConexionesDatanodes() {
 
 }
 
-void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin) {
-	int i;
-	t_bitMap arrayBitmap[tamanioDatabin];
-	for (i = 0; i < (tamanioDatabin); i++) {
-		arrayBitmap[i].estadoBLoque = 'L';
-	}
-	for (i = 0; i < (tamanioDatabin); i++) {
-		fwrite(&arrayBitmap[i], sizeof(char), 1, archivo);
-	}
+void* serializarSetBloque(void *bloque, uint32_t numBloque) {
+	uint32_t *numeroBloque = malloc(sizeof(uint32_t));
+	*numeroBloque = numBloque;
+	t_header *header = malloc(sizeof(t_header));
+	//header->id=malloc(sizeof(uint32_t));
+	header->id = 4; // solicitud escribir bloque
+	header->tamanioPayload = UN_BLOQUE + sizeof(uint32_t);
+	int desplazamiento = 0;
+	void *paquete = malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
+
+	int bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, numeroBloque, bytesACopiar);
+	desplazamiento += bytesACopiar;
+	//copia el bloque al paquete, el tamanio de payload es la suma del bloque y el numero de bloque
+	memcpy(paquete + desplazamiento, bloque, UN_BLOQUE);
+	free(numeroBloque);
+	free(header);
+	return paquete;
 }
 
-int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
-	DIR *directorio = opendir(path);
-
-	if (!directorio) { // Verifica si el directorio a bitmaps existe.
-		closedir(directorio);
-		return 2;
-	}
-
-	closedir(directorio);
-
-	if (access(nombreArchBitmap, F_OK) != -1) {
-		return 1;
-	}
-	return 0;
-}
-
-// Esta funcion crea un archivo bitmap con el nombre id del nodo y
-// tamanio de databin,verifica si existe de antes y si no lo crea.
-void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
-	char*nombreArchBitmap = armarNombreArchBitmap(idNodo);
-	FILE* arch;
-	switch (verificarExistenciaArchBitmap(nombreArchBitmap, pathBitmap)) {
-	case 0:
-		arch = fopen(nombreArchBitmap, "w+");
-		cargarArchivoBitmap(arch, tamanioDatabinNodo);
-		fclose(arch);
-		break;
-	case 1:
-		printf("Archivo bitmap ya existe");
-		break;
-	case 2:
-		printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
-		break;
-	}
-}
-
-//Accede al numero de bloque en el array y modifica su estado
-void liberarBloqueBitmapNodo(int numBloque, int idNodo) {
-	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
-	FILE* arch;
-	t_bitMap regActualizado;
-	regActualizado.estadoBLoque = 'L';
-
-	arch = fopen(nombreArchBitmap, "r+");
-	fseek(arch, (numBloque - 1), SEEK_SET);
-	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
-	fclose(arch);
-}
-
-void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
-	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
-	FILE* arch;
-	t_bitMap regActualizado;
-	regActualizado.estadoBLoque = 'O';
-
-	arch = fopen(nombreArchBitmap, "r+");
-	fseek(arch, (numBloque - 1), SEEK_SET);
-	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
-	fclose(arch);
-}
-
-// Arma el path nombre del bitmap a partir del id del nodo
-char* armarNombreArchBitmap(int idNodo) {
-	char* nombreArchBitmap = string_new();
-	char* idNodoString = string_itoa(idNodo);
-	string_append(&nombreArchBitmap, pathBitmap);
-	string_append(&nombreArchBitmap, idNodoString);
-	string_append(&nombreArchBitmap, ".dat");
-
-	return nombreArchBitmap;
-}
-
-void validarMetadata(char* path) {
-	//faltaria sumar aunque sea 1 al malloc por '\0'?
-	char *newPath = malloc(strlen(path) + strlen("/metadata"));
-
-	if (newPath) {
-		newPath[0] = '\0';
-		strcat(newPath, path);
-		strcat(newPath, "/metadata");
+int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void *bloque) {
+	int rta = 0;
+	void *paquete = serializarSetBloque(bloque, numeroBloque);
+	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
+	int socketNodo = socketNodoConectado; //Se usa para testear .
+	//enviarPorSocket(socketNodo, bloque, UN_BLOQUE + sizeof(uint32_t));
+	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
+	void *respuesta = malloc(sizeof(uint32_t));
+	//int recibidos = recv(socketNodo, respuesta, sizeof(uint32_t), MSG_WAITALL);
+	int recibidos = recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t));
+	if (recibidos > 0) {	//  no hubo error en el send
+		if (*(int*) respuesta == 1) {//La respuesta fue 1, el bloque se guardo correctamente.
+			printf("Bloque guardado correctamente");
+			rta = 1;
+		} else {
+			printf("algo paso y no se guardo el bloque");
+			rta = 0;
+		}
 	} else {
-		fprintf(stderr, "malloc fallido!.\n");
+		rta = 0;
 	}
-
-	DIR* directoryPointer = opendir(newPath);
-
-	if (directoryPointer) {
-		// El directorio existe.
-		closedir(directoryPointer);
-	}
-	// Si el directorio no existe
-	else if (ENOENT == errno) {
-		mkdir("metadata", 0777); // Le damos todos los permisos, por ahora.
-		closedir(directoryPointer);
-	}
-
-	free(newPath);
+	free(respuesta);
+	free(paquete);
+	return rta;
 }
 
+int getNodo(int nodoNumero) {
+	//Tiene que buscar en la lista de nodos conectados, por ahora trae el unico conectado
+	return socketNodoConectado;
+}
+
+void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete) {
+	t_header *header = malloc(sizeof(t_header));
+	//header->id=malloc(sizeof(uint32_t));
+	header->id = id;
+	header->tamanioPayload = numBloque;
+	int desplazamiento = 0;
+	int bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
+	desplazamiento += bytesACopiar;
+	free(header);
+}
+
+int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
+	int rta = 0;
+	int socketNodo = getNodo(nodo);
+	void *paquete = malloc(sizeof(uint32_t) * 2);
+	serializarHeaderTraerBloque(3, numBloque, paquete);
+	int bytesEnviados = enviarPorSocket(socketNodo, paquete, 0);
+	if (bytesEnviados <= 0) {
+		printf("Error al enviar peticion al nodo \n");
+		rta = 0;
+	} else {
+
+		if (recibirPorSocket(socketNodo, bloque, UN_BLOQUE) > 0) {
+			rta = 1;
+		} else
+			rta = 0;
+	}
+	free(paquete);
+	return rta;
+}
+
+/* Firmas de funciones para directorios */
 void persistirDirectorios(t_directory directorios[]) {
 	int i;
 	char *path = string_new();
@@ -490,101 +565,6 @@ void mkDirFS(char *path) {
 	}
 }
 
-void* serializarSetBloque(void *bloque, uint32_t numBloque) {
-	uint32_t *numeroBloque = malloc(sizeof(uint32_t));
-	*numeroBloque = numBloque;
-	t_header *header = malloc(sizeof(t_header));
-	//header->id=malloc(sizeof(uint32_t));
-	header->id = 4; // solicitud escribir bloque
-	header->tamanioPayload = UN_BLOQUE + sizeof(uint32_t);
-	int desplazamiento = 0;
-	void *paquete = malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
-
-	int bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
-	desplazamiento += bytesACopiar;
-
-	bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
-	desplazamiento += bytesACopiar;
-
-	bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, numeroBloque, bytesACopiar);
-	desplazamiento += bytesACopiar;
-	//copia el bloque al paquete, el tamanio de payload es la suma del bloque y el numero de bloque
-	memcpy(paquete + desplazamiento, bloque, UN_BLOQUE);
-	free(numeroBloque);
-	free(header);
-	return paquete;
-}
-
-int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void *bloque) {
-	int rta = 0;
-	void *paquete = serializarSetBloque(bloque, numeroBloque);
-	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
-	int socketNodo = socketNodoConectado; //Se usa para testear .
-	//enviarPorSocket(socketNodo, bloque, UN_BLOQUE + sizeof(uint32_t));
-	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
-	void *respuesta = malloc(sizeof(uint32_t));
-	//int recibidos = recv(socketNodo, respuesta, sizeof(uint32_t), MSG_WAITALL);
-	int recibidos = recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t));
-	if (recibidos > 0) {	//  no hubo error en el send
-		if (*(int*) respuesta == 1) {//La respuesta fue 1, el bloque se guardo correctamente.
-			printf("Bloque guardado correctamente");
-			rta = 1;
-		} else {
-			printf("algo paso y no se guardo el bloque");
-			rta = 0;
-		}
-	} else {
-		rta = 0;
-	}
-	free(respuesta);
-	free(paquete);
-	return rta;
-}
-
-int getNodo(int nodoNumero) {
-	//Tiene que buscar en la lista de nodos conectados, por ahora trae el unico conectado
-	return socketNodoConectado;
-}
-
-void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete) {
-	t_header *header = malloc(sizeof(t_header));
-	//header->id=malloc(sizeof(uint32_t));
-	header->id = id;
-	header->tamanioPayload = numBloque;
-	int desplazamiento = 0;
-	int bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
-	desplazamiento += bytesACopiar;
-
-	bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, &header->tamanioPayload, bytesACopiar);
-	desplazamiento += bytesACopiar;
-	free(header);
-}
-
-int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
-	int rta = 0;
-	int socketNodo = getNodo(nodo);
-	void *paquete = malloc(sizeof(uint32_t) * 2);
-	serializarHeaderTraerBloque(3, numBloque, paquete);
-	int bytesEnviados = enviarPorSocket(socketNodo, paquete, 0);
-	if (bytesEnviados <= 0) {
-		printf("Error al enviar peticion al nodo \n");
-		rta = 0;
-	} else {
-
-		if (recibirPorSocket(socketNodo, bloque, UN_BLOQUE) > 0) {
-			rta = 1;
-		} else
-			rta = 0;
-	}
-	free(paquete);
-	return rta;
-}
-
 void crearDirectorioLogico(char* nombre, int padre, int indice) {
 	directorios[indice].index = indice;
 	cargarNombre(nombre, indice);
@@ -599,6 +579,33 @@ void cargarNombre(char* name, int indice) {
 	}
 
 	directorios[indice].nombre[i] = '\0';
+}
+
+void validarMetadata(char* path) {
+	//faltaria sumar aunque sea 1 al malloc por '\0'?
+	char *newPath = malloc(strlen(path) + strlen("/metadata"));
+
+	if (newPath) {
+		newPath[0] = '\0';
+		strcat(newPath, path);
+		strcat(newPath, "/metadata");
+	} else {
+		fprintf(stderr, "malloc fallido!.\n");
+	}
+
+	DIR* directoryPointer = opendir(newPath);
+
+	if (directoryPointer) {
+		// El directorio existe.
+		closedir(directoryPointer);
+	}
+	// Si el directorio no existe lo crea
+	else if (ENOENT == errno) {
+		mkdir("metadata", 0777); // Le damos todos los permisos.
+		closedir(directoryPointer);
+	}
+
+	free(newPath);
 }
 
 void crearDirectorioFisico(int indice) {
@@ -629,12 +636,12 @@ void crearDirectorioFisico(int indice) {
 
 /* Asumimos que el directorio metadata fue creado por el sistema, por lo cual
  * si hay un estado anterior este directorio deberia existir.
-*/
+ */
 bool hayEstadoAnterior() {
 	bool hayEstado;
 	DIR *directorio = opendir(PATH_METADATA);
 
-	if(!directorio) {
+	if (!directorio) {
 		hayEstado = false;
 	} else {
 		hayEstado = true;
@@ -646,7 +653,8 @@ bool hayEstadoAnterior() {
 
 void cargarEstructurasAdministrativas() {
 	cargarTablaDeDirectorios();
-	// ... las demas
+	cargarTablaDeNodos();
+	// ... las demas (VER BIEN EL ORDEN EN EL CUAL SE DEBEN CARGAR)
 }
 
 void cargarTablaDeDirectorios() {
@@ -656,9 +664,93 @@ void cargarTablaDeDirectorios() {
 
 	FILE *filePointer = fopen(path, "r+b");
 
-	if(!filePointer)
-		puts("[Error]: No se encontro la tabla de directorios.");
+	if (!filePointer) {
+		perror("[Error]: No se encontro la tabla de directorios.");
+		exit(EXIT_FAILURE);
+	}
 
-	obtenerDirectorios(directorios);
-	mostrar(directorios); // borrar luego
+	obtenerDirectorios(directorios); // quizas borrarla...hace lo mismo que cargarTablaDeDirectorios()
+	fclose(filePointer);
 }
+
+void cargarTablaDeNodos() {
+	int i, largo = 0;
+	uint32_t tamanioTotalNodo, tamanioLibreNodo;
+	t_nodo *nodo;
+	char *sNodos, **idNodos, *path, *keyNodoTotal, *keyNodoLibre;
+	path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/nodos.bin");
+	// Uso las commons para leer el archivo como un diccionario (key-value).
+	t_config* diccionario = config_create(path);
+
+	if (!diccionario) {
+		perror("[Error]: No se encontro la tabla de nodos.");
+		exit(EXIT_FAILURE);
+	}
+
+	nodos = list_create();
+	// El tamaño se mide en bloques de 1 MiB
+	sNodos = config_get_string_value(diccionario, "NODOS");
+	printf("NODOS = %s \n", sNodos);
+
+	largo = strlen(sNodos);
+	sNodos = string_substring(sNodos, 1, largo-2);
+	idNodos = string_split(sNodos, ",");
+	for (i = 0; idNodos[i]; i++) {
+		nodo = malloc(sizeof(t_nodo));
+		nodo->idNodo = atoi(idNodos[i]);
+
+		keyNodoLibre = string_new();
+		string_append(&keyNodoLibre, "Nodo");
+		string_append(&keyNodoLibre, idNodos[i]);
+		string_append(&keyNodoLibre, "Libre");
+		tamanioLibreNodo = config_get_int_value(diccionario, keyNodoLibre);
+		nodo->bloquesLibres = tamanioLibreNodo;
+
+		list_add(nodos, nodo);
+	}
+
+	puts("Mostrando lista de nodos cargada en memoria...");
+	for(i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo, nodo->bloquesLibres);
+	}
+}
+
+/*
+ void mostrarNodos() {
+ char *nodoTotal = string_new();
+ char *nodoLibre = string_new();
+
+ if (string_starts_with(nodo, " ")) {
+ nodo = sacar(nodo, " ");
+ if (string_ends_with(nodo, "]")) {
+ nodo = sacar(nodo, "]");
+ }
+ } else {
+ nodo = sacar(nodo, "[");
+ }
+ string_append(&nodoTotal, nodo);
+ string_append(&nodoTotal, "Total");
+ string_append(&nodoLibre, nodo);
+ string_append(&nodoLibre, "Libre");
+ tamanioTotalNodo = config_get_int_value(config, nodoTotal);
+ tamanioLibreNodo = config_get_int_value(config, nodoLibre);
+ printf("%s = %d \n", nodoTotal, tamanioTotalNodo);
+ printf("%s = %d \n", nodoLibre, tamanioLibreNodo);
+ free(nodoLibre);
+ free(nodoTotal);
+ pos++;
+
+ }
+ free(nodo);
+ free(nodos);
+ }
+
+ char* sacar(char* palabra, char* caracter) {
+ char** palabraN;
+ palabraN = string_split(palabra, caracter);
+ return palabraN[0];
+ }
+ */

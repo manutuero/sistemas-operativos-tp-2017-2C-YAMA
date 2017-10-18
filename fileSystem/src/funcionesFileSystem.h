@@ -28,7 +28,6 @@ extern int estadoFs;
 /* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
  Para correr estas funciones cada uno deberia modificar el path para que le funcione */
 extern char *pathBitmap;
-extern t_list *nodos;
 
 /*********************** Estructuras ************************/
 /* Estructuras de bitmaps */
@@ -48,7 +47,7 @@ typedef struct {
 typedef struct {
 	uint32_t socketDescriptor;
 	uint32_t idNodo;
-	uint32_t bloquesDisponibles;
+	uint32_t bloquesLibres;
 } t_nodo;
 
 /* Estructuras de directorios */
@@ -108,8 +107,6 @@ void cargarNombre(char *, int);
 void crearDirectorioLogico(char*, int, int);
 // Crea el directorio propiamente dicho(en FS de linux)
 void crearDirectorioFisico(int);
-// Verifica la existencia del directorio metadata en el path dado, si no existe lo crea.
-void validarMetadata(char* path);
 // Persiste un array de directorios en el archivo PATH_METADA/metadata/directorios.dat
 void persistirDirectorios(t_directory directorios[]);
 // Carga el array pasado como argumento con los directorios que se encuentran almacenados en el archivo PATH_METADA/metadata/directorios.dat
@@ -121,11 +118,14 @@ void mostrar(t_directory directorios[]);
 bool hayEstadoAnterior();
 void cargarEstructurasAdministrativas();
 void cargarTablaDeDirectorios();
+void cargarTablaDeNodos();
+void validarMetadata(char* path);
 
 /* Auxiliares */
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(int, uint32_t, void*);
+
 
 #endif
