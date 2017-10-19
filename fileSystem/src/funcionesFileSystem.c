@@ -2,7 +2,6 @@
 
 /* Inicializacion de variables globales */
 int estadoFs = ESTABLE;
-char *pathBitmap = "/home/utnso/thePonchos/metadata/bitmaps";
 
 t_directory directorios[100] = { { 0, "root", -1 } };
 t_list *nodos;
@@ -46,10 +45,10 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin) {
 	int i;
 	t_bitMap arrayBitmap[tamanioDatabin];
-	for (i = 0; i < (tamanioDatabin); i++) {
+	for (i = 0; i < tamanioDatabin; i++) {
 		arrayBitmap[i].estadoBLoque = 'L';
 	}
-	for (i = 0; i < (tamanioDatabin); i++) {
+	for (i = 0; i < tamanioDatabin; i++) {
 		fwrite(&arrayBitmap[i], sizeof(char), 1, archivo);
 	}
 }
@@ -73,9 +72,12 @@ int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
 // Esta funcion crea un archivo bitmap con el nombre id del nodo y
 // tamanio de databin,verifica si existe de antes y si no lo crea.
 void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
-	char*nombreArchBitmap = armarNombreArchBitmap(idNodo);
-	FILE* arch;
-	switch (verificarExistenciaArchBitmap(nombreArchBitmap, pathBitmap)) {
+	FILE *arch;
+	char *path = string_new(), *nombreArchBitmap = armarNombreArchBitmap(idNodo);
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/bitmaps");
+
+	switch (verificarExistenciaArchBitmap(nombreArchBitmap, path)) {
 	case 0:
 		arch = fopen(nombreArchBitmap, "w+");
 		cargarArchivoBitmap(arch, tamanioDatabinNodo);
@@ -117,13 +119,13 @@ void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
 
 // Arma el path nombre del bitmap a partir del id del nodo
 char* armarNombreArchBitmap(int idNodo) {
-	char* nombreArchBitmap = string_new();
-	char* idNodoString = string_itoa(idNodo);
-	string_append(&nombreArchBitmap, pathBitmap);
-	string_append(&nombreArchBitmap, idNodoString);
-	string_append(&nombreArchBitmap, ".dat");
+	char *path = string_new(), *sIdNodo = string_itoa(idNodo);
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/bitmaps/");
+	string_append(&path, sIdNodo);
+	string_append(&path, ".dat");
 
-	return nombreArchBitmap;
+	return path;
 }
 
 /* Implementacion de funciones para mensajes */
