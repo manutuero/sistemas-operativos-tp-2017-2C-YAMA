@@ -5,11 +5,6 @@ int main(void) {
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
 
-	t_directory dir[100] = { { 0, "root", -1 }, { 1, "user", 0 },
-			{ 2, "manu", 1 } };
-
-	persistirDirectorios(dir);
-
 	if (hayEstadoAnterior()) {
 		cargarEstructurasAdministrativas();
 		puts("Hay estado anterior...esperar que se conecten los Datanodes que estaban."); // borrar luego :p
@@ -35,6 +30,5 @@ int main(void) {
 		sleep(1000);
 	}
 
-	free(pathBitmap);
 	return 0;
 }

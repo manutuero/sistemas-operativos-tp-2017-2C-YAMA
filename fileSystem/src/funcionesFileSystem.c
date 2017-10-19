@@ -4,8 +4,7 @@
 int estadoFs = ESTABLE;
 char *pathBitmap = "/home/utnso/thePonchos/metadata/bitmaps";
 
-t_directory directoriosAGuardar[100] = { { 0, "/", -1 }, }; // PREGUNTAR A LOS CHICOS ??
-t_directory directorios[100] = { };
+t_directory directorios[100] = { { 0, "root", -1 } };
 t_list *nodos;
 
 /*********************** Implementacion de funciones ************************/
@@ -457,58 +456,21 @@ int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
 	return rta;
 }
 
-/* Firmas de funciones para directorios */
-void persistirDirectorios(t_directory directorios[]) {
+void mostrar(t_directory directorios[], int cantidad) {
 	int i;
-	char *path = string_new();
-	string_append(&path, PATH_METADATA);
-	string_append(&path, "/directorios.dat");
-	FILE *filePointer = fopen(path, "w+b");
-
-	if (!filePointer) {
-		perror("Error. No se puede abrir el archivo");
-	}
-
-	for (i = 0; i < 100; i++) {
-		fwrite(&directorios[i], sizeof(t_directory), 1, filePointer);
-	}
-
-	fclose(filePointer);
-}
-
-void obtenerDirectorios(t_directory directorios[]) {
-	int i;
-	char *path = string_new();
-	string_append(&path, PATH_METADATA);
-	string_append(&path, "/directorios.dat");
-	FILE *filePointer = fopen(path, "r+b");
-
-	if (!filePointer) {
-		perror("Error. No se puede abrir el archivo");
-	}
-
-	for (i = 0; i < 100; i++) {
-		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
-	}
-
-	fclose(filePointer);
-}
-
-void mostrar(t_directory directorios[]) {
-	int i;
+	cantidad > 100 ? cantidad = 100 : cantidad;
 	printf("index			nombre						padre\n");
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < cantidad; i++) {
 		printf("%d			%s						%d\n", directorios[i].index, directorios[i].nombre,
 				directorios[i].padre);
 	}
 }
 
-int existeDirectorio(char *path, int *padre) {
+int existeDirectorio(char *directorio, int *padre) {
 	int i;
 	for (i = 0; i < 100; i++) {
-		if ((sonIguales(path, directorios[i].nombre)) && (directorios[i].padre =
-				*padre)) {
-			*padre = (int) directorios[i].padre;
+		if ((sonIguales(directorio, directorios[i].nombre)) && (directorios[i].padre == *padre)) {
+			*padre = (int) directorios[i].index;
 			return 1;
 		}
 	}
@@ -527,9 +489,23 @@ int buscarPrimerLugarLibre() {
 	return posicion;
 }
 
-void mkDirFS(char *path) {
+// Borrar ?
+int getIndex(char *directorio) {
+	int i;
+	for (i = 0; i < 100; i++) {
+		if (sonIguales(directorio, directorios[i].nombre))
+			return directorios[i].index;
+	}
+	return DIR_NO_EXISTE;
+}
+
+bool esDirectorio(char *directorio) {
+	return getIndex(directorio) == DIR_NO_EXISTE ? false : true;
+}
+
+void mkdirFs(char *path) {
 	int coincidencias = 0;
-	int padre = 0;
+	int padre = -1;
 	int i;
 	int cantidadPartesPath;
 	int posicionLibre = -1;
@@ -537,17 +513,22 @@ void mkDirFS(char *path) {
 
 	pathSeparado = string_split(path, "/");
 	cantidadPartesPath = cantidadArgumentos(pathSeparado);
-	for (i = 0; (i < cantidadPartesPath); i++) {
+
+	if(!sonIguales(pathSeparado[0], "root")) {
+		printf("mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n", path);
+		return;
+	}
+
+	for (i = 0; pathSeparado[i]; i++) {
 		if (existeDirectorio(pathSeparado[i], &padre))
 			coincidencias++;
 		else
 			break;
 	}
 
-	switch (coincidencias - cantidadPartesPath) {
+	switch (cantidadPartesPath - coincidencias) {
 	case 0:
-
-		printf("El directorio ya existe");
+		printf("mkdir: no se puede crear el directorio «%s»: El directorio ya existe.\n", path);
 		break;
 
 	case 1:
@@ -557,11 +538,11 @@ void mkDirFS(char *path) {
 					posicionLibre);
 			crearDirectorioFisico(posicionLibre);
 		} else
-			printf("La tabla de directorios esta completa");
+			printf("mkdir: no se puede crear el directorio «%s»: La tabla de directorios esta completa.\n", path);
 		break;
 
 	default:
-		printf("El directorio no se puede crear. La ruta no existe");
+		printf("mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n", path);
 	}
 }
 
@@ -569,6 +550,16 @@ void crearDirectorioLogico(char* nombre, int padre, int indice) {
 	directorios[indice].index = indice;
 	cargarNombre(nombre, indice);
 	directorios[indice].padre = padre;
+
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/directorios.dat");
+
+	FILE *filePointer = fopen(path, "r+");
+
+	fwrite(directorios, 1, sizeof(t_directory)*100, filePointer);
+
+	fclose(filePointer);
 }
 
 void cargarNombre(char* name, int indice) {
@@ -609,29 +600,24 @@ void validarMetadata(char* path) {
 }
 
 void crearDirectorioFisico(int indice) {
-	char* path = string_itoa(indice);
-	char *newPath = malloc(strlen(path) + strlen("/metadata/archivos/") + 1);
+	char *sIndice = string_itoa(indice);
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/archivos/");
+	string_append(&path, sIndice);
 
-	if (newPath) {
-		newPath = "/metadata/archivos/";
-		strcat(newPath, path);
-	} else {
-		fprintf(stderr, "malloc fallido!.\n");
-	}
-
-	DIR* directoryPointer = opendir(newPath);
-
+	DIR* directoryPointer = opendir(path);
 	if (directoryPointer) {
-		// El directorio existe.
+		// Si el directorio existe, no hace nada.
 		closedir(directoryPointer);
 	}
-	// Si el directorio no existe
+	// Si el directorio no existe, lo crea.
 	else if (ENOENT == errno) {
 		mkdir(path, 0777); // Le damos todos los permisos, por ahora.
 		closedir(directoryPointer);
 	}
 
-	free(newPath);
+	free(path);
 }
 
 /* Asumimos que el directorio metadata fue creado por el sistema, por lo cual
@@ -651,13 +637,14 @@ bool hayEstadoAnterior() {
 	return hayEstado;
 }
 
+/* Debo ver cuales tablas me conviene cargar en memoria...*/
 void cargarEstructurasAdministrativas() {
 	cargarTablaDeDirectorios();
 	cargarTablaDeNodos();
-	// ... las demas (VER BIEN EL ORDEN EN EL CUAL SE DEBEN CARGAR)
 }
 
 void cargarTablaDeDirectorios() {
+	int i;
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/directorios.dat");
@@ -669,15 +656,19 @@ void cargarTablaDeDirectorios() {
 		exit(EXIT_FAILURE);
 	}
 
-	obtenerDirectorios(directorios); // quizas borrarla...hace lo mismo que cargarTablaDeDirectorios()
+	for (i = 0; i < 100; i++) {
+		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
+	}
+
+	mostrar(directorios, 4); // borrar luego de las pruebas..
 	fclose(filePointer);
 }
 
 void cargarTablaDeNodos() {
 	int i, largo = 0;
-	uint32_t tamanioTotalNodo, tamanioLibreNodo;
+	uint32_t tamanioLibreNodo;
 	t_nodo *nodo;
-	char *sNodos, **idNodos, *path, *keyNodoTotal, *keyNodoLibre;
+	char *sNodos, **idNodos, *path, *keyNodoLibre;
 	path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/nodos.bin");
@@ -695,7 +686,7 @@ void cargarTablaDeNodos() {
 	printf("NODOS = %s \n", sNodos);
 
 	largo = strlen(sNodos);
-	sNodos = string_substring(sNodos, 1, largo-2);
+	sNodos = string_substring(sNodos, 1, largo - 2);
 	idNodos = string_split(sNodos, ",");
 	for (i = 0; idNodos[i]; i++) {
 		nodo = malloc(sizeof(t_nodo));
@@ -712,45 +703,9 @@ void cargarTablaDeNodos() {
 	}
 
 	puts("Mostrando lista de nodos cargada en memoria...");
-	for(i = 0; i < nodos->elements_count; i++) {
+	for (i = 0; i < nodos->elements_count; i++) {
 		nodo = list_get(nodos, i);
-		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo, nodo->bloquesLibres);
+		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
+				nodo->bloquesLibres);
 	}
 }
-
-/*
- void mostrarNodos() {
- char *nodoTotal = string_new();
- char *nodoLibre = string_new();
-
- if (string_starts_with(nodo, " ")) {
- nodo = sacar(nodo, " ");
- if (string_ends_with(nodo, "]")) {
- nodo = sacar(nodo, "]");
- }
- } else {
- nodo = sacar(nodo, "[");
- }
- string_append(&nodoTotal, nodo);
- string_append(&nodoTotal, "Total");
- string_append(&nodoLibre, nodo);
- string_append(&nodoLibre, "Libre");
- tamanioTotalNodo = config_get_int_value(config, nodoTotal);
- tamanioLibreNodo = config_get_int_value(config, nodoLibre);
- printf("%s = %d \n", nodoTotal, tamanioTotalNodo);
- printf("%s = %d \n", nodoLibre, tamanioLibreNodo);
- free(nodoLibre);
- free(nodoTotal);
- pos++;
-
- }
- free(nodo);
- free(nodos);
- }
-
- char* sacar(char* palabra, char* caracter) {
- char** palabraN;
- palabraN = string_split(palabra, caracter);
- return palabraN[0];
- }
- */

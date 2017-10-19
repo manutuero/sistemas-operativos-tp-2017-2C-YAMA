@@ -1,12 +1,9 @@
 #include "fileSystemAPI.h"
 #include "../funcionesFileSystem.h"
 
-int almacenarArchivo(char* path, char* nombreArchivo, int tipo, FILE *datos) {
+int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo, FILE *datos) {
 	t_list *bloques;
-
-	// 1) Validar contra las estructuras administrativas.
-
-	// 2) Parsear archivo en bloques, segun su tipo. HECHO
+	// 1) Verificar que exista el pathDirectorio y pedir el indice para guardar un .../archivos/<index>/<nombreArchivo>
 	if (tipo == TEXTO) {
 		bloques = parsearArchivoDeTexto(datos);
 	} else if (tipo == BINARIO) {
@@ -15,10 +12,10 @@ int almacenarArchivo(char* path, char* nombreArchivo, int tipo, FILE *datos) {
 		puts("[ERROR]: El tipo de archivo no es valido.");
 		exit(EXIT_FAILURE);
 	}
+	// 2) A partir de la cantidad de bloques. Ver de la lista de nodos el que menos carga tenga (por bloque).
+	// 3) Ver el bitmap para obtener el primer bloque disponible para ese nodo.
 
-	// 3) Balancear nodos por cantidad de bloques disponible
-
-	// 4) Enviar. HECHO
+	// 4) Enviar solicitudes de setBloque con el n° de bloque que me dio bitmap de esos nodos.
 
 	return 0; // Resultado de operacion de escritura.
 }

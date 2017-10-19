@@ -56,7 +56,7 @@ char* invocarFuncionFormat(char **argumentos) {
 
 	FILE *datos = fopen(path, "r");
 
-	if(!datos)
+	if (!datos)
 		perror("El archivo no existe en la ruta especificada.");
 
 	almacenarArchivo(path, "asdadas", TEXTO, datos);
@@ -142,20 +142,12 @@ char* invocarFuncionCat(char **argumentos) {
 	return "<default>";
 }
 
-char* invocarFuncionMkdir(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
-	if (validarParametro(argumentos[1])) {
-		comando.funcion = 6;
-		comando.parametro1 = argumentos[1];
-
-		printf("funcion de crear directorio.\n");
-		printf("El directorio a crear es: %s.\n", argumentos[1]);
-		return "<default>";
+void ejecutarMkdir(char **argumentos) {
+	char *path = argumentos[1];
+	if (validarParametro(path) && strlen(path) > 1) {
+		mkdirFs(path);
 	} else
-		printf("El parametro ingresado: %s no es valido.\n", argumentos[1]);
-	return "<default>";
+		printf("mkdir: no se puede crear el directorio «%s»: La ruta ingresada no es valida.\n", path);
 }
 
 char* invocarFuncionMd5(char **argumentos) {

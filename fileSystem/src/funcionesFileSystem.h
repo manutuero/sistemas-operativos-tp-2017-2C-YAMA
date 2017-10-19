@@ -18,6 +18,10 @@ enum estados {
 	ESTABLE, NO_ESTABLE
 };
 
+enum warningsDirectorios {
+	DIR_NO_EXISTE = -100
+};
+
 /* Variables globales */
 char *ARCHCONFIG;
 int PUERTO;
@@ -25,9 +29,6 @@ int CANTIDAD_NODOS_ESPERADOS;
 char *PATH_METADATA;
 int socketNodoConectado;
 extern int estadoFs;
-/* Este path es el que yo use,se tiene que definir donde dejar la carpeta metadata
- Para correr estas funciones cada uno deberia modificar el path para que le funcione */
-extern char *pathBitmap;
 
 /*********************** Estructuras ************************/
 /* Estructuras de bitmaps */
@@ -98,7 +99,7 @@ t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
 // Verifica la existencia del directorio en el array de directorios cargado en memoria.
 int existeDirectorio(char *path, int *padre);
 // Implementacion del comando mkdir de consola.
-void mkDirFS(char *path);
+void mkdirFs(char *path);
 // Buscar primer indice vacio del array de directorios.
 int buscarPrimerLugarLibre(void);
 // Hasta encontrar una mejor forma si cambia el struct t_directory en nombre a char* eliminar
@@ -107,12 +108,8 @@ void cargarNombre(char *, int);
 void crearDirectorioLogico(char*, int, int);
 // Crea el directorio propiamente dicho(en FS de linux)
 void crearDirectorioFisico(int);
-// Persiste un array de directorios en el archivo PATH_METADA/metadata/directorios.dat
-void persistirDirectorios(t_directory directorios[]);
-// Carga el array pasado como argumento con los directorios que se encuentran almacenados en el archivo PATH_METADA/metadata/directorios.dat
-void obtenerDirectorios(t_directory directorios[]);
 // Posible implementacion de ls
-void mostrar(t_directory directorios[]);
+void mostrar(t_directory directorios[], int cantidad);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
@@ -126,6 +123,5 @@ char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(int, uint32_t, void*);
-
 
 #endif

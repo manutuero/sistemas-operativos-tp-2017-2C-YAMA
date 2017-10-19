@@ -20,7 +20,7 @@ char* invocarFuncionRm(char**);
 char* invocarFuncionRmDirectory(char**);
 char* invocarFuncionRmBloque(char**);
 char* invocarFuncionCat(char**);
-char* invocarFuncionMkdir(char**);
+void ejecutarMkdir(char **argumentos);
 char* invocarFuncionMd5(char**);
 char* invocarFuncionLs(char**);
 char* invocarFuncionInfo(char**);

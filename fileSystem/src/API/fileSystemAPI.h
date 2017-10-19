@@ -25,7 +25,7 @@ typedef struct {
 
 
 /* API */
-int almacenarArchivo(char* path, char* nombreArchivo, int tipo, FILE *datos); // stream de datos
+int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo, FILE *datos);// stream de datos
 
 /* Auxiliares*/
 void escribirStreamConFormato(FILE *stream, char *format, ...);

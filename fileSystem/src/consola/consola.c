@@ -44,7 +44,7 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "mkdir")) {
-				invocarFuncionMkdir(argumentos);
+				ejecutarMkdir(argumentos);
 				break;
 			}
 
