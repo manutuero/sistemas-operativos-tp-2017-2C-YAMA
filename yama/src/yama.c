@@ -1,12 +1,34 @@
+/*
+ ============================================================================
+ Name        : yama.c
+ Author      : 
+ Version     :
+ Copyright   : Your copyright notice
+ Description : Hello World in C, Ansi-style
+ ============================================================================
+ */
+
 #include "funcionesYAMA.h"
 
 int main(void) {
+
 	cargarArchivoDeConfiguracion();
-	conectarseAFS();
+	crearTablaDeEstados();
+	//conectarseAFS();
 	yamaEscuchando();
-	// escucharMasters();
-	while (1) {
-	}
+
+	pthread_t hiloConexiones;
+	pthread_create(&hiloConexiones, NULL, (void*)escucharMasters, NULL);
+
+	//escucharMasters();
+	printf("loop\n");
+	while(1){}
+
+	pthread_join(hiloConexiones, NULL);
 
 	return EXIT_SUCCESS;
+
 }
+
+
+
