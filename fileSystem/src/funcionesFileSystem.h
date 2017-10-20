@@ -32,9 +32,7 @@ extern int estadoFs;
 
 /*********************** Estructuras ************************/
 /* Estructuras de bitmaps */
-typedef struct {
-	char estadoBLoque;
-} t_bitMap;
+typedef char* t_bitmap;
 
 /* Estructuras de nodos */
 typedef struct {
@@ -48,7 +46,9 @@ typedef struct {
 typedef struct {
 	uint32_t socketDescriptor;
 	uint32_t idNodo;
+	uint32_t bloquesTotales;
 	uint32_t bloquesLibres;
+	t_bitmap bitmap;
 } t_nodo;
 
 /* Estructuras de directorios */
@@ -81,6 +81,13 @@ extern t_directory directorios[100];
 /* Firmas de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char *path);
 
+/* Firmas de funciones para inicializacion */
+void crearMetadata();
+void crearTablaDeDirectorios();
+void crearTablaDeArchivos();
+void crearTablaDeNodos();
+void crearBitmaps();
+
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
 void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin);
@@ -96,6 +103,7 @@ void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header);
 t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
 
 /* Firmas de funciones para directorios */
+void crearTablaDeDirectorios();
 // Verifica la existencia del directorio en el array de directorios cargado en memoria.
 int existeDirectorio(char *path, int *padre);
 // Implementacion del comando mkdir de consola.

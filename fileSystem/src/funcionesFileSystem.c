@@ -3,7 +3,8 @@
 /* Inicializacion de variables globales */
 int estadoFs = ESTABLE;
 
-t_directory directorios[100] = { { 0, "root", -1 } };
+/* Inicializacion de estructuras administrativas */
+t_directory directorios[100];
 t_list *nodos;
 
 /*********************** Implementacion de funciones ************************/
@@ -44,12 +45,12 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 /* Implementacion de funciones para bitmaps */
 void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin) {
 	int i;
-	t_bitMap arrayBitmap[tamanioDatabin];
+	t_bitmap bitmap[tamanioDatabin];
 	for (i = 0; i < tamanioDatabin; i++) {
-		arrayBitmap[i].estadoBLoque = 'L';
+		bitmap[i] = 'L';
 	}
 	for (i = 0; i < tamanioDatabin; i++) {
-		fwrite(&arrayBitmap[i], sizeof(char), 1, archivo);
+		fwrite(&bitmap[i], sizeof(char), 1, archivo);
 	}
 }
 
@@ -96,24 +97,22 @@ void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
 void liberarBloqueBitmapNodo(int numBloque, int idNodo) {
 	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
 	FILE* arch;
-	t_bitMap regActualizado;
-	regActualizado.estadoBLoque = 'L';
+	t_bitmap regActualizado = 'L';
 
 	arch = fopen(nombreArchBitmap, "r+");
 	fseek(arch, (numBloque - 1), SEEK_SET);
-	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
+	fwrite(&regActualizado, sizeof(t_bitmap), 1, arch);
 	fclose(arch);
 }
 
 void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
 	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
 	FILE* arch;
-	t_bitMap regActualizado;
-	regActualizado.estadoBLoque = 'O';
+	t_bitmap regActualizado = 'O';
 
 	arch = fopen(nombreArchBitmap, "r+");
 	fseek(arch, (numBloque - 1), SEEK_SET);
-	fwrite(&regActualizado, sizeof(t_bitMap), 1, arch);
+	fwrite(&regActualizado, sizeof(t_bitmap), 1, arch);
 	fclose(arch);
 }
 
@@ -639,7 +638,84 @@ bool hayEstadoAnterior() {
 	return hayEstado;
 }
 
-/* Debo ver cuales tablas me conviene cargar en memoria...*/
+/* Implementacion de funciones de inicializacion */
+void crearMetadata() {
+	DIR *directorio = opendir(PATH_METADATA);
+
+	// Si el directorio no existe, lo crea.
+	if (ENOENT == errno) {
+		char *comando = string_new();
+		string_append(&comando, "mkdir -p ");
+		string_append(&comando, PATH_METADATA);
+		system(comando);
+	}
+
+	crearTablaDeDirectorios();
+	crearTablaDeArchivos();
+	crearTablaDeNodos();
+	crearBitmaps();
+
+	closedir(directorio);
+}
+
+void crearTablaDeDirectorios() {
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/directorios.dat");
+	FILE *filePointer = fopen(path, "wb");
+
+	// Carga el array en memoria y escribe en el archivo.
+	directorios[0].index = 0;
+	strcpy(directorios[0].nombre, "root");
+	directorios[0].padre = -1;
+
+	fwrite(&directorios[0], sizeof(t_directory), 1, filePointer);
+
+	fclose(filePointer);
+}
+
+void crearTablaDeArchivos() {
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/archivos");
+
+	DIR *directorio = opendir(path);
+	// Si el directorio no existe, lo crea.
+	if (ENOENT == errno) {
+		char *comando = string_new();
+		string_append(&comando, "mkdir ");
+		string_append(&comando, path);
+		system(comando);
+	}
+
+	closedir(directorio);
+}
+
+void crearTablaDeNodos() {
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/nodos.bin");
+	FILE *filePointer = fopen(path, "wb");
+	fclose(filePointer);
+}
+
+void crearBitmaps() {
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/bitmaps");
+
+	DIR *directorio = opendir(path);
+	// Si el directorio no existe, lo crea.
+	if (ENOENT == errno) {
+		char *comando = string_new();
+		string_append(&comando, "mkdir ");
+		string_append(&comando, path);
+		system(comando);
+	}
+
+	closedir(directorio);
+}
+
 void cargarEstructurasAdministrativas() {
 	cargarTablaDeDirectorios();
 	cargarTablaDeNodos();
@@ -659,7 +735,7 @@ void cargarTablaDeDirectorios() {
 	}
 
 	for (i = 0; i < 100; i++) {
-		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
+		fread(directorios, sizeof(t_directory), 1, filePointer);
 	}
 
 	mostrar(directorios, 4); // borrar luego de las pruebas..
