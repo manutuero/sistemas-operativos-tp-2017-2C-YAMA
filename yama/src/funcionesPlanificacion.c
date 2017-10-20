@@ -43,10 +43,11 @@ void preplanificarJob(t_job* jobMaster){
 	//recibirHeader(socketFS,&header);
 
 	/* carga local de bloques de prueba */
-	t_bloqueRecv bloques[3] = {{0, 1, 0, 3, 4},
+	t_bloqueRecv bloques[4] = {{0, 1, 0, 3, 4},
 										{1, 2, 4, 3, 9},
-										{2, 4, 7, 1, 3}};
-	header.tamanioPayload = 3;
+										{2, 4, 7, 1, 3},
+									{3, 1, 9, 3, 11}};
+	header.tamanioPayload = 4;
 
 
 	crearListas();
@@ -63,8 +64,8 @@ void preplanificarJob(t_job* jobMaster){
 		//prueba local (sin sockets)
 		bloqueRecibido=&bloques[i];
 		guardarEnBloqueRecibidos(bloqueRecibido);
-	}
 
+	}
 	t_bloqueRecv* bloque;
 	for(i=0;i<list_size(listaBloquesRecibidos);i++){
 			bloque = (t_bloqueRecv*)list_get(listaBloquesRecibidos,i);
@@ -117,6 +118,7 @@ void preplanificarJob(t_job* jobMaster){
 	actualizarWorkload(cantNodosInvolucrados,nodosInvolucrados);
 
 	/* Enviar toda la planificacion a master */
+	enviarPlanificacionAMaster();
 
 	/* liberar listas para la siguiente planificacion */
 	destruir_listas();
@@ -125,6 +127,8 @@ void preplanificarJob(t_job* jobMaster){
 	free(buffer);
 	free(clock);
 	free(clockAux);
+
+
 }
 
 
@@ -250,7 +254,7 @@ void planificarTransformaciones(int cantNodos,int* nodosInvolucrados, t_bloqueRe
 					actualizarPlanificacion(*bloqueRecibido,nodosInvolucrados,clockAux);
 					actualizarWorker(nodosInvolucrados,clockAux);
 					actualizarTablaEstados(*bloqueRecibido,nodosInvolucrados,clockAux);
-					clockAux = clock;
+					*clockAux = *clock;
 					asignado=1;
 				}else
 				{
@@ -258,7 +262,7 @@ void planificarTransformaciones(int cantNodos,int* nodosInvolucrados, t_bloqueRe
 				}
 			}else
 			{
-				*clockAux = *clockAux + 1;
+				desplazarClock(clockAux,cantNodos);
 				//falta ver cuando no esta habilitado en ningun lado
 			}
 	}
@@ -289,11 +293,12 @@ void actualizarPlanificacion(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,
 	bloquePlanificado->bytesOcupados=bloqueRecibido.bytesOcupados;
 	bloquePlanificado->nroBloqueNodo=cargarNroBloque(bloqueRecibido,nodosInvolucrados,clock);
 	bloquePlanificado->puerto=workers[nodosInvolucrados[*clock]].puerto;
-
+	bloquePlanificado->largoIp = strlen(workers[nodosInvolucrados[*clock]].ip);
 	bloquePlanificado->ip=malloc(strlen(workers[nodosInvolucrados[*clock]].ip));
 	strcpy(bloquePlanificado->ip,workers[nodosInvolucrados[*clock]].ip);
 
 	nombreTMP=string_duplicate(generarNombreArchivoTemporal(job,bloquePlanificado->idNodo,bloquePlanificado->nroBloqueNodo));
+	bloquePlanificado->largoArchivo = strlen(nombreTMP);
 	bloquePlanificado->archivoTransformacion = malloc(strlen(nombreTMP));
 	strcpy(bloquePlanificado->archivoTransformacion,nombreTMP);
 
@@ -312,7 +317,7 @@ int cargarNroBloque(t_bloqueRecv bloque,int* nodosInvolucrados,int* clock)
 
 void desplazarClock(int* clock,int cantidad){
 
-	if(*clock < cantidad)
+	if(*clock < cantidad-1)
 		*clock=*clock+1;
 	else
 		*clock = 0;
@@ -427,12 +432,15 @@ void cargarInfoReduccionLocal(t_transformacionMaster *transformacion, t_reduccio
 	reduccion->idNodo = transformacion->idNodo;
 	reduccion->puerto = transformacion->puerto;
 
+	reduccion->largoArchivoRedLocal = strlen(nombreTMP);
 	reduccion->archivoRedLocal = malloc(strlen(nombreTMP));
 	strcpy(reduccion->archivoRedLocal,nombreTMP);
 
+	reduccion->largoIp = strlen(transformacion->ip);
 	reduccion->ip = malloc(strlen(transformacion->ip));
 	strcpy(reduccion->ip,transformacion->ip);
 
+	reduccion->largoArchivoTransformacion = strlen(transformacion->archivoTransformacion);
 	reduccion->archivoTransformacion = malloc(strlen(transformacion->archivoTransformacion));
 	strcpy(reduccion->archivoTransformacion,transformacion->archivoTransformacion);
 
@@ -479,7 +487,7 @@ void planificacionReduccionGlobal(int cantNodos,int *nodosInvolucrados)
 			cargarReduccionGlobalTablaEstados(nodoReduccionGlobal,infoReduccionGlobal);
 		}
 
-		list_add(listaPlanRedLocal,infoReduccionGlobal);
+		list_add(listaPlanRedGlobal,infoReduccionGlobal);
 	}
 
 	return;
@@ -556,12 +564,18 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	registro = malloc(sizeof(t_reduccionLocalMaster));
 	registro=list_get(lista,posicion);
 
+	infoReduccionGlobal->largoArchivoRedLocal = strlen(registro->archivoRedLocal);
 	reduccionLocal = malloc(strlen(registro->archivoRedLocal));
+	infoReduccionGlobal->archivoRedLocal = malloc(strlen(registro->archivoRedLocal));
+
 	strcpy(reduccionLocal,registro->archivoRedLocal);
+	strcpy(infoReduccionGlobal->archivoRedLocal,registro->archivoRedLocal);
 
 	/* Cargar el resto de los campos del registro y agregarlo a la lista */
 	infoReduccionGlobal->idNodo = registro->idNodo;
 	infoReduccionGlobal->puerto=workers[nodoReduccionGlobal].puerto;
+
+	infoReduccionGlobal->largoIp = strlen(workers[nodoReduccionGlobal].ip);
 	infoReduccionGlobal->ip=malloc(strlen(workers[nodoReduccionGlobal].ip));
 	strcpy(infoReduccionGlobal->ip,workers[nodoReduccionGlobal].ip);
 	nombreTMP=generarNombreArchivoTemporal(job,nodoReduccionGlobal,9000);
@@ -570,6 +584,7 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	if (registro->idNodo == nodoReduccionGlobal)
 	{
 		infoReduccionGlobal->encargado = 1;
+		infoReduccionGlobal->largoArchivoRedGlobal=strlen(nombreTMP);
 		infoReduccionGlobal->archivoRedGlobal=malloc(strlen(nombreTMP));
 		strcpy(infoReduccionGlobal->archivoRedGlobal,nombreTMP);
 	}
@@ -577,6 +592,7 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	{
 		//si no es el encargado no le interesa el nombre del archivoRedGlobal
 		infoReduccionGlobal->archivoRedGlobal = malloc(sizeof(char));
+		infoReduccionGlobal->largoArchivoRedGlobal=0;
 		strcpy(infoReduccionGlobal->archivoRedGlobal,"");
 		infoReduccionGlobal->encargado = 0;
 	}
@@ -643,5 +659,168 @@ void destruir_listas()
 	list_destroy_and_destroy_elements(listaPlanRedGlobal,free);
 	return;
 }
+void enviarPlanificacionAMaster(){
 
+	uint32_t cantTransformaciones = list_size(listaPlanTransformaciones);
+	uint32_t cantRedLocal = list_size(listaPlanRedLocal);
+	uint32_t cantRedGlobal = list_size(listaPlanRedGlobal);
+	int i, desplazamiento = 0;
+	int largoTransformaciones, largoRedLocales , largoRedGlobales, tamanioTotalBuffer;
+	void* bufferTransformaciones;
+	void* bufferRedLocal;
+	void* bufferRedGlobal;
+	void* bufferMensaje;
+	printf("transformaciones: %d,  red locales: %d: red globales: %d\n", cantTransformaciones, cantRedLocal, cantRedGlobal);
 
+	bufferTransformaciones = serializarTransformaciones(cantTransformaciones, &largoTransformaciones, listaPlanTransformaciones);
+
+	bufferRedLocal = serializarRedLocales(cantRedLocal, &largoRedLocales, listaPlanRedLocal);
+
+	bufferRedGlobal = serializarRedGlobales(cantRedGlobal, &largoRedGlobales, listaPlanRedGlobal);
+
+	printf("largo trans: %d, redLoc %d, redGlo %d\n",largoTransformaciones,largoRedLocales, largoRedGlobales);
+
+	tamanioTotalBuffer = largoTransformaciones + largoRedLocales + largoRedGlobales +
+			cantTransformaciones + cantRedLocal + cantRedGlobal;
+
+	bufferMensaje = malloc(tamanioTotalBuffer);
+
+	memcpy(bufferMensaje, &cantTransformaciones,sizeof(cantTransformaciones));
+	desplazamiento += sizeof(cantTransformaciones);
+
+	memcpy(bufferMensaje+desplazamiento, &cantRedLocal,sizeof(cantTransformaciones));
+	desplazamiento += sizeof(cantRedLocal);
+
+	memcpy(bufferMensaje+desplazamiento, &cantRedGlobal, sizeof(cantTransformaciones));
+	desplazamiento += sizeof(cantRedGlobal);
+
+	memcpy(bufferMensaje+desplazamiento,bufferTransformaciones,largoTransformaciones);
+	desplazamiento += largoTransformaciones;
+
+	memcpy(bufferMensaje+desplazamiento,bufferRedLocal,largoRedLocales);
+	desplazamiento += largoRedLocales;
+
+	memcpy(bufferMensaje+desplazamiento, bufferRedGlobal, largoRedGlobales);
+	desplazamiento += largoRedGlobales;
+
+	enviarPorSocket(idMaster,bufferMensaje, tamanioTotalBuffer);
+
+	free(bufferMensaje);
+	free(bufferTransformaciones);
+	free(bufferRedLocal);
+	free(bufferRedGlobal);
+}
+
+void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_list* lista){
+	void* buffer;
+	int i, desplazamiento = 0;
+	t_transformacionMaster* transformacion = malloc(sizeof(t_transformacionMaster));
+	buffer = malloc(sizeof(t_transformacionMaster));
+
+	for(i=0;i<cantTransformaciones ;i++){
+			transformacion = (t_transformacionMaster*) list_get(lista, i);
+			buffer = realloc(buffer, sizeof(t_transformacionMaster) +
+					transformacion->largoArchivo + transformacion->largoIp + desplazamiento);
+
+			printf("%s, %s\n", transformacion->ip, transformacion->archivoTransformacion);
+			printf("%d, %d\n", transformacion->largoIp, transformacion->largoArchivo);
+
+			memcpy(buffer+desplazamiento, &transformacion->idNodo, sizeof(transformacion->idNodo));
+			desplazamiento+=sizeof(transformacion->idNodo);
+			memcpy(buffer, &transformacion->nroBloqueNodo, sizeof(transformacion->nroBloqueNodo));
+			desplazamiento+=sizeof(transformacion->nroBloqueNodo);
+			memcpy(buffer, &transformacion->bytesOcupados, sizeof(transformacion->bytesOcupados));
+			desplazamiento+=sizeof(transformacion->bytesOcupados);
+			memcpy(buffer, &transformacion->puerto, sizeof(transformacion->puerto));
+			desplazamiento+=sizeof(transformacion->puerto);
+			memcpy(buffer, &transformacion->largoIp, sizeof(transformacion->largoIp));
+			desplazamiento+=sizeof(transformacion->largoIp);
+			memcpy(buffer, transformacion->ip, transformacion->largoIp);
+			desplazamiento+=transformacion->largoIp;
+			memcpy(buffer, &transformacion->largoArchivo, sizeof(transformacion->largoArchivo));
+			desplazamiento+=sizeof(transformacion->largoArchivo);
+			memcpy(buffer, transformacion->archivoTransformacion, transformacion->largoArchivo);
+			desplazamiento+=transformacion->largoArchivo;
+
+		}
+	*largoMensaje = desplazamiento;
+	free(transformacion);
+	return buffer;
+}
+
+void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista){
+	void* buffer;
+	int i, desplazamiento = 0;
+	t_reduccionLocalMaster* redLocal = malloc(sizeof(t_reduccionLocalMaster));
+
+	buffer = malloc(sizeof(t_reduccionLocalMaster));
+
+	for(i=0;i<cantReducciones ;i++){
+			redLocal = (t_reduccionLocalMaster*) list_get(lista, i);
+			buffer = realloc(buffer, sizeof(t_reduccionLocalMaster) +
+								redLocal->largoArchivoTransformacion + redLocal->largoArchivoRedLocal +  redLocal->largoIp);
+
+			printf("%s, %s, %s\n", redLocal->ip, redLocal->archivoTransformacion, redLocal->archivoRedLocal);
+			printf("%d, %d, %d\n", redLocal->largoIp, redLocal->largoArchivoTransformacion, redLocal->largoArchivoRedLocal);
+
+			memcpy(buffer+desplazamiento, &redLocal->idNodo, sizeof(redLocal->idNodo));
+			desplazamiento+=sizeof(redLocal->idNodo);
+			memcpy(buffer, &redLocal->puerto, sizeof(redLocal->puerto));
+			desplazamiento+=sizeof(redLocal->puerto);
+			memcpy(buffer, &redLocal->largoIp, sizeof(redLocal->largoIp));
+			desplazamiento+=sizeof(redLocal->largoIp);
+			memcpy(buffer, redLocal->ip, redLocal->largoIp);
+			desplazamiento+=redLocal->largoIp;
+			memcpy(buffer, &redLocal->largoArchivoTransformacion, sizeof(redLocal->largoArchivoTransformacion));
+			desplazamiento+=sizeof(redLocal->largoArchivoTransformacion);
+			memcpy(buffer, redLocal->archivoTransformacion, redLocal->largoArchivoTransformacion);
+			desplazamiento+=redLocal->largoArchivoTransformacion;
+			memcpy(buffer, &redLocal->largoArchivoRedLocal, sizeof(redLocal->largoArchivoRedLocal));
+			desplazamiento+=sizeof(redLocal->largoArchivoRedLocal);
+			memcpy(buffer, redLocal->archivoRedLocal, redLocal->largoArchivoRedLocal);
+			desplazamiento+=redLocal->largoArchivoRedLocal;
+		}
+	*largoMensaje = desplazamiento;
+	free(redLocal);
+	return buffer;
+}
+
+void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* lista){
+	void* buffer;
+	int i, desplazamiento = 0;
+	t_reduccionGlobalMaster* redGlobal = malloc(sizeof(t_reduccionGlobalMaster));
+
+	buffer = malloc(sizeof(t_reduccionGlobalMaster));
+
+	for(i=0;i<cantReducciones ;i++){
+			redGlobal = (t_reduccionGlobalMaster*) list_get(lista, i);
+			buffer = realloc(buffer, sizeof(t_reduccionGlobalMaster) +
+					redGlobal->largoArchivoRedGlobal + redGlobal->largoArchivoRedLocal +  redGlobal->largoIp);
+
+			printf("%s, %s, %s\n", redGlobal->ip, redGlobal->archivoRedLocal, redGlobal->archivoRedGlobal);
+			printf("%d, %d, %d\n", redGlobal->largoIp, redGlobal->largoArchivoRedLocal, redGlobal->largoArchivoRedGlobal);
+
+			memcpy(buffer+desplazamiento, &redGlobal->idNodo, sizeof(redGlobal->idNodo));
+			desplazamiento+=sizeof(redGlobal->idNodo);
+			memcpy(buffer+desplazamiento, &redGlobal->encargado, sizeof(redGlobal->encargado));
+			desplazamiento+=sizeof(redGlobal->encargado);
+			memcpy(buffer, &redGlobal->puerto, sizeof(redGlobal->puerto));
+			desplazamiento+=sizeof(redGlobal->puerto);
+			memcpy(buffer, &redGlobal->largoIp, sizeof(redGlobal->largoIp));
+			desplazamiento+=sizeof(redGlobal->largoIp);
+			memcpy(buffer, redGlobal->ip, redGlobal->largoIp);
+			desplazamiento+=redGlobal->largoIp;
+			memcpy(buffer, &redGlobal->largoArchivoRedLocal, sizeof(redGlobal->largoArchivoRedLocal));
+			desplazamiento+=sizeof(redGlobal->largoArchivoRedLocal);
+			memcpy(buffer, redGlobal->archivoRedLocal, redGlobal->largoArchivoRedLocal);
+			desplazamiento+=redGlobal->largoArchivoRedLocal;
+			memcpy(buffer, &redGlobal->largoArchivoRedGlobal, sizeof(redGlobal->largoArchivoRedGlobal));
+			desplazamiento+=sizeof(redGlobal->largoArchivoRedGlobal);
+			memcpy(buffer, redGlobal->archivoRedGlobal, redGlobal->largoArchivoRedGlobal);
+			desplazamiento+=redGlobal->largoArchivoRedGlobal;
+
+		}
+	*largoMensaje = desplazamiento;
+	free(redGlobal);
+	return buffer;
+}

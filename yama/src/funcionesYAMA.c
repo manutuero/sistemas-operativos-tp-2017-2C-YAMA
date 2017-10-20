@@ -1,3 +1,10 @@
+/*
+ * funcionesYAMA.c
+ *
+ *  Created on: 20/9/2017
+ *      Author: utnso
+ */
+
 #include "funcionesYAMA.h"
 #include "funcionesPlanificacion.h"
 

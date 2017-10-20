@@ -24,7 +24,7 @@ typedef struct{
 		t_list planificacion;
 	}t_planificacion;
 
-/* Estructuras utilizadas para enviar informacion a Master */
+/* Estructuras utilizada para enviar informacion a Master */
 
 /* Utilizada para enviar la etapa de transformacion */
 	typedef struct{
@@ -32,7 +32,9 @@ typedef struct{
 		uint32_t nroBloqueNodo;
 		uint32_t puerto;
 		uint32_t bytesOcupados;
+		uint32_t largoIp;
 		char* ip;
+		uint32_t largoArchivo;
 		char* archivoTransformacion;
 	}t_transformacionMaster;
 
@@ -40,8 +42,11 @@ typedef struct{
 	typedef struct{
 		uint32_t idNodo;
 		uint32_t puerto;
+		uint32_t largoIp;
 		char* ip;
+		uint32_t largoArchivoTransformacion;
 		char* archivoTransformacion;
+		uint32_t largoArchivoRedLocal;
 		char* archivoRedLocal;
 	}t_reduccionLocalMaster;
 
@@ -50,8 +55,11 @@ typedef struct{
 		uint32_t idNodo;
 		uint32_t puerto;
 		uint32_t encargado;
+		uint32_t largoIp;
 		char* ip;
-		char* archvoRedLocal;
+		uint32_t largoArchivoRedLocal;
+		char* archivoRedLocal;
+		uint32_t largoArchivoRedGlobal;
 		char* archivoRedGlobal;
 	}t_reduccionGlobalMaster;
 /* Estructura utilizada para mantener informacion actualizada de los workers
@@ -178,6 +186,13 @@ void actualizarWorkload(int ,int *);
 
 /* seleccionar nodo con menor workload */
 int seleccionarNodoMenorCarga(int*, int);
+
+/* Serializacion de estructuras de planificacion */
+void* serializarTransformaciones(int, int*, t_list*);
+
+void* serializarRedLocales(int, int* , t_list* );
+
+void* serializarRedGlobales(int , int* , t_list* );
 
 void destruir_listas(void);
 #endif /* SRC_PLANI2_H_ */
