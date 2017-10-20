@@ -1,23 +1,23 @@
 #include "fileSystemAPI.h"
 #include "../funcionesFileSystem.h"
 
-int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo, FILE *datos) {
+int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	t_list *bloques;
-	// 1) Verificar que exista el pathDirectorio y pedir el indice para guardar un .../archivos/<index>/<nombreArchivo>
-	if (tipo == TEXTO) {
-		bloques = parsearArchivoDeTexto(datos);
-	} else if (tipo == BINARIO) {
-		bloques = parsearArchivoBinario(datos);
-	} else {
-		puts("[ERROR]: El tipo de archivo no es valido.");
-		exit(EXIT_FAILURE);
-	}
+	int idNodo;
+
+	// 1) Validar si existe el directorio en yamafs:, pedir index para crear el archivo en linux.
+	if (!existePathDirectorio(path))
+		return ERROR;
+
 	// 2) A partir de la cantidad de bloques. Ver de la lista de nodos el que menos carga tenga (por bloque).
+	idNodo = obtenerNodoMasLibre();
+	bloques = obtenerBloques(datos, tipo);
+
 	// 3) Ver el bitmap para obtener el primer bloque disponible para ese nodo.
 
 	// 4) Enviar solicitudes de setBloque con el n° de bloque que me dio bitmap de esos nodos.
 
-	return 0; // Resultado de operacion de escritura.
+	return EXITO; // Resultado de operacion de escritura.
 }
 
 /* Funcion que uso para escribir sobre un stream, con la posibilidad de
@@ -65,6 +65,17 @@ t_bloque* nuevoBloque(uint32_t numeroBloque) {
 	return bloque;
 }
 
+t_list* obtenerBloques(FILE *datos, int tipo) {
+	if (tipo == TEXTO) {
+		return parsearArchivoDeTexto(datos);
+	} else if (tipo == BINARIO) {
+		return parsearArchivoBinario(datos);
+	} else {
+		perror("[Error]: Se recibio un tipo no valido.");
+		return NULL; // Error
+	}
+}
+
 t_list* parsearArchivoDeTexto(FILE *datos) {
 	char *registro = malloc(UN_BLOQUE);
 	size_t tamanioRegistro = 0, bytesDisponibles = UN_MEGABYTE;
@@ -104,7 +115,7 @@ t_list* parsearArchivoDeTexto(FILE *datos) {
 			bloque = nuevoBloque(numeroBloque);
 			list_add(bloques, bloque);
 			bloque->bytesOcupados = tamanioRegistro; // Lo que voy a escribir en el nuevo bloque
- 			memcpy(bloque->contenido, registro, tamanioRegistro);
+			memcpy(bloque->contenido, registro, tamanioRegistro);
 			bytesDisponibles -= tamanioRegistro;
 		}
 	}
@@ -147,6 +158,17 @@ t_list* parsearArchivoBinario(FILE *datos) {
 	return bloques;
 }
 
+int obtenerNodoMasLibre() {
+	list_sort(nodos, compararBloquesLibres);
+	return 0;
+}
+
+bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo) {
+	// Si el primero es mayor que el segundo, su diferencia es positiva.
+	return unNodo->bloquesLibres - otroNodo->bloquesLibres  >= 0 ? true : false;
+}
+
 void limpiar(char* string, size_t largo) {
 	memset(string, 0, largo);
 }
+

@@ -6,6 +6,7 @@
 #include "API/fileSystemAPI.h"
 #include <errno.h>
 #include <dirent.h>
+#include "test/suite.h"
 
 #define BACKLOG 3
 
@@ -16,10 +17,6 @@ enum resultadosDeOperacion {
 
 enum estados {
 	ESTABLE, NO_ESTABLE
-};
-
-enum warningsDirectorios {
-	DIR_NO_EXISTE = -100
 };
 
 /* Variables globales */
@@ -41,14 +38,16 @@ typedef struct {
 	uint32_t cantidadBloques;
 	uint32_t puerto;
 	char *ip;
-} t_infoNodo;
+} t_infoNodo; // luego se eliminara..
 
 typedef struct {
 	uint32_t socketDescriptor;
 	uint32_t idNodo;
 	uint32_t bloquesTotales;
 	uint32_t bloquesLibres;
+	uint32_t puertoWorker;
 	t_bitmap bitmap;
+	char *ip;
 } t_nodo;
 
 /* Estructuras de directorios */
@@ -76,8 +75,10 @@ typedef struct {
 } composicionArchivo;
 
 extern t_directory directorios[100];
+extern t_list *nodos;
 
 /*********************** Firmas de funciones ************************/
+
 /* Firmas de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char *path);
 
@@ -88,14 +89,17 @@ void crearTablaDeArchivos();
 void crearTablaDeNodos();
 void crearBitmaps();
 
+/* Firmas de funciones para nodos */
+void agregarNodo(t_nodo *nodo);
+
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
-void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin);
+char* persistirBitmap(FILE *archivo, int tamanioDatabin);
 int verificarExistenciaArchBitmap(char*, char*);
 void crearArchivoBitmapNodo(int, int);
 void liberarBloqueBitmapNodo(int, int);
 void ocuparBloqueBitmapNodo(int, int);
-char* armarNombreArchBitmap(int);
+char* obtenerPathBitmap(int);
 
 /* Firmas de funciones para mensajes */
 void* esperarConexionesDatanodes();
@@ -118,12 +122,13 @@ void crearDirectorioLogico(char*, int, int);
 void crearDirectorioFisico(int);
 // Posible implementacion de ls
 void mostrar(t_directory directorios[], int cantidad);
+bool existePathDirectorio(char *path);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
-void cargarEstructurasAdministrativas();
-void cargarTablaDeDirectorios();
-void cargarTablaDeNodos();
+void restaurarEstructurasAdministrativas();
+void restaurarTablaDeDirectorios();
+void restaurarTablaDeNodos();
 void validarMetadata(char* path);
 
 /* Auxiliares */

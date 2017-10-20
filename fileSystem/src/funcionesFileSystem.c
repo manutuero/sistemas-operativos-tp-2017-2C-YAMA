@@ -43,15 +43,24 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 }
 
 /* Implementacion de funciones para bitmaps */
-void cargarArchivoBitmap(FILE *archivo, int tamanioDatabin) {
+char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 	int i;
-	t_bitmap bitmap[tamanioDatabin];
+	t_bitmap bitmap = malloc(sizeof(char) * tamanioDatabin);
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/bitmaps/");
+	string_append(&path, itoa(idNodo));
+	string_append(&path, ".dat");
+
+	FILE *archivo = fopen(path, "w");
+
 	for (i = 0; i < tamanioDatabin; i++) {
 		bitmap[i] = 'L';
-	}
-	for (i = 0; i < tamanioDatabin; i++) {
 		fwrite(&bitmap[i], sizeof(char), 1, archivo);
 	}
+
+	fclose(archivo);
+	return bitmap;
 }
 
 int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
@@ -74,14 +83,14 @@ int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
 // tamanio de databin,verifica si existe de antes y si no lo crea.
 void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
 	FILE *arch;
-	char *path = string_new(), *nombreArchBitmap = armarNombreArchBitmap(idNodo);
+	char *path = string_new(), *nombreArchBitmap = obtenerPathBitmap(idNodo);
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/bitmaps");
 
 	switch (verificarExistenciaArchBitmap(nombreArchBitmap, path)) {
 	case 0:
 		arch = fopen(nombreArchBitmap, "w+");
-		cargarArchivoBitmap(arch, tamanioDatabinNodo);
+		persistirBitmap(arch, tamanioDatabinNodo);
 		fclose(arch);
 		break;
 	case 1:
@@ -94,19 +103,19 @@ void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
 }
 
 //Accede al numero de bloque en el array y modifica su estado
-void liberarBloqueBitmapNodo(int numBloque, int idNodo) {
-	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
-	FILE* arch;
-	t_bitmap regActualizado = 'L';
+void liberarBloqueBitmapNodo(int bloque, int idNodo) {
+	char *path = obtenerPathBitmap(idNodo);
+	FILE *archivo;
+	t_bitmap bitmap[bloque] = 'L';
 
-	arch = fopen(nombreArchBitmap, "r+");
-	fseek(arch, (numBloque - 1), SEEK_SET);
-	fwrite(&regActualizado, sizeof(t_bitmap), 1, arch);
-	fclose(arch);
+	archivo = fopen(path, "r+");
+	fseek(archivo, (bloque - 1), SEEK_SET);
+	fwrite(&bitmap, sizeof(t_bitmap), 1, archivo);
+	fclose(archivo);
 }
 
 void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
-	char* nombreArchBitmap = armarNombreArchBitmap(idNodo);
+	char* nombreArchBitmap = obtenerPathBitmap(idNodo);
 	FILE* arch;
 	t_bitmap regActualizado = 'O';
 
@@ -117,7 +126,7 @@ void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
 }
 
 // Arma el path nombre del bitmap a partir del id del nodo
-char* armarNombreArchBitmap(int idNodo) {
+char* obtenerPathBitmap(int idNodo) {
 	char *path = string_new(), *sIdNodo = string_itoa(idNodo);
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/bitmaps/");
@@ -228,7 +237,7 @@ void* esperarConexionesDatanodes() {
 		exit(EXIT_FAILURE);
 	}
 
-	//Defino el tipo de socket con sus parametros.
+	// Defino el tipo de socket con sus parametros.
 	address.sin_family = AF_INET;
 	address.sin_addr.s_addr = INADDR_ANY;
 	address.sin_port = htons(PUERTO);
@@ -250,7 +259,7 @@ void* esperarConexionesDatanodes() {
 	// Acceptar conexiones entrantes
 	addrlen = sizeof(address);
 	while (1) {
-		//Limpio la lista de sockets
+		// Limpio la lista de sockets
 		FD_ZERO(&readfds);
 
 		//Agrego el socket master a la lista, para que tambien revise si hay cambios
@@ -340,26 +349,29 @@ void* esperarConexionesDatanodes() {
 							header.tamanioPayload);
 
 					// Crear funcion que maneje la lista de struct t_infoNodo. "add" infoNodo por ejemplo.
-					//Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
-					//SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
-					/*printf("***************************************\n");
-					 printf("sdNodo: %d\n", infoNodo.sdNodo);
-					 printf("idNodo: %d\n", infoNodo.idNodo);
-					 printf("cantidadBloques: %d\n", infoNodo.cantidadBloques);
+
+					t_nodo *nodo = malloc(sizeof(t_nodo));
+					nodo->socketDescriptor = infoNodo.sdNodo;
+					nodo->idNodo = infoNodo.idNodo;
+					nodo->bloquesTotales = infoNodo.cantidadBloques;
+					nodo->bloquesLibres = nodo->bloquesTotales;
+					nodo->puertoWorker = 0;
+					nodo->bitmap = persistirBitmap(nodo->bloquesTotales);
+					nodo->ip = infoNodo.ip;
+					agregarNodo(nodo);
+					// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
+					// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
+					/* printf("***************************************\n");
 					 printf("puerto: %d\n", infoNodo.puerto);
 					 printf("ip: %s\n", infoNodo.ip);*/
-					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
-					//BLOQUES DE ESE NODO
+					// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
+					// BLOQUES DE ESE NODO
 					socketNodoConectado = sd;
 				}
-				//printf("Paquete recibido. \n Mensaje: %s usuario: %s \n ",nuevoPacketeRecbido.message,nuevoPacketeRecbido.username);
 				free(buffer);
 			}
 		}
 	}
-
-	//puts("Esperando conexiones datanode...");
-
 }
 
 void* serializarSetBloque(void *bloque, uint32_t numBloque) {
@@ -470,7 +482,8 @@ void mostrar(t_directory directorios[], int cantidad) {
 int existeDirectorio(char *directorio, int *padre) {
 	int i;
 	for (i = 0; i < 100; i++) {
-		if ((sonIguales(directorio, directorios[i].nombre)) && (directorios[i].padre == *padre)) {
+		if ((sonIguales(directorio, directorios[i].nombre))
+				&& (directorios[i].padre == *padre)) {
 			*padre = (int) directorios[i].index;
 			return 1;
 		}
@@ -491,17 +504,36 @@ int buscarPrimerLugarLibre() {
 }
 
 // Borrar ?
-int getIndex(char *directorio) {
-	int i;
-	for (i = 0; i < 100; i++) {
-		if (sonIguales(directorio, directorios[i].nombre))
-			return directorios[i].index;
-	}
-	return DIR_NO_EXISTE;
-}
+/*int obtenerIndice(char *directorio) {
+ int i;
+ for (i = 0; i < 100; i++) {
+ if (sonIguales(directorio, directorios[i].nombre))
+ return directorios[i].index;
+ }
+ return WARNING_DIR_NO_EXISTE;
+ }*/
 
-bool esDirectorio(char *directorio) {
-	return getIndex(directorio) == DIR_NO_EXISTE ? false : true;
+bool existePathDirectorio(char *path) {
+	int coincidencias = 0;
+	int i, padre = -1, cantidadPartesPath;
+	char **pathSeparado = string_split(path, "/");
+	cantidadPartesPath = cantidadArgumentos(pathSeparado);
+
+	if (!sonIguales(pathSeparado[0], "root")) {
+		return false;
+	}
+
+	for (i = 0; pathSeparado[i]; i++) {
+		if (existeDirectorio(pathSeparado[i], &padre))
+			coincidencias++;
+		else
+			break;
+	}
+
+	if (cantidadPartesPath - coincidencias == 0) {
+		return true;
+	}
+	return false;
 }
 
 void mkdirFs(char *path) {
@@ -515,8 +547,10 @@ void mkdirFs(char *path) {
 	pathSeparado = string_split(path, "/");
 	cantidadPartesPath = cantidadArgumentos(pathSeparado);
 
-	if(!sonIguales(pathSeparado[0], "root")) {
-		printf("mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n", path);
+	if (!sonIguales(pathSeparado[0], "root")) {
+		printf(
+				"mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n",
+				path);
 		return;
 	}
 
@@ -529,7 +563,9 @@ void mkdirFs(char *path) {
 
 	switch (cantidadPartesPath - coincidencias) {
 	case 0:
-		printf("mkdir: no se puede crear el directorio «%s»: El directorio ya existe.\n", path);
+		printf(
+				"mkdir: no se puede crear el directorio «%s»: El directorio ya existe.\n",
+				path);
 		break;
 
 	case 1:
@@ -539,11 +575,15 @@ void mkdirFs(char *path) {
 					posicionLibre);
 			crearDirectorioFisico(posicionLibre);
 		} else
-			printf("mkdir: no se puede crear el directorio «%s»: La tabla de directorios esta completa.\n", path);
+			printf(
+					"mkdir: no se puede crear el directorio «%s»: La tabla de directorios esta completa.\n",
+					path);
 		break;
 
 	default:
-		printf("mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n", path);
+		printf(
+				"mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n",
+				path);
 	}
 }
 
@@ -558,7 +598,7 @@ void crearDirectorioLogico(char* nombre, int padre, int indice) {
 
 	FILE *filePointer = fopen(path, "r+");
 
-	fwrite(directorios, 1, sizeof(t_directory)*100, filePointer);
+	fwrite(directorios, 1, sizeof(t_directory) * 100, filePointer);
 
 	fclose(filePointer);
 }
@@ -588,7 +628,7 @@ void validarMetadata(char* path) {
 	DIR* directoryPointer = opendir(newPath);
 
 	if (directoryPointer) {
-		// El directorio existe.
+// El directorio existe.
 		closedir(directoryPointer);
 	}
 	// Si el directorio no existe lo crea
@@ -609,7 +649,7 @@ void crearDirectorioFisico(int indice) {
 
 	DIR* directoryPointer = opendir(path);
 	if (directoryPointer) {
-		// Si el directorio existe, no hace nada.
+// Si el directorio existe, no hace nada.
 		closedir(directoryPointer);
 	}
 	// Si el directorio no existe, lo crea.
@@ -697,6 +737,9 @@ void crearTablaDeNodos() {
 	string_append(&path, "/nodos.bin");
 	FILE *filePointer = fopen(path, "wb");
 	fclose(filePointer);
+
+	// Inicializo la lista de nodos, ahora a esperar que se conecten...
+	nodos = list_create();
 }
 
 void crearBitmaps() {
@@ -716,12 +759,12 @@ void crearBitmaps() {
 	closedir(directorio);
 }
 
-void cargarEstructurasAdministrativas() {
-	cargarTablaDeDirectorios();
-	cargarTablaDeNodos();
+void restaurarEstructurasAdministrativas() {
+	restaurarTablaDeDirectorios();
+	restaurarTablaDeNodos();
 }
 
-void cargarTablaDeDirectorios() {
+void restaurarTablaDeDirectorios() {
 	int i;
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
@@ -735,14 +778,14 @@ void cargarTablaDeDirectorios() {
 	}
 
 	for (i = 0; i < 100; i++) {
-		fread(directorios, sizeof(t_directory), 1, filePointer);
+		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
 	}
 
 	mostrar(directorios, 4); // borrar luego de las pruebas..
 	fclose(filePointer);
 }
 
-void cargarTablaDeNodos() {
+void restaurarTablaDeNodos() {
 	int i, largo = 0;
 	uint32_t tamanioLibreNodo;
 	t_nodo *nodo;
@@ -761,6 +804,10 @@ void cargarTablaDeNodos() {
 	nodos = list_create();
 	// El tamaño se mide en bloques de 1 MiB
 	sNodos = config_get_string_value(diccionario, "NODOS");
+	if (!sNodos) {
+		puts("[Error]: La tabla de nodos de un estado anterior esta vacia.");
+		return;
+	}
 	printf("NODOS = %s \n", sNodos);
 
 	largo = strlen(sNodos);
@@ -786,4 +833,9 @@ void cargarTablaDeNodos() {
 		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
 				nodo->bloquesLibres);
 	}
+}
+
+// Ver si conviene hacerlo como objeto con 1 solo parametro...
+void agregarNodo(t_nodo *nodo) {
+	list_add(nodos, nodo);
 }
