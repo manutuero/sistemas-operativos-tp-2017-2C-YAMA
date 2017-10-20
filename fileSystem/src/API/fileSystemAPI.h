@@ -17,14 +17,10 @@ enum tipoDeArchivo {
 	BINARIO, TEXTO
 };
 
-typedef struct {
-	uint32_t numeroBloque;
-	size_t bytesOcupados;
-	char *contenido;
-} t_bloque;
-
+/* Estructuras de bitmaps */
 typedef char* t_bitmap;
 
+/* Estructuras de nodos */
 typedef struct {
 	uint32_t socketDescriptor;
 	uint32_t idNodo;
@@ -34,6 +30,12 @@ typedef struct {
 	t_bitmap bitmap;
 	char *ip;
 } t_nodo;
+
+typedef struct {
+	uint32_t numeroBloque;
+	size_t bytesOcupados;
+	char *contenido;
+} t_bloque;
 
 /* API */
 int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo, FILE *datos);// stream de datos

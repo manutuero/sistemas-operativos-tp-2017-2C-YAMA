@@ -49,7 +49,7 @@ char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/bitmaps/");
-	string_append(&path, itoa(idNodo));
+	string_append(&path, string_itoa(idNodo));
 	string_append(&path, ".dat");
 
 	FILE *archivo = fopen(path, "w");
@@ -62,7 +62,7 @@ char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 	fclose(archivo);
 	return bitmap;
 }
-
+/*
 int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
 	DIR *directorio = opendir(path);
 
@@ -135,6 +135,7 @@ char* obtenerPathBitmap(int idNodo) {
 
 	return path;
 }
+*/
 
 /* Implementacion de funciones para mensajes */
 void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header) {
@@ -356,7 +357,7 @@ void* esperarConexionesDatanodes() {
 					nodo->bloquesTotales = infoNodo.cantidadBloques;
 					nodo->bloquesLibres = nodo->bloquesTotales;
 					nodo->puertoWorker = 0;
-					nodo->bitmap = persistirBitmap(nodo->bloquesTotales);
+					nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
 					nodo->ip = infoNodo.ip;
 					agregarNodo(nodo);
 					// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte

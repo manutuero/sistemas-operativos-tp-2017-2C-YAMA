@@ -159,8 +159,9 @@ t_list* parsearArchivoBinario(FILE *datos) {
 }
 
 int obtenerNodoMasLibre() {
-	list_sort(nodos, compararBloquesLibres);
-	return 0;
+	list_sort(nodos, (void*)compararBloquesLibres);
+	t_nodo *nodo = list_get(nodos, 1);
+	return nodo->idNodo;
 }
 
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo) {

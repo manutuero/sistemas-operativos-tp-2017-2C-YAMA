@@ -28,10 +28,7 @@ int socketNodoConectado;
 extern int estadoFs;
 
 /*********************** Estructuras ************************/
-/* Estructuras de bitmaps */
-typedef char* t_bitmap;
 
-/* Estructuras de nodos */
 typedef struct {
 	uint32_t sdNodo;
 	uint32_t idNodo;
@@ -39,16 +36,6 @@ typedef struct {
 	uint32_t puerto;
 	char *ip;
 } t_infoNodo; // luego se eliminara..
-
-typedef struct {
-	uint32_t socketDescriptor;
-	uint32_t idNodo;
-	uint32_t bloquesTotales;
-	uint32_t bloquesLibres;
-	uint32_t puertoWorker;
-	t_bitmap bitmap;
-	char *ip;
-} t_nodo;
 
 /* Estructuras de directorios */
 typedef struct {
@@ -94,7 +81,7 @@ void agregarNodo(t_nodo *nodo);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
-char* persistirBitmap(FILE *archivo, int tamanioDatabin);
+char* persistirBitmap(uint32_t idNodo, int tamanioDatabin);
 int verificarExistenciaArchBitmap(char*, char*);
 void crearArchivoBitmapNodo(int, int);
 void liberarBloqueBitmapNodo(int, int);
