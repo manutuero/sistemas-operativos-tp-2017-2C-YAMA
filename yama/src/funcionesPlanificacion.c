@@ -63,8 +63,8 @@ void preplanificarJob(t_job* jobMaster){
 		//prueba local (sin sockets)
 		bloqueRecibido=&bloques[i];
 		guardarEnBloqueRecibidos(bloqueRecibido);
-
 	}
+
 	t_bloqueRecv* bloque;
 	for(i=0;i<list_size(listaBloquesRecibidos);i++){
 			bloque = (t_bloqueRecv*)list_get(listaBloquesRecibidos,i);

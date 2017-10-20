@@ -1,11 +1,4 @@
-/*
- * funcionesYAMA.h
- *
- *  Created on: 20/9/2017
- *      Author: utnso
- */
-
-#ifndef FUNCIONESYAMA_H_
+/#ifndef FUNCIONESYAMA_H_
 #define FUNCIONESYAMA_H_
 
 

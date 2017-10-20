@@ -24,7 +24,7 @@ typedef struct{
 		t_list planificacion;
 	}t_planificacion;
 
-/* Estructuras utilizada para enviar informacion a Master */
+/* Estructuras utilizadas para enviar informacion a Master */
 
 /* Utilizada para enviar la etapa de transformacion */
 	typedef struct{
