@@ -4,15 +4,18 @@ int main(void) {
 	// Agregar un logger (cuando estemos por terminar).
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
-
+/*
 	if (hayEstadoAnterior()) {
 		cargarEstructurasAdministrativas();
 		puts("Hay estado anterior...esperar que se conecten los Datanodes que estaban."); // borrar luego :p
 	} else {
+		crearMetadata();
+		crearTablaDeDirectorios();
+		crearTablaDeArchivos();
 		puts("No hay estado anterior, laburar desde 0."); // borrar luego :p
 	}
-
-	// Hacer funcion que vea si hay validarEstadoAnterior() cargando , que un campo sea socketDescriptor y otro campo nodoId y estaConectado
+*/
+	crearMetadata();
 
 	// Espera que se conecten todos los datanodes para alcanzar un estado "estable", no dejar entrar a YAMA hasta que eso pase.
 	// es  un hilo ya que una vez que queda estable, sigue escuchando conexiones
