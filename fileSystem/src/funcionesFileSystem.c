@@ -369,7 +369,7 @@ void* esperarConexionesDatanodes() {
 					// Crear funcion que maneje la lista de struct t_infoNodo. "add" infoNodo por ejemplo.
 
 					t_nodo *nodo = malloc(sizeof(t_nodo));
-					nodo->socketDescriptor = infoNodo.sdNodo;
+					nodo->socketDescriptor = sd;
 					nodo->idNodo = infoNodo.idNodo;
 					nodo->bloquesTotales = infoNodo.cantidadBloques;
 					nodo->bloquesLibres = nodo->bloquesTotales;
@@ -420,11 +420,10 @@ void* serializarSetBloque(void *bloque, uint32_t numBloque) {
 	return paquete;
 }
 
-int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void *bloque) {
+int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void *bloque,int socketNodo) {
 	int rta = 0;
 	void *paquete = serializarSetBloque(bloque, numeroBloque);
 	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
-	int socketNodo = socketNodoConectado; //Se usa para testear .
 	//enviarPorSocket(socketNodo, bloque, UN_BLOQUE + sizeof(uint32_t));
 	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
 	void *respuesta = malloc(sizeof(uint32_t));

@@ -123,7 +123,7 @@ void validarMetadata(char* path);
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
-int guardarBloqueEnNodo(int, uint32_t, void*);
+int guardarBloqueEnNodo(int, uint32_t, void*,int);
 int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap);
 
 #endif

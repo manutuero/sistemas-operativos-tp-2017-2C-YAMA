@@ -18,7 +18,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	// 2) A partir de la cantidad de bloques. Ver de la lista de nodos el que menos carga tenga (por bloque).
 	bloques = obtenerBloques(datos, tipo);
 	//ACA deberiamos hacer una copia de la lista nodos. Trabajar y cuando terminamos y esta todo OK la reemplazamos en la variable global.
-	for(i = 0; i <= bloques->elements_count; i++) {
+	for(i = 0; i < bloques->elements_count; i++) {
 		ordenarListaNodos();
 		bloque = list_get(bloques, i);
 
@@ -29,8 +29,8 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		nodo2=list_get(nodos,1);
 		numeroBloqueDatanode=obtenerYReservarBloqueBitmap(nodo1->bitmap,nodo1->bloquesTotales);
 	    numBloqueDatanodeCopia=obtenerYReservarBloqueBitmap(nodo2->bitmap,nodo2->bloquesTotales);
-	    guardarBloqueEnNodo(nodo1->idNodo,numeroBloqueDatanode,bloque->contenido);
-	    guardarBloqueEnNodo(nodo2->idNodo,numBloqueDatanodeCopia,bloque->contenido);
+	    guardarBloqueEnNodo(nodo1->idNodo,numeroBloqueDatanode,bloque->contenido,nodo1->socketDescriptor);
+	    guardarBloqueEnNodo(nodo2->idNodo,numBloqueDatanodeCopia,bloque->contenido,nodo2->socketDescriptor);
 		//traer un numero de bloque del primer nodo de la lista. Aca se guarda el bloque original
 		//traer un numero de bloque del segundo nodo de la lista. aca se guarda la copia del bloque original
 	}
