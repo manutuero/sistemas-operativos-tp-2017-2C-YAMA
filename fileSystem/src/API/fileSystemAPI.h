@@ -50,7 +50,7 @@ t_list* parsearArchivoDeTexto(FILE *datos);
 t_list* parsearArchivoBinario(FILE *datos);
 void limpiar(char* string, size_t largo);
 t_bloque* nuevoBloque(uint32_t numeroBloque);
-int obtenerNodoMasLibre();
+void ordenarListaNodos();
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo);
 
 #endif

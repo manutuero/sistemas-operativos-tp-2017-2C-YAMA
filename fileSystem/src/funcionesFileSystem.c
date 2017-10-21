@@ -137,6 +137,23 @@ char* obtenerPathBitmap(int idNodo) {
 }
 */
 
+int obtenerYReservarBloqueBitmap(t_bitmap *bitmap,int tamanioBitmap){
+	int i;
+	for(i=0;i<=tamanioBitmap;i++){
+		if(string_equals_ignore_case((char*)bitmap[i],"L")){
+			//Cambiar bloque a ocupado
+			bitmap[i]="O";
+			return i;
+			//Cortar For
+			break;
+		}
+
+	}
+	//Si no encontro nada devuelve -1 indicando que esta completo el bitmap;Hay que ver que hacemos ahi del otro lado
+	return -1;
+
+}
+
 /* Implementacion de funciones para mensajes */
 void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header) {
 	uint32_t bytesACopiar = 0, desplazamiento = 0, largoIp;
@@ -367,7 +384,7 @@ void* esperarConexionesDatanodes() {
 					 printf("ip: %s\n", infoNodo.ip);*/
 					// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 					// BLOQUES DE ESE NODO
-					socketNodoConectado = sd;
+
 				}
 				free(buffer);
 			}
@@ -704,6 +721,15 @@ void crearTablaDeDirectorios() {
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/directorios.dat");
 	FILE *filePointer = fopen(path, "wb");
+
+	// Si el puntero a archivo devuelve null en este escenario es porque no tiene permisos de creacion sobre el directorio.
+	if(!filePointer) {
+		char *comando = string_new();
+		string_append(&comando, "sudo chmod 4777 ");
+		string_append(&comando, PATH_METADATA);
+		system(comando);
+		filePointer = fopen(path, "wb");
+	}
 
 	// Carga el array en memoria y escribe en el archivo.
 	directorios[0].index = 0;

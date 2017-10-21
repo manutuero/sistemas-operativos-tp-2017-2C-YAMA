@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include "test/suite.h"
+#include "utils.h"
 
 #define BACKLOG 3
 
@@ -123,5 +124,6 @@ char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(int, uint32_t, void*);
+int obtenerYReservarBloqueBitmap(t_bitmap *bitmap,int tamanioBitmap);
 
 #endif

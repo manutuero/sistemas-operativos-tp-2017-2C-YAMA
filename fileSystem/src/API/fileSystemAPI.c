@@ -3,15 +3,40 @@
 
 int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	t_list *bloques;
+	t_bloque *bloque;
 	int idNodo;
+	int numeroBloqueDatanode;
+	int numBloqueDatanodeCopia;
+	int i;
+	t_nodo *nodo1;
+	t_nodo *nodo2;
 
 	// 1) Validar si existe el directorio en yamafs:, pedir index para crear el archivo en linux.
 	if (!existePathDirectorio(path))
 		return ERROR;
 
 	// 2) A partir de la cantidad de bloques. Ver de la lista de nodos el que menos carga tenga (por bloque).
-	idNodo = obtenerNodoMasLibre();
 	bloques = obtenerBloques(datos, tipo);
+	//ACA deberiamos hacer una copia de la lista nodos. Trabajar y cuando terminamos y esta todo OK la reemplazamos en la variable global.
+	for(i = 0; i <= bloques->elements_count; i++) {
+		ordenarListaNodos();
+		bloque = list_get(bloques, i);
+
+		//Tomo los dos nodos donde voy a guardar. Como la lista de nodos esta ordenada. Se que los dos primeros son los que mas espacio libre tiene.
+		//ATENCION, aca tambien deberiamos filtrar los nodos que NO tienen espacio.
+
+		nodo1=list_get(nodos,0);
+		nodo2=list_get(nodos,1);
+		numeroBloqueDatanode=obtenerYReservarBloqueBitmap(&nodo1->bitmap,nodo1->bloquesTotales);
+	    numBloqueDatanodeCopia=obtenerYReservarBloqueBitmap(&nodo2->bitmap,nodo2->bloquesTotales);
+
+	    guardarBloqueEnNodo(nodo1->idNodo,numeroBloqueDatanode,bloque->contenido);
+
+	    guardarBloqueEnNodo(nodo2->idNodo,numBloqueDatanodeCopia,bloque->contenido);
+
+		//traer un numero de bloque del primer nodo de la lista. Aca se guarda el bloque original
+		//traer un numero de bloque del segundo nodo de la lista. aca se guarda la copia del bloque original
+	}
 
 	// 3) Ver el bitmap para obtener el primer bloque disponible para ese nodo.
 
@@ -158,10 +183,8 @@ t_list* parsearArchivoBinario(FILE *datos) {
 	return bloques;
 }
 
-int obtenerNodoMasLibre() {
+void ordenarListaNodos() {
 	list_sort(nodos, (void*)compararBloquesLibres);
-	t_nodo *nodo = list_get(nodos, 1);
-	return nodo->idNodo;
 }
 
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo) {
