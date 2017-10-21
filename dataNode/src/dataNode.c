@@ -6,7 +6,6 @@ int main(void) {
 	NODOARCHCONFIG = "nodoConfig.cfg";
 	cargarArchivoConfiguracionDatanode(NODOARCHCONFIG);
 	abrirDatabin();
-	setBloque(1,"hola 123 456");
 //Agregar while para que cuando se desconecte el fs quede esperando conexiones nuevamente.
 	socketFs = conectarAfilesystem(IP_FILESYSTEM, PUERTO_FILESYSTEM);
 	if (socketFs == 0) {

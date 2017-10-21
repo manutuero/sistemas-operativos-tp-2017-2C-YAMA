@@ -8,7 +8,6 @@
 #define ERROR 0
 #define UN_MEGABYTE 1048576
 #define UN_BLOQUE sizeof(char)*UN_MEGABYTE
-#define EXIT_FAILURE 0
 /* Variables globales */
 char* NODOARCHCONFIG;
 char* IP_FILESYSTEM;
@@ -36,5 +35,6 @@ void cargarArchivoConfiguracionDatanode(char*);
 int conectarAfilesystem(char*, int);
 void abrirDatabin();
 void cerrarDatabin();
+void escucharFileSystem(int socketFs);
 
 #endif
