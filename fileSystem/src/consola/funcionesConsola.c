@@ -57,9 +57,9 @@ char* invocarFuncionFormat(char **argumentos) {
 	FILE *datos = fopen(path, "r");
 
 	if (!datos)
-		perror("El archivo no existe en la ruta especificada.");
+		  fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
-	almacenarArchivo(path, "asdadas", TEXTO, datos);
+	almacenarArchivo("root/manu", "asdadas", TEXTO, datos);
 
 	fclose(datos);
 	return "";

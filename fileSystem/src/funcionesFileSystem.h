@@ -124,6 +124,6 @@ char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(int, uint32_t, void*);
-int obtenerYReservarBloqueBitmap(t_bitmap *bitmap,int tamanioBitmap);
+int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap);
 
 #endif

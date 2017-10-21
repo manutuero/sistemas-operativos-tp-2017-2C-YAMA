@@ -137,12 +137,12 @@ char* obtenerPathBitmap(int idNodo) {
 }
 */
 
-int obtenerYReservarBloqueBitmap(t_bitmap *bitmap,int tamanioBitmap){
+int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap){
 	int i;
 	for(i=0;i<=tamanioBitmap;i++){
-		if(string_equals_ignore_case((char*)bitmap[i],"L")){
+		if(bitmap[i]=='L'){
 			//Cambiar bloque a ocupado
-			bitmap[i]="O";
+			bitmap[i]='O';
 			return i;
 			//Cortar For
 			break;

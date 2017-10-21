@@ -27,19 +27,14 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 		nodo1=list_get(nodos,0);
 		nodo2=list_get(nodos,1);
-		numeroBloqueDatanode=obtenerYReservarBloqueBitmap(&nodo1->bitmap,nodo1->bloquesTotales);
-	    numBloqueDatanodeCopia=obtenerYReservarBloqueBitmap(&nodo2->bitmap,nodo2->bloquesTotales);
-
+		numeroBloqueDatanode=obtenerYReservarBloqueBitmap(nodo1->bitmap,nodo1->bloquesTotales);
+	    numBloqueDatanodeCopia=obtenerYReservarBloqueBitmap(nodo2->bitmap,nodo2->bloquesTotales);
 	    guardarBloqueEnNodo(nodo1->idNodo,numeroBloqueDatanode,bloque->contenido);
-
 	    guardarBloqueEnNodo(nodo2->idNodo,numBloqueDatanodeCopia,bloque->contenido);
-
 		//traer un numero de bloque del primer nodo de la lista. Aca se guarda el bloque original
 		//traer un numero de bloque del segundo nodo de la lista. aca se guarda la copia del bloque original
 	}
-
 	// 3) Ver el bitmap para obtener el primer bloque disponible para ese nodo.
-
 	// 4) Enviar solicitudes de setBloque con el n° de bloque que me dio bitmap de esos nodos.
 
 	return EXITO; // Resultado de operacion de escritura.
