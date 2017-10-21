@@ -118,7 +118,7 @@ void preplanificarJob(t_job* jobMaster){
 	actualizarWorkload(cantNodosInvolucrados,nodosInvolucrados);
 
 	/* Enviar toda la planificacion a master */
-	enviarPlanificacionAMaster();
+	enviarPlanificacionAMaster(jobMaster);
 
 	/* liberar listas para la siguiente planificacion */
 	destruir_listas();
@@ -413,9 +413,10 @@ void planificacionReduccionLocal()
 		while ((i<cantTransformaciones)&&(nodoActual==transformacion->idNodo))
 		{
 			cargarInfoReduccionLocal(transformacion,redLocal,nombreTMP);
+			if(existeRedLocal(redLocal,listaPlanRedLocal))
+				cargarReduccionLocalTablaEstado(nombreTMP,redLocal->idNodo);
 			list_add(listaPlanRedLocal,redLocal);
 			i++;
-			cargarReduccionLocalTablaEstado(nombreTMP,redLocal->idNodo);
 			transformacion=list_get(listaPlanTransformaciones,i);
 			redLocal = malloc(sizeof(t_reduccionLocalMaster));
 		}
@@ -659,12 +660,12 @@ void destruir_listas()
 	list_destroy_and_destroy_elements(listaPlanRedGlobal,free);
 	return;
 }
-void enviarPlanificacionAMaster(){
+void enviarPlanificacionAMaster(t_job* jobMaster){
 
 	uint32_t cantTransformaciones = list_size(listaPlanTransformaciones);
 	uint32_t cantRedLocal = list_size(listaPlanRedLocal);
 	uint32_t cantRedGlobal = list_size(listaPlanRedGlobal);
-	int i, desplazamiento = 0;
+	int desplazamiento = 0;
 	int largoTransformaciones, largoRedLocales , largoRedGlobales, tamanioTotalBuffer;
 	void* bufferTransformaciones;
 	void* bufferRedLocal;
@@ -681,17 +682,28 @@ void enviarPlanificacionAMaster(){
 	printf("largo trans: %d, redLoc %d, redGlo %d\n",largoTransformaciones,largoRedLocales, largoRedGlobales);
 
 	tamanioTotalBuffer = largoTransformaciones + largoRedLocales + largoRedGlobales +
-			cantTransformaciones + cantRedLocal + cantRedGlobal;
+			sizeof(cantTransformaciones) + sizeof(cantRedLocal) + sizeof(cantRedGlobal);
 
-	bufferMensaje = malloc(tamanioTotalBuffer);
+	t_header header;
+	header.id = 5;
+	header.tamanioPayload = tamanioTotalBuffer;
 
-	memcpy(bufferMensaje, &cantTransformaciones,sizeof(cantTransformaciones));
+	bufferMensaje = malloc(tamanioTotalBuffer+sizeof(t_header));
+
+	memcpy(bufferMensaje, &header.id,sizeof(header.id));
+	desplazamiento += sizeof(header.id);
+
+	memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload,sizeof(header.tamanioPayload));
+	desplazamiento += sizeof(header.tamanioPayload);
+
+
+	memcpy(bufferMensaje+desplazamiento, &cantTransformaciones,sizeof(cantTransformaciones));
 	desplazamiento += sizeof(cantTransformaciones);
 
-	memcpy(bufferMensaje+desplazamiento, &cantRedLocal,sizeof(cantTransformaciones));
+	memcpy(bufferMensaje+desplazamiento, &cantRedLocal,sizeof(cantRedLocal));
 	desplazamiento += sizeof(cantRedLocal);
 
-	memcpy(bufferMensaje+desplazamiento, &cantRedGlobal, sizeof(cantTransformaciones));
+	memcpy(bufferMensaje+desplazamiento, &cantRedGlobal, sizeof(cantRedGlobal));
 	desplazamiento += sizeof(cantRedGlobal);
 
 	memcpy(bufferMensaje+desplazamiento,bufferTransformaciones,largoTransformaciones);
@@ -703,12 +715,21 @@ void enviarPlanificacionAMaster(){
 	memcpy(bufferMensaje+desplazamiento, bufferRedGlobal, largoRedGlobales);
 	desplazamiento += largoRedGlobales;
 
-	enviarPorSocket(idMaster,bufferMensaje, tamanioTotalBuffer);
+	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, tamanioTotalBuffer+8);
+
+	printf("envia planificacion a master\n");
+
+	free(bufferTransformaciones);
+
+	printf("libera buffer trans\n");
+
+	free(bufferRedLocal);
+	printf("libera buffer redloc\n");
+	free(bufferRedGlobal);
+	printf("libera buffer redglob\n");
+
 
 	free(bufferMensaje);
-	free(bufferTransformaciones);
-	free(bufferRedLocal);
-	free(bufferRedGlobal);
 }
 
 void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_list* lista){
@@ -727,19 +748,19 @@ void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_
 
 			memcpy(buffer+desplazamiento, &transformacion->idNodo, sizeof(transformacion->idNodo));
 			desplazamiento+=sizeof(transformacion->idNodo);
-			memcpy(buffer, &transformacion->nroBloqueNodo, sizeof(transformacion->nroBloqueNodo));
+			memcpy(buffer+desplazamiento, &transformacion->nroBloqueNodo, sizeof(transformacion->nroBloqueNodo));
 			desplazamiento+=sizeof(transformacion->nroBloqueNodo);
-			memcpy(buffer, &transformacion->bytesOcupados, sizeof(transformacion->bytesOcupados));
+			memcpy(buffer+desplazamiento, &transformacion->bytesOcupados, sizeof(transformacion->bytesOcupados));
 			desplazamiento+=sizeof(transformacion->bytesOcupados);
-			memcpy(buffer, &transformacion->puerto, sizeof(transformacion->puerto));
+			memcpy(buffer+desplazamiento, &transformacion->puerto, sizeof(transformacion->puerto));
 			desplazamiento+=sizeof(transformacion->puerto);
-			memcpy(buffer, &transformacion->largoIp, sizeof(transformacion->largoIp));
+			memcpy(buffer+desplazamiento, &transformacion->largoIp, sizeof(transformacion->largoIp));
 			desplazamiento+=sizeof(transformacion->largoIp);
-			memcpy(buffer, transformacion->ip, transformacion->largoIp);
+			memcpy(buffer+desplazamiento, transformacion->ip, transformacion->largoIp);
 			desplazamiento+=transformacion->largoIp;
-			memcpy(buffer, &transformacion->largoArchivo, sizeof(transformacion->largoArchivo));
+			memcpy(buffer+desplazamiento, &transformacion->largoArchivo, sizeof(transformacion->largoArchivo));
 			desplazamiento+=sizeof(transformacion->largoArchivo);
-			memcpy(buffer, transformacion->archivoTransformacion, transformacion->largoArchivo);
+			memcpy(buffer+desplazamiento, transformacion->archivoTransformacion, transformacion->largoArchivo);
 			desplazamiento+=transformacion->largoArchivo;
 
 		}
@@ -758,26 +779,26 @@ void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista
 	for(i=0;i<cantReducciones ;i++){
 			redLocal = (t_reduccionLocalMaster*) list_get(lista, i);
 			buffer = realloc(buffer, sizeof(t_reduccionLocalMaster) +
-								redLocal->largoArchivoTransformacion + redLocal->largoArchivoRedLocal +  redLocal->largoIp);
+					redLocal->largoArchivoTransformacion + redLocal->largoArchivoRedLocal +  redLocal->largoIp + desplazamiento);
 
 			printf("%s, %s, %s\n", redLocal->ip, redLocal->archivoTransformacion, redLocal->archivoRedLocal);
 			printf("%d, %d, %d\n", redLocal->largoIp, redLocal->largoArchivoTransformacion, redLocal->largoArchivoRedLocal);
 
 			memcpy(buffer+desplazamiento, &redLocal->idNodo, sizeof(redLocal->idNodo));
 			desplazamiento+=sizeof(redLocal->idNodo);
-			memcpy(buffer, &redLocal->puerto, sizeof(redLocal->puerto));
+			memcpy(buffer+desplazamiento, &redLocal->puerto, sizeof(redLocal->puerto));
 			desplazamiento+=sizeof(redLocal->puerto);
-			memcpy(buffer, &redLocal->largoIp, sizeof(redLocal->largoIp));
+			memcpy(buffer+desplazamiento, &redLocal->largoIp, sizeof(redLocal->largoIp));
 			desplazamiento+=sizeof(redLocal->largoIp);
-			memcpy(buffer, redLocal->ip, redLocal->largoIp);
+			memcpy(buffer+desplazamiento, redLocal->ip, redLocal->largoIp);
 			desplazamiento+=redLocal->largoIp;
-			memcpy(buffer, &redLocal->largoArchivoTransformacion, sizeof(redLocal->largoArchivoTransformacion));
+			memcpy(buffer+desplazamiento, &redLocal->largoArchivoTransformacion, sizeof(redLocal->largoArchivoTransformacion));
 			desplazamiento+=sizeof(redLocal->largoArchivoTransformacion);
-			memcpy(buffer, redLocal->archivoTransformacion, redLocal->largoArchivoTransformacion);
+			memcpy(buffer+desplazamiento, redLocal->archivoTransformacion, redLocal->largoArchivoTransformacion);
 			desplazamiento+=redLocal->largoArchivoTransformacion;
-			memcpy(buffer, &redLocal->largoArchivoRedLocal, sizeof(redLocal->largoArchivoRedLocal));
+			memcpy(buffer+desplazamiento, &redLocal->largoArchivoRedLocal, sizeof(redLocal->largoArchivoRedLocal));
 			desplazamiento+=sizeof(redLocal->largoArchivoRedLocal);
-			memcpy(buffer, redLocal->archivoRedLocal, redLocal->largoArchivoRedLocal);
+			memcpy(buffer+desplazamiento, redLocal->archivoRedLocal, redLocal->largoArchivoRedLocal);
 			desplazamiento+=redLocal->largoArchivoRedLocal;
 		}
 	*largoMensaje = desplazamiento;
@@ -795,7 +816,7 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 	for(i=0;i<cantReducciones ;i++){
 			redGlobal = (t_reduccionGlobalMaster*) list_get(lista, i);
 			buffer = realloc(buffer, sizeof(t_reduccionGlobalMaster) +
-					redGlobal->largoArchivoRedGlobal + redGlobal->largoArchivoRedLocal +  redGlobal->largoIp);
+					redGlobal->largoArchivoRedGlobal + redGlobal->largoArchivoRedLocal +  redGlobal->largoIp + desplazamiento);
 
 			printf("%s, %s, %s\n", redGlobal->ip, redGlobal->archivoRedLocal, redGlobal->archivoRedGlobal);
 			printf("%d, %d, %d\n", redGlobal->largoIp, redGlobal->largoArchivoRedLocal, redGlobal->largoArchivoRedGlobal);
@@ -804,19 +825,19 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 			desplazamiento+=sizeof(redGlobal->idNodo);
 			memcpy(buffer+desplazamiento, &redGlobal->encargado, sizeof(redGlobal->encargado));
 			desplazamiento+=sizeof(redGlobal->encargado);
-			memcpy(buffer, &redGlobal->puerto, sizeof(redGlobal->puerto));
+			memcpy(buffer+desplazamiento, &redGlobal->puerto, sizeof(redGlobal->puerto));
 			desplazamiento+=sizeof(redGlobal->puerto);
-			memcpy(buffer, &redGlobal->largoIp, sizeof(redGlobal->largoIp));
+			memcpy(buffer+desplazamiento, &redGlobal->largoIp, sizeof(redGlobal->largoIp));
 			desplazamiento+=sizeof(redGlobal->largoIp);
-			memcpy(buffer, redGlobal->ip, redGlobal->largoIp);
+			memcpy(buffer+desplazamiento, redGlobal->ip, redGlobal->largoIp);
 			desplazamiento+=redGlobal->largoIp;
-			memcpy(buffer, &redGlobal->largoArchivoRedLocal, sizeof(redGlobal->largoArchivoRedLocal));
+			memcpy(buffer+desplazamiento, &redGlobal->largoArchivoRedLocal, sizeof(redGlobal->largoArchivoRedLocal));
 			desplazamiento+=sizeof(redGlobal->largoArchivoRedLocal);
-			memcpy(buffer, redGlobal->archivoRedLocal, redGlobal->largoArchivoRedLocal);
+			memcpy(buffer+desplazamiento, redGlobal->archivoRedLocal, redGlobal->largoArchivoRedLocal);
 			desplazamiento+=redGlobal->largoArchivoRedLocal;
-			memcpy(buffer, &redGlobal->largoArchivoRedGlobal, sizeof(redGlobal->largoArchivoRedGlobal));
+			memcpy(buffer+desplazamiento, &redGlobal->largoArchivoRedGlobal, sizeof(redGlobal->largoArchivoRedGlobal));
 			desplazamiento+=sizeof(redGlobal->largoArchivoRedGlobal);
-			memcpy(buffer, redGlobal->archivoRedGlobal, redGlobal->largoArchivoRedGlobal);
+			memcpy(buffer+desplazamiento, redGlobal->archivoRedGlobal, redGlobal->largoArchivoRedGlobal);
 			desplazamiento+=redGlobal->largoArchivoRedGlobal;
 
 		}
