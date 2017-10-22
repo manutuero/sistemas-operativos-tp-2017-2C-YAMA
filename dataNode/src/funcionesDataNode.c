@@ -83,9 +83,9 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	t_header *header = malloc(sizeof(t_header));
 	header->id = 1;
 	if (socketPrograma <= 0) {
-		perror(
-				"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
-		return (ERROR);
+		//perror(
+			//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+		//return (ERROR);
 	}
 	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) != FAIL) {
 		return 0;
@@ -206,8 +206,8 @@ void escucharFileSystem(int socketFs) {
 		status = recibirHeader(socketFs, &headerFs);
 		//status = recibirPorSocket(socketFs, buffer, 3);
 		if ((status > 0) && headerFs.id > 0) {
-			printf("Recibido header : %d  payload: %d \n", headerFs.id,
-					headerFs.tamanioPayload);
+			//printf("Recibido header : %d  payload: %d \n", headerFs.id,
+				//	headerFs.tamanioPayload);
 			void *numeroDeBloqueRecibido = malloc(sizeof(uint32_t));
 			void* bloqueRecibido;
 			char *bloque;
@@ -215,7 +215,7 @@ void escucharFileSystem(int socketFs) {
 			case 3: //Peticion de lectura de bloque
 
 				bloque = getBloque(headerFs.tamanioPayload);
-				printf("Bloque traido: %s \n", bloque);
+				printf("Peticion de lectura bloque Nº: %d \n",headerFs.tamanioPayload);
 				send(socketFs, (void*) bloque, UN_BLOQUE, 0);
 				free(bloque);
 				break;
@@ -228,7 +228,7 @@ void escucharFileSystem(int socketFs) {
 				setBloque(*(int*) numeroDeBloqueRecibido,
 						(char*) bloqueRecibido);
 				int *respuesta = malloc(sizeof(uint32_t));
-				printf("Bloque recibido: %s",(char*)bloqueRecibido);
+				printf("Bloque guardado Nº: %d",numeroDeBloqueRecibido);
 				puts("");
 				*respuesta = 1;	//set bloque deberia devolver un valor si estuvo todo ok
 				send(socketFs, (void*) respuesta, sizeof(uint32_t), 0);
@@ -236,7 +236,7 @@ void escucharFileSystem(int socketFs) {
 				free(bloqueRecibido);
 				break;
 			default: {
-				printf("recibi cualquier header: %d", headerFs.id);
+				printf("ERROR ID header invalido: %d", headerFs.id);
 				break;
 			}
 

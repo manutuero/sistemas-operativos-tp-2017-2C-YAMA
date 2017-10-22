@@ -1,8 +1,7 @@
 #include "funcionesDataNode.h"
 
 int main(void) {
-	int socketFs;
-
+	int socketFs=0;
 	NODOARCHCONFIG = "nodoConfig.cfg";
 	cargarArchivoConfiguracionDatanode(NODOARCHCONFIG);
 	abrirDatabin();
@@ -13,9 +12,7 @@ int main(void) {
 	} else {
 		printf("Conectado al FileSystem con socket n°: %d.\n", socketFs);
 		escucharFileSystem(socketFs);
-
 	}
-
 	// Escuchar peticiones FileSystem (get y set)
 	if (socketFs != 0) {
 		cerrarSocket(socketFs);
