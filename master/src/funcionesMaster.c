@@ -49,6 +49,12 @@ int file_exists (char * fileName)
 
 }
 
+void crearListas(){
+	listaTransformaciones = list_create();
+	listaRedLocales = list_create();
+	listaRedGloblales = list_create();
+}
+
 void masterEscuchando(int* socketMaster) {
 
 	struct sockaddr_in dir;
@@ -76,13 +82,15 @@ void masterEscuchando(int* socketMaster) {
 
 //FUNCION CON EL SELECT PARA LOS WORKERS
 //TODO se va a cambiar por hilos mas adelante
-void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado){
+void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAprocesar,char* direccionDeResultado){
 	//struct sockaddr_in dir;
 	int socketMaster;
 	int nuevoSocket , max_clients = 5 , i ;
 	int maxPuerto;
 	fd_set readfds, auxRead;
 	int socketYama;
+
+	crearListas();
 
 
 
@@ -118,6 +126,11 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 
 	//-----------------------
 
+	enviarTransformacionAWorkers(rutaTransformador, rutaReductor); //FALTA HACER ESTO
+
+
+
+	/*
 	//Entro al select de conexiones
 	printf("Esperando conexiones\n");
 	while(1){
@@ -137,13 +150,14 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 					//Le envia el archivo apenas se conecta con un puerto
 					printf("Entro una conexion por el puerto %d\n", nuevoSocket);
 					FD_SET(nuevoSocket,&auxRead);
-
+*/
 					//TODO
 					/*-------Envio archivo-------------------------
 					 *Actualmente manda el primer parametro, en este caso el tranformador.
 					 * Seguramente va a haber que cambiarlo
 					 */
-					enviarArchivo(nuevoSocket, buffer, transformador);
+	/*
+					enviarArchivo(nuevoSocket, buffer, rutaTransformador);
 					if(nuevoSocket > maxPuerto)
 						maxPuerto = nuevoSocket;
 				}
@@ -170,7 +184,8 @@ void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,cha
 		      }
 		    }
 		}
-	}
+		*/
+
 
 }
 
@@ -231,6 +246,25 @@ void recibirPlanificacionDeYama(int socketYama){
 	deserializarPlanificacion(buffer);
 
 
+	int i;
+	printf("archivos de transformacion:\n");
+	for(i=0;i<list_size(listaTransformaciones);i++){
+		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->ip);
+		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->archivoTransformacion);
+
+	}
+
+	printf("archivos de reduccion local:\n");
+		for(i=0;i<list_size(listaRedLocales);i++){
+			printf("en lista: %s\n", ((t_reduccionLocalMaster*)list_get(listaRedLocales,i))->archivoRedLocal);
+
+		}
+
+	printf("archivos de reduccion global:\n");
+		for(i=0;i<list_size(listaRedGloblales);i++){
+			printf("en lista: %s\n", ((t_reduccionGlobalMaster*)list_get(listaRedGloblales,i))->archivoRedGlobal);
+
+	}
 }
 
 void deserializarPlanificacion(void* buffer){
@@ -248,133 +282,281 @@ void deserializarPlanificacion(void* buffer){
 
 	printf("cantTransformaciones: %d  cantRedLocal: %d cantRedGlobal: %d\n",cantTransformaciones,cantRedLocal,cantRedGlobal);
 
-
 	t_transformacionMaster transformaciones[cantTransformaciones];
 	t_reduccionLocalMaster reducciones[cantRedLocal];
 	t_reduccionGlobalMaster reduccionesGlobales[cantRedGlobal];
 
-	deserializarTransformaciones(transformaciones, cantTransformaciones, buffer, &desplazamiento);
 
-	deserializarReduccionesLocales(reducciones, cantRedLocal, buffer, &desplazamiento);
 
-	deserializarReduccionesGlobales(reduccionesGlobales, cantRedGlobal, buffer, &desplazamiento);
+	deserializarTransformaciones(cantTransformaciones, buffer, &desplazamiento);
+
+	deserializarReduccionesLocales(cantRedLocal, buffer, &desplazamiento);
+
+	deserializarReduccionesGlobales(cantRedGlobal, buffer, &desplazamiento);
 
 	printf("archivos de transformacion:\n");
-	for(i=0;i<cantTransformaciones;i++){
-		printf("%s\n",transformaciones[i].archivoTransformacion);
-		//free(transformaciones[i].ip);
-		//free(transformaciones[i].archivoTransformacion);
+	for(i=0;i<list_size(listaTransformaciones);i++){
+		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->ip);
+		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->archivoTransformacion);
+
 	}
 
 	printf("archivos de reduccion local:\n");
-	for(i=0;i<cantRedLocal;i++){
-			printf("%s\n",reducciones[i].archivoRedLocal);
-			//free(transformaciones[i].ip);
-			//free(transformaciones[i].archivoTransformacion);
+		for(i=0;i<list_size(listaRedLocales);i++){
+			printf("en lista: %s\n", ((t_reduccionLocalMaster*)list_get(listaRedLocales,i))->archivoRedLocal);
+
 		}
 
-	printf("archivo de reduccion global:\n");
-	for(i=0;i<cantRedGlobal;i++){
-			printf("%s\n",reduccionesGlobales[i].archivoRedGlobal);
-			//free(transformaciones[i].ip);
-			//free(transformaciones[i].archivoTransformacion);
+	printf("archivos de reduccion global:\n");
+		for(i=0;i<list_size(listaRedGloblales);i++){
+			printf("en lista: %s\n", ((t_reduccionGlobalMaster*)list_get(listaRedGloblales,i))->archivoRedGlobal);
+
 	}
 }
 
 
-void deserializarTransformaciones(t_transformacionMaster* transformaciones, int cantTransformaciones, void* buffer, int* desplazamiento){
+void deserializarTransformaciones(int cantTransformaciones, void* buffer, int* desplazamiento){
 	int i;
+	t_transformacionMaster* transformaciones;
 
 	for(i=0;i<cantTransformaciones;i++){
+		transformaciones = malloc(sizeof(t_transformacionMaster));
+		memcpy(&transformaciones->idNodo,buffer+*desplazamiento,  sizeof(transformaciones->idNodo));
+		*desplazamiento+=sizeof(transformaciones->idNodo);
+		memcpy(&transformaciones->nroBloqueNodo, buffer+*desplazamiento, sizeof(transformaciones->nroBloqueNodo));
+		*desplazamiento+=sizeof(transformaciones->nroBloqueNodo);
+		memcpy(&transformaciones->bytesOcupados,buffer+*desplazamiento,  sizeof(transformaciones->bytesOcupados));
+		*desplazamiento+=sizeof(transformaciones->bytesOcupados);
+		memcpy(&transformaciones->puerto, buffer+*desplazamiento, sizeof(transformaciones->puerto));
+		*desplazamiento+=sizeof(transformaciones->puerto);
+		memcpy(&transformaciones->largoIp, buffer+*desplazamiento, sizeof(transformaciones->largoIp));
+		*desplazamiento+=sizeof(transformaciones->largoIp);
+		transformaciones->ip = malloc(transformaciones->largoIp);
+		memcpy(transformaciones->ip, buffer+*desplazamiento, transformaciones->largoIp);
+		*desplazamiento+=transformaciones->largoIp;
+		memcpy(&transformaciones->largoArchivo, buffer+*desplazamiento, sizeof(transformaciones->largoArchivo));
+		*desplazamiento+=sizeof(transformaciones->largoArchivo);
 
-		memcpy(&transformaciones[i].idNodo,buffer+*desplazamiento,  sizeof(transformaciones[i].idNodo));
-		*desplazamiento+=sizeof(transformaciones[i].idNodo);
-		memcpy(&transformaciones[i].nroBloqueNodo, buffer+*desplazamiento, sizeof(transformaciones[i].nroBloqueNodo));
-		*desplazamiento+=sizeof(transformaciones[i].nroBloqueNodo);
-		memcpy(&transformaciones[i].bytesOcupados,buffer+*desplazamiento,  sizeof(transformaciones[i].bytesOcupados));
-		*desplazamiento+=sizeof(transformaciones[i].bytesOcupados);
-		memcpy(&transformaciones[i].puerto, buffer+*desplazamiento, sizeof(transformaciones[i].puerto));
-		*desplazamiento+=sizeof(transformaciones[i].puerto);
-		memcpy(&transformaciones[i].largoIp, buffer+*desplazamiento, sizeof(transformaciones[i].largoIp));
-		*desplazamiento+=sizeof(transformaciones[i].largoIp);
-		transformaciones[i].ip = malloc(transformaciones[i].largoIp);
-		memcpy(transformaciones[i].ip, buffer+*desplazamiento, transformaciones[i].largoIp);
-		*desplazamiento+=transformaciones[i].largoIp;
-		memcpy(&transformaciones[i].largoArchivo, buffer+*desplazamiento, sizeof(transformaciones[i].largoArchivo));
-		*desplazamiento+=sizeof(transformaciones[i].largoArchivo);
+		transformaciones->archivoTransformacion = malloc(transformaciones->largoArchivo);
+		memcpy(transformaciones->archivoTransformacion,buffer+*desplazamiento, transformaciones->largoArchivo);
+		*desplazamiento+=transformaciones->largoArchivo;
+		//free(transformaciones->ip);
+		//free(transformaciones->archivoTransformacion);
 
-		transformaciones[i].archivoTransformacion = malloc(transformaciones[i].largoArchivo);
-		memcpy(transformaciones[i].archivoTransformacion,buffer+*desplazamiento, transformaciones[i].largoArchivo);
-		*desplazamiento+=transformaciones[i].largoArchivo;
-		//free(transformaciones[i].ip);
-		//free(transformaciones[i].archivoTransformacion);
+		list_add(listaTransformaciones, transformaciones);
 	}
 }
 
 
-void deserializarReduccionesLocales(t_reduccionLocalMaster* reducciones, int cantRedLocales, void* buffer, int* desplazamiento){
+void deserializarReduccionesLocales(int cantRedLocales, void* buffer, int* desplazamiento){
 	int i;
+
+	t_reduccionLocalMaster* reducciones;
 
 	for(i=0;i<cantRedLocales;i++){
-
-		memcpy(&reducciones[i].idNodo,buffer+*desplazamiento,  sizeof(reducciones[i].idNodo));
+		reducciones = malloc(sizeof(t_reduccionLocalMaster));
+		memcpy(&reducciones->idNodo,buffer+*desplazamiento,  sizeof(reducciones->idNodo));
 		*desplazamiento+=sizeof(reducciones[i].idNodo);
-		memcpy(&reducciones[i].puerto, buffer+*desplazamiento, sizeof(reducciones[i].puerto));
-		*desplazamiento+=sizeof(reducciones[i].puerto);
+		memcpy(&reducciones->puerto, buffer+*desplazamiento, sizeof(reducciones->puerto));
+		*desplazamiento+=sizeof(reducciones->puerto);
 
-		memcpy(&reducciones[i].largoIp, buffer+*desplazamiento, sizeof(reducciones[i].largoIp));
-		*desplazamiento+=sizeof(reducciones[i].largoIp);
-		reducciones[i].ip = malloc(reducciones[i].largoIp);
-		memcpy(reducciones[i].ip, buffer+*desplazamiento, reducciones[i].largoIp);
-		*desplazamiento+=reducciones[i].largoIp;
+		memcpy(&reducciones->largoIp, buffer+*desplazamiento, sizeof(reducciones->largoIp));
+		*desplazamiento+=sizeof(reducciones->largoIp);
+		reducciones->ip = malloc(reducciones->largoIp);
+		memcpy(reducciones->ip, buffer+*desplazamiento, reducciones->largoIp);
+		*desplazamiento+=reducciones->largoIp;
 
-		memcpy(&reducciones[i].largoArchivoTransformacion, buffer+*desplazamiento, sizeof(reducciones[i].largoArchivoTransformacion));
-		*desplazamiento+=sizeof(reducciones[i].largoArchivoTransformacion);
-		reducciones[i].archivoTransformacion = malloc(reducciones[i].largoArchivoTransformacion);
-		memcpy(reducciones[i].archivoTransformacion, buffer+*desplazamiento, reducciones[i].largoArchivoTransformacion);
-		*desplazamiento+=reducciones[i].largoArchivoTransformacion;
+		memcpy(&reducciones->largoArchivoTransformacion, buffer+*desplazamiento, sizeof(reducciones->largoArchivoTransformacion));
+		*desplazamiento+=sizeof(reducciones->largoArchivoTransformacion);
+		reducciones->archivoTransformacion = malloc(reducciones->largoArchivoTransformacion);
+		memcpy(reducciones->archivoTransformacion, buffer+*desplazamiento, reducciones->largoArchivoTransformacion);
+		*desplazamiento+=reducciones->largoArchivoTransformacion;
 
-		memcpy(&reducciones[i].largoArchivoRedLocal, buffer+*desplazamiento, sizeof(reducciones[i].largoIp));
-		*desplazamiento+=sizeof(reducciones[i].largoArchivoRedLocal);
-		reducciones[i].archivoRedLocal = malloc(reducciones[i].largoArchivoRedLocal);
-		memcpy(reducciones[i].archivoRedLocal,buffer+*desplazamiento, reducciones[i].largoArchivoRedLocal);
-		*desplazamiento+=reducciones[i].largoArchivoRedLocal;
-		//free(transformaciones[i].ip);
-		//free(transformaciones[i].archivoTransformacion);
+		memcpy(&reducciones->largoArchivoRedLocal, buffer+*desplazamiento, sizeof(reducciones->largoIp));
+		*desplazamiento+=sizeof(reducciones->largoArchivoRedLocal);
+		reducciones->archivoRedLocal = malloc(reducciones->largoArchivoRedLocal);
+		memcpy(reducciones->archivoRedLocal,buffer+*desplazamiento, reducciones->largoArchivoRedLocal);
+		*desplazamiento+=reducciones->largoArchivoRedLocal;
+
+		list_add(listaRedLocales, reducciones);
+		//free(transformaciones->ip);
+		//free(transformaciones->archivoTransformacion);
 	}
 }
 
 
-void deserializarReduccionesGlobales(t_reduccionGlobalMaster* reduccionesGlobales, int cantRedGlobales, void* buffer, int* desplazamiento){
+void deserializarReduccionesGlobales(int cantRedGlobales, void* buffer, int* desplazamiento){
 	int i;
 
+	t_reduccionGlobalMaster* reduccionesGlobales;
+
 	for(i=0;i<cantRedGlobales;i++){
+		reduccionesGlobales = malloc(sizeof(t_reduccionGlobalMaster));
+		memcpy(&reduccionesGlobales->idNodo,buffer+*desplazamiento,  sizeof(reduccionesGlobales->idNodo));
+		*desplazamiento+=sizeof(reduccionesGlobales->idNodo);
+		memcpy(&reduccionesGlobales->encargado, buffer+*desplazamiento, sizeof(reduccionesGlobales->encargado));
+		*desplazamiento+=sizeof(reduccionesGlobales->encargado);
+		memcpy(&reduccionesGlobales->puerto, buffer+*desplazamiento, sizeof(reduccionesGlobales->puerto));
+		*desplazamiento+=sizeof(reduccionesGlobales->puerto);
+		memcpy(&reduccionesGlobales->largoIp, buffer+*desplazamiento, sizeof(reduccionesGlobales->largoIp));
+		*desplazamiento+=sizeof(reduccionesGlobales->largoIp);
+		reduccionesGlobales->ip = malloc(reduccionesGlobales->largoIp);
+		memcpy(reduccionesGlobales->ip, buffer+*desplazamiento, reduccionesGlobales->largoIp);
+		*desplazamiento+=reduccionesGlobales->largoIp;
 
-		memcpy(&reduccionesGlobales[i].idNodo,buffer+*desplazamiento,  sizeof(reduccionesGlobales[i].idNodo));
-		*desplazamiento+=sizeof(reduccionesGlobales[i].idNodo);
-		memcpy(&reduccionesGlobales[i].encargado, buffer+*desplazamiento, sizeof(reduccionesGlobales[i].encargado));
-		*desplazamiento+=sizeof(reduccionesGlobales[i].encargado);
-		memcpy(&reduccionesGlobales[i].puerto, buffer+*desplazamiento, sizeof(reduccionesGlobales[i].puerto));
-		*desplazamiento+=sizeof(reduccionesGlobales[i].puerto);
-		memcpy(&reduccionesGlobales[i].largoIp, buffer+*desplazamiento, sizeof(reduccionesGlobales[i].largoIp));
-		*desplazamiento+=sizeof(reduccionesGlobales[i].largoIp);
-		reduccionesGlobales[i].ip = malloc(reduccionesGlobales[i].largoIp);
-		memcpy(reduccionesGlobales[i].ip, buffer+*desplazamiento, reduccionesGlobales[i].largoIp);
-		*desplazamiento+=reduccionesGlobales[i].largoIp;
+		memcpy(&reduccionesGlobales->largoArchivoRedLocal, buffer+*desplazamiento, sizeof(reduccionesGlobales->largoIp));
+		*desplazamiento+=sizeof(reduccionesGlobales->largoIp);
+		reduccionesGlobales->archivoRedLocal = malloc(reduccionesGlobales->largoArchivoRedLocal);
+		memcpy(reduccionesGlobales->archivoRedLocal,buffer+*desplazamiento, reduccionesGlobales->largoArchivoRedLocal);
+		*desplazamiento+=reduccionesGlobales->largoArchivoRedLocal;
 
-		memcpy(&reduccionesGlobales[i].largoArchivoRedLocal, buffer+*desplazamiento, sizeof(reduccionesGlobales[i].largoIp));
-		*desplazamiento+=sizeof(reduccionesGlobales[i].largoIp);
-		reduccionesGlobales[i].archivoRedLocal = malloc(reduccionesGlobales[i].largoArchivoRedLocal);
-		memcpy(reduccionesGlobales[i].archivoRedLocal,buffer+*desplazamiento, reduccionesGlobales[i].largoArchivoRedLocal);
-		*desplazamiento+=reduccionesGlobales[i].largoArchivoRedLocal;
+		memcpy(&reduccionesGlobales->largoArchivoRedGlobal, buffer+*desplazamiento, sizeof(reduccionesGlobales->largoArchivoRedGlobal));
+		*desplazamiento+=sizeof(reduccionesGlobales->largoArchivoRedGlobal);
+		reduccionesGlobales->archivoRedGlobal = malloc(reduccionesGlobales->largoArchivoRedGlobal);
+		memcpy(reduccionesGlobales->archivoRedGlobal,buffer+*desplazamiento, reduccionesGlobales->largoArchivoRedGlobal);
+		*desplazamiento+=reduccionesGlobales->largoArchivoRedGlobal;
 
-		memcpy(&reduccionesGlobales[i].largoArchivoRedGlobal, buffer+*desplazamiento, sizeof(reduccionesGlobales[i].largoArchivoRedGlobal));
-		*desplazamiento+=sizeof(reduccionesGlobales[i].largoArchivoRedGlobal);
-		reduccionesGlobales[i].archivoRedGlobal = malloc(reduccionesGlobales[i].largoArchivoRedGlobal);
-		memcpy(reduccionesGlobales[i].archivoRedGlobal,buffer+*desplazamiento, reduccionesGlobales[i].largoArchivoRedGlobal);
-		*desplazamiento+=reduccionesGlobales[i].largoArchivoRedGlobal;
-
-		//free(transformaciones[i].ip);
-		//free(transformaciones[i].archivoTransformacion);
+		list_add(listaRedGloblales, reduccionesGlobales);
+		//free(transformaciones->ip);
+		//free(transformaciones->archivoTransformacion);
 	}
+}
+
+void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
+
+	int i;
+	t_transformacionMaster transformacion;
+
+
+	printf("enviar etapa de transformacion: \n");
+	for(i=0;i<list_size(listaTransformaciones);i++){
+		//transformacion = malloc(sizeof(t_transformacionMaster));
+		transformacion = *(t_transformacionMaster*) list_get(listaTransformaciones, i);
+
+		pthread_t hiloConexionesWorker;
+		pthread_create(&hiloConexionesWorker, NULL, (void*)hiloConexionWorker, &transformacion);
+
+
+		pthread_join(hiloConexionesWorker, NULL);
+		//Esta parte es la que podria ir en el pthread
+		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->ip);
+
+		printf("ip: %s, tamanio = %d, temporal: %s\n", transformacion.ip, transformacion.largoIp, transformacion.archivoTransformacion);
+		//free(transformacion);
+
+
+
+
+	}
+	while(1){
+
+	}
+}
+
+void hiloConexionWorker(t_transformacionMaster* transformacion){
+	t_transformacionWorker* worker;
+	void* buffer, *bufferMensaje;
+	int largoBuffer, tamanioMensaje, desplazamiento = 0;
+
+	worker = malloc(sizeof(t_transformacionWorker));
+//	worker->socketWorker = socketWorker;
+	worker->bloqueATransformar = transformacion->nroBloqueNodo;
+	worker->bytesOcupados = transformacion->bytesOcupados;
+	worker->largoArchivoTransformador = transformacion->largoArchivo;
+	worker->rutaArchivoTemporal = malloc(transformacion->largoArchivo);
+	strcpy(worker->rutaArchivoTemporal,transformacion->archivoTransformacion);
+	worker->largoArchivoTransformador = devolverTamanioArchivo();
+	worker->archivoTransformador = malloc(worker->largoArchivoTransformador);
+	worker->etapa = 1; //DEFINIR MACRO TRANSFORMACION
+
+	printf("%d\n", worker->largoArchivoTransformador);
+
+	int socketWorker = conectarseAWorker(transformacion->puerto, transformacion->ip);
+
+
+	buffer = serializarTransformacionWorker(worker, &largoBuffer);
+	tamanioMensaje = largoBuffer+sizeof(t_header);
+	bufferMensaje = malloc(tamanioMensaje);
+	t_header header;
+	header.id = 3;
+	header.tamanioPayload = largoBuffer;
+
+	memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(bufferMensaje+desplazamiento, buffer, header.tamanioPayload);
+
+	enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
+	free(buffer);
+	free(bufferMensaje);
+	printf("enviado a worker\n");
+}
+
+int conectarseAWorker(int puerto, char* ip){
+
+	struct sockaddr_in direccionWorker;
+
+	direccionWorker.sin_family = AF_INET;
+	direccionWorker.sin_port = htons(puerto);
+	direccionWorker.sin_addr.s_addr = inet_addr(ip);
+	//memset(&(direccionYama.sin_zero), '\0', 8);
+
+
+	int socketWorker;
+
+	socketWorker = socket(AF_INET, SOCK_STREAM, 0);
+
+	if(connect(socketWorker, (struct sockaddr *)&direccionWorker, sizeof(struct sockaddr)) != 0){
+			perror("fallo la conexion al worker");
+			exit(1);
+		}
+
+	return socketWorker;
+
+}
+
+void* serializarTransformacionWorker(t_transformacionWorker* worker, int* largoBuffer){
+	void* buffer;
+	int desplazamiento = 0;
+	int tamanioBuffer = worker->largoRutaArchivo + worker->largoArchivoTransformador + 5*sizeof(uint32_t);
+	buffer = malloc(tamanioBuffer);
+	memcpy(buffer+desplazamiento, &worker->bloqueATransformar, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento, &worker->bytesOcupados, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento, &worker->etapa, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento, &worker->largoRutaArchivo, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(buffer+desplazamiento, worker->rutaArchivoTemporal, worker->largoRutaArchivo);
+	desplazamiento += worker->largoRutaArchivo;
+
+	memcpy(buffer+desplazamiento, &worker->largoArchivoTransformador, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento, worker->archivoTransformador, worker->largoArchivoTransformador);
+	desplazamiento += worker->largoArchivoTransformador;
+
+	*largoBuffer = desplazamiento;
+
+	return buffer;
+}
+
+int devolverTamanioArchivo(){
+	printf("%s\n", archivoAprocesar);
+	int file = open(archivoAprocesar, O_RDONLY);
+		struct stat mystat;
+		if (file == -1) {
+			perror("open");
+			exit(1);
+		}
+		if (fstat(file, &mystat) < 0) {
+			perror("fstat");
+			close(file);
+			exit(1);
+		}
+		int tam = mystat.st_size;
+
+	return tam;
 }

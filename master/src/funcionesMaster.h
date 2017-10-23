@@ -10,6 +10,7 @@
 #define FUNCIONESMASTER_H_
 
 #include <utils.h>
+#include <commons/collections/list.h>
 
 
 /*
@@ -57,17 +58,49 @@ typedef struct rutaArchivo{
 	}t_reduccionGlobalMaster;
 
 
+	typedef struct{
+		int socketWorker;
+		uint32_t bloqueATransformar;
+		uint32_t bytesOcupados;
+		uint32_t etapa;
+		uint32_t largoRutaArchivo;
+		char* rutaArchivoTemporal;
+		uint32_t largoArchivoTransformador;
+		char* archivoTransformador;
+	}t_transformacionWorker;
+
+t_list* listaTransformaciones;
+t_list* listaRedLocales;
+t_list* listaRedGloblales;
+
+char* transformador;
+char* reductor;
+char* archivoAprocesar;
+char* direccionDeResultado;
+
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 int file_exists (char * fileName);
+void crearListas();
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
 int conectarseAYama(int puerto,char* ip);
+int conectarseAWorker(int, char*);
 void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar);
 
-void deserializarTransformaciones(t_transformacionMaster* , int , void*, int*);
-void deserializarReduccionesLocales(t_reduccionLocalMaster* , int , void* , int* );
-void deserializarReduccionesGlobales(t_reduccionGlobalMaster*, int , void* , int*);
+void recibirPlanificacionDeYama(int socketYama);
+void deserializarPlanificacion(void*);
+void deserializarTransformaciones(int , void*, int*);
+void deserializarReduccionesLocales(int , void* , int* );
+void deserializarReduccionesGlobales(int , void* , int*);
 
 
+void enviarAWorkers(char*,char*);
 
+void enviarTransformacionAWorkers(char* , char* );
+
+void hiloConexionWorker(t_transformacionMaster*);
+
+void* serializarTransformacionWorker(t_transformacionWorker* , int* );
+
+int devolverTamanioArchivo();
 #endif /* FUNCIONESMASTER_H_ */

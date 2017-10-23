@@ -8,12 +8,16 @@ int idMaster = 1;
 
 void mostrarTablaDeEstados(int i) {
 	printf("Tabla de estados:\n");
-	printf("job\tmaster\tnodo\tbloque\tetapa\testado\ttemporal\n");
+	printf("job\tmaster\tnodo\tbloque\tetapa\t\testado\t\ttemporal\n");
+
+	char* etapas[3] = {"transformacion", "reduccion local", "reduccion global"};
+	char* estados[3] = {"en Proceso", "Error", "Ok"};
+
 	for (i = 0; i < list_size(listaTablaEstados); i++) {
 		t_tabla_estados registro = *(t_tabla_estados*) list_get(
 				listaTablaEstados, i);
-		printf("%d\t%d\t%d\t%d\t%d\t%d\t%s\n", registro.job, registro.master,
-				registro.nodo, registro.bloque, registro.etapa, registro.estado,
+		printf("%d\t%d\t%d\t%d\t%s\t%s\t%s\n", registro.job, registro.master,
+				registro.nodo, registro.bloque, etapas[registro.etapa-1], estados[registro.estado-1],
 				registro.archivoTemp);
 	}
 }
@@ -720,13 +724,8 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 	printf("envia planificacion a master\n");
 
 	free(bufferTransformaciones);
-
-	printf("libera buffer trans\n");
-
 	free(bufferRedLocal);
-	printf("libera buffer redloc\n");
 	free(bufferRedGlobal);
-	printf("libera buffer redglob\n");
 
 
 	free(bufferMensaje);
@@ -743,8 +742,8 @@ void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_
 			buffer = realloc(buffer, sizeof(t_transformacionMaster) +
 					transformacion->largoArchivo + transformacion->largoIp + desplazamiento);
 
-			printf("%s, %s\n", transformacion->ip, transformacion->archivoTransformacion);
-			printf("%d, %d\n", transformacion->largoIp, transformacion->largoArchivo);
+//			printf("%s, %s\n", transformacion->ip, transformacion->archivoTransformacion);
+	//		printf("%d, %d\n", transformacion->largoIp, transformacion->largoArchivo);
 
 			memcpy(buffer+desplazamiento, &transformacion->idNodo, sizeof(transformacion->idNodo));
 			desplazamiento+=sizeof(transformacion->idNodo);
@@ -781,8 +780,8 @@ void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista
 			buffer = realloc(buffer, sizeof(t_reduccionLocalMaster) +
 					redLocal->largoArchivoTransformacion + redLocal->largoArchivoRedLocal +  redLocal->largoIp + desplazamiento);
 
-			printf("%s, %s, %s\n", redLocal->ip, redLocal->archivoTransformacion, redLocal->archivoRedLocal);
-			printf("%d, %d, %d\n", redLocal->largoIp, redLocal->largoArchivoTransformacion, redLocal->largoArchivoRedLocal);
+		//	printf("%s, %s, %s\n", redLocal->ip, redLocal->archivoTransformacion, redLocal->archivoRedLocal);
+			//printf("%d, %d, %d\n", redLocal->largoIp, redLocal->largoArchivoTransformacion, redLocal->largoArchivoRedLocal);
 
 			memcpy(buffer+desplazamiento, &redLocal->idNodo, sizeof(redLocal->idNodo));
 			desplazamiento+=sizeof(redLocal->idNodo);
@@ -818,8 +817,8 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 			buffer = realloc(buffer, sizeof(t_reduccionGlobalMaster) +
 					redGlobal->largoArchivoRedGlobal + redGlobal->largoArchivoRedLocal +  redGlobal->largoIp + desplazamiento);
 
-			printf("%s, %s, %s\n", redGlobal->ip, redGlobal->archivoRedLocal, redGlobal->archivoRedGlobal);
-			printf("%d, %d, %d\n", redGlobal->largoIp, redGlobal->largoArchivoRedLocal, redGlobal->largoArchivoRedGlobal);
+		//	printf("%s, %s, %s\n", redGlobal->ip, redGlobal->archivoRedLocal, redGlobal->archivoRedGlobal);
+			//printf("%d, %d, %d\n", redGlobal->largoIp, redGlobal->largoArchivoRedLocal, redGlobal->largoArchivoRedGlobal);
 
 			memcpy(buffer+desplazamiento, &redGlobal->idNodo, sizeof(redGlobal->idNodo));
 			desplazamiento+=sizeof(redGlobal->idNodo);

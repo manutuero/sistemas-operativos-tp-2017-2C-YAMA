@@ -14,10 +14,10 @@
 
 //PARA EJECUTAR ESTE PROGRAMA RECORDAR QUE LOS PARAMETROS TIENEN QUE SER RUTAS VALIDAS
 int main(int argsc,char **args) {
-	char * transformador;
-	char *reductor;
-	char *archivoAprocesar;
-	char *direccionDeResultado;
+	//char * transformador;
+	//char *reductor;
+	//char *archivoAprocesar;
+	//char *direccionDeResultado;
 	if(argsc==5){
 		transformador=args[1];
 		reductor=args[2];
