@@ -21,7 +21,7 @@ void * levantarConsola() {
 			if (sonIguales(argumentos[0], "format")) {
 				printf("Funcion format \n");
 				invocarFuncionFormat(argumentos);
-			//	puts("vuelve a la principa");
+				puts("vuelve al hilo principal");
 				break;
 			}
 			if (sonIguales(argumentos[0], "exit")) {

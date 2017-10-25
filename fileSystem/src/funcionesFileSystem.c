@@ -7,6 +7,9 @@ int estadoFs = ESTABLE;
 t_directory directorios[100];
 t_list *nodos;
 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+sem_t sem;
+
 /*********************** Implementacion de funciones ************************/
 /* Implementacion de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char *path) {
@@ -59,90 +62,94 @@ char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 		fwrite(&bitmap[i], sizeof(char), 1, archivo);
 	}
 
+	for (i = 0; i < tamanioDatabin; i++) {
+		bitmap[i] = 'L';
+	}
+
 	fclose(archivo);
 	return bitmap;
 }
 /*
-int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
-	DIR *directorio = opendir(path);
+ int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
+ DIR *directorio = opendir(path);
 
-	if (!directorio) { // Verifica si el directorio a bitmaps existe.
-		closedir(directorio);
-		return 2;
-	}
+ if (!directorio) { // Verifica si el directorio a bitmaps existe.
+ closedir(directorio);
+ return 2;
+ }
 
-	closedir(directorio);
+ closedir(directorio);
 
-	if (access(nombreArchBitmap, F_OK) != -1) {
-		return 1;
-	}
-	return 0;
-}
+ if (access(nombreArchBitmap, F_OK) != -1) {
+ return 1;
+ }
+ return 0;
+ }
 
-// Esta funcion crea un archivo bitmap con el nombre id del nodo y
-// tamanio de databin,verifica si existe de antes y si no lo crea.
-void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
-	FILE *arch;
-	char *path = string_new(), *nombreArchBitmap = obtenerPathBitmap(idNodo);
-	string_append(&path, PATH_METADATA);
-	string_append(&path, "/bitmaps");
+ // Esta funcion crea un archivo bitmap con el nombre id del nodo y
+ // tamanio de databin,verifica si existe de antes y si no lo crea.
+ void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
+ FILE *arch;
+ char *path = string_new(), *nombreArchBitmap = obtenerPathBitmap(idNodo);
+ string_append(&path, PATH_METADATA);
+ string_append(&path, "/bitmaps");
 
-	switch (verificarExistenciaArchBitmap(nombreArchBitmap, path)) {
-	case 0:
-		arch = fopen(nombreArchBitmap, "w+");
-		persistirBitmap(arch, tamanioDatabinNodo);
-		fclose(arch);
-		break;
-	case 1:
-		printf("Archivo bitmap ya existe");
-		break;
-	case 2:
-		printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
-		break;
-	}
-}
+ switch (verificarExistenciaArchBitmap(nombreArchBitmap, path)) {
+ case 0:
+ arch = fopen(nombreArchBitmap, "w+");
+ persistirBitmap(arch, tamanioDatabinNodo);
+ fclose(arch);
+ break;
+ case 1:
+ printf("Archivo bitmap ya existe");
+ break;
+ case 2:
+ printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
+ break;
+ }
+ }
 
-//Accede al numero de bloque en el array y modifica su estado
-void liberarBloqueBitmapNodo(int bloque, int idNodo) {
-	char *path = obtenerPathBitmap(idNodo);
-	FILE *archivo;
-	t_bitmap bitmap[bloque] = 'L';
+ //Accede al numero de bloque en el array y modifica su estado
+ void liberarBloqueBitmapNodo(int bloque, int idNodo) {
+ char *path = obtenerPathBitmap(idNodo);
+ FILE *archivo;
+ t_bitmap bitmap[bloque] = 'L';
 
-	archivo = fopen(path, "r+");
-	fseek(archivo, (bloque - 1), SEEK_SET);
-	fwrite(&bitmap, sizeof(t_bitmap), 1, archivo);
-	fclose(archivo);
-}
+ archivo = fopen(path, "r+");
+ fseek(archivo, (bloque - 1), SEEK_SET);
+ fwrite(&bitmap, sizeof(t_bitmap), 1, archivo);
+ fclose(archivo);
+ }
 
-void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
-	char* nombreArchBitmap = obtenerPathBitmap(idNodo);
-	FILE* arch;
-	t_bitmap regActualizado = 'O';
+ void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
+ char* nombreArchBitmap = obtenerPathBitmap(idNodo);
+ FILE* arch;
+ t_bitmap regActualizado = 'O';
 
-	arch = fopen(nombreArchBitmap, "r+");
-	fseek(arch, (numBloque - 1), SEEK_SET);
-	fwrite(&regActualizado, sizeof(t_bitmap), 1, arch);
-	fclose(arch);
-}
+ arch = fopen(nombreArchBitmap, "r+");
+ fseek(arch, (numBloque - 1), SEEK_SET);
+ fwrite(&regActualizado, sizeof(t_bitmap), 1, arch);
+ fclose(arch);
+ }
 
-// Arma el path nombre del bitmap a partir del id del nodo
-char* obtenerPathBitmap(int idNodo) {
-	char *path = string_new(), *sIdNodo = string_itoa(idNodo);
-	string_append(&path, PATH_METADATA);
-	string_append(&path, "/bitmaps/");
-	string_append(&path, sIdNodo);
-	string_append(&path, ".dat");
+ // Arma el path nombre del bitmap a partir del id del nodo
+ char* obtenerPathBitmap(int idNodo) {
+ char *path = string_new(), *sIdNodo = string_itoa(idNodo);
+ string_append(&path, PATH_METADATA);
+ string_append(&path, "/bitmaps/");
+ string_append(&path, sIdNodo);
+ string_append(&path, ".dat");
 
-	return path;
-}
-*/
+ return path;
+ }
+ */
 
-int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap){
+int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap) {
 	int i;
-	for(i=0;i<=tamanioBitmap;i++){
-		if(bitmap[i]=='L'){
+	for (i = 0; i < tamanioBitmap; i++) {
+		if (bitmap[i] == 'L') {
 			//Cambiar bloque a ocupado
-			bitmap[i]='O';
+			bitmap[i] = 'O';
 			return i;
 			//Cortar For
 			break;
@@ -151,7 +158,6 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap){
 	}
 	//Si no encontro nada devuelve -1 indicando que esta completo el bitmap;Hay que ver que hacemos ahi del otro lado
 	return -1;
-
 }
 
 /* Implementacion de funciones para mensajes */
@@ -239,28 +245,32 @@ t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload) {
 }
 
 void* esperarConexionesDatanodes() {
-	int socketServidor, numeroClientes = 10, socketsClientes[10] = { }, opt = 1,
+	int socketServidor = nuevoSocket(), numeroClientes = 10,
+			socketsClientes[10] = { }, //opt = 1,
 			addrlen, max_sd, i, sd, actividad, socketEntrante;
-	struct sockaddr_in address;
 	fd_set readfds;
 	t_header header;
 	void *buffer = NULL;
 
-	socketServidor = nuevoSocket();
+	/* Esperar hasta 5 segundos. */
+	struct timeval tv;
+	tv.tv_sec = 5;
+	tv.tv_usec = 0;
 
 	// Seteo el socketServidor para permitir multiples conexiones, aunque no sea necesario es una buena practica.
-	if (setsockopt(socketServidor, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
-			sizeof(opt)) < 0) {
-		perror("setsockopt");
-		exit(EXIT_FAILURE);
-	}
+	/*	if (setsockopt(socketServidor, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
+	 sizeof(opt)) < 0) {
+	 perror("setsockopt");
+	 exit(EXIT_FAILURE);
+	 }*/
 
 	// Defino el tipo de socket con sus parametros.
+	struct sockaddr_in address;
 	address.sin_family = AF_INET;
 	address.sin_addr.s_addr = INADDR_ANY;
 	address.sin_port = htons(PUERTO);
 
-	// Bind al puerto indicado en la variable PUERTO. Cargada de la config O DEL ARCHIVO HEADER
+	// Bind al puerto indicado en la variable PUERTO. Cargada de la config.
 	if (bind(socketServidor, (struct sockaddr *) &address, sizeof(address))
 			< 0) {
 		perror("bind failed");
@@ -286,27 +296,27 @@ void* esperarConexionesDatanodes() {
 
 		//add child sockets to set
 		for (i = 0; i < numeroClientes; i++) {
-			//socket descriptor
+			// Socket descriptor
 			sd = socketsClientes[i];
 
-			//if valid socket descriptor then add to read list
+			// Si es un socket descriptor valido lo agrega a la lista "read" (monitoreados).
 			if (sd > 0)
 				FD_SET(sd, &readfds);
 
-			//highest file descriptor number, need it for the select function
+			// El numero de socket descriptor mas alto, es requerido por la funcion select().
 			if (sd > max_sd)
 				max_sd = sd;
 		}
 
-		//Espero que haya actividad en los sockets. Tiempo de espera null, nunca termina.
-		actividad = select(max_sd + 1, &readfds, NULL, NULL, NULL);
+		// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
+		actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
 
 		//&& (errno!=EINTR))
 		if (actividad < 0) {
-			printf("select error");
+			fprintf(stderr, "[ERROR]: Fallo la funcion select().");
 		}
 
-		//Si algo cambio en el socket master, es una conexion entrante
+		// Si algo cambio en el socket master, es una conexion entrante.
 		if (FD_ISSET(socketServidor, &readfds)) {
 			if ((socketEntrante = accept(socketServidor,
 					(struct sockaddr *) &address, (socklen_t*) &addrlen)) < 0) {
@@ -314,12 +324,10 @@ void* esperarConexionesDatanodes() {
 				exit(EXIT_FAILURE);
 			}
 
-			//inform user of socket number - used in send and receive commands
-			//printf(
-			//	"Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
+			//printf("Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
 			//socketEntrante, inet_ntoa(address.sin_addr), PUERTO);
 
-			//Agrego el nuevo socket al array
+			// Agrego el nuevo socket al array
 			for (i = 0; i < numeroClientes; i++) {
 				//Busco una pos vacia en la lista de clientes para guardar el socket entrante
 				if (socketsClientes[i] == 0) {
@@ -330,14 +338,12 @@ void* esperarConexionesDatanodes() {
 				}
 			}
 		}
-
 		//else  es un cambio en los sockets que estaba escuchando.
 		for (i = 0; i < numeroClientes; i++) {
 			sd = socketsClientes[i];
 
 			if (FD_ISSET(sd, &readfds)) {
 				//Chequea si fue para cerrarse y sino lee el mensaje;
-
 				// desconexion
 				if (recibirHeader(sd, &header) == 0) {
 					//getpeername(sd, (struct sockaddr*) &address, (socklen_t*) &addrlen);
@@ -348,6 +354,7 @@ void* esperarConexionesDatanodes() {
 					//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
 					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
 					//DESCONECTADO A NO DISPONIBLES
+
 					break;
 				}
 
@@ -366,26 +373,23 @@ void* esperarConexionesDatanodes() {
 					t_infoNodo infoNodo = deserializarInfoNodo(buffer,
 							header.tamanioPayload);
 
-					// Crear funcion que maneje la lista de struct t_infoNodo. "add" infoNodo por ejemplo.
-
 					t_nodo *nodo = malloc(sizeof(t_nodo));
 					nodo->socketDescriptor = sd;
 					nodo->idNodo = infoNodo.idNodo;
 					nodo->bloquesTotales = infoNodo.cantidadBloques;
 					nodo->bloquesLibres = nodo->bloquesTotales;
 					nodo->puertoWorker = 0;
-					nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
+					nodo->bitmap = persistirBitmap(nodo->idNodo,
+							nodo->bloquesTotales);
 					nodo->ip = infoNodo.ip;
-					agregarNodo(nodo);
+
+					agregarNodo(nodos, nodo);
 					// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
 					// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
-					/* printf("***************************************\n");
-					 printf("puerto: %d\n", infoNodo.puerto);
-					 printf("ip: %s\n", infoNodo.ip);*/
 					// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 					// BLOQUES DE ESE NODO
-
 				}
+
 				free(buffer);
 			}
 		}
@@ -420,21 +424,19 @@ void* serializarSetBloque(void *bloque, uint32_t numBloque) {
 	return paquete;
 }
 
-int guardarBloqueEnNodo(int nodo, uint32_t numeroBloque, void *bloque,int socketNodo) {
+int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
 	int rta = 0;
 	void *paquete = serializarSetBloque(bloque, numeroBloque);
-	//int socketNodo = getNodo(nodo); //saca de la lista de conectados ese nodo.
-	//enviarPorSocket(socketNodo, bloque, UN_BLOQUE + sizeof(uint32_t));
 	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
 	void *respuesta = malloc(sizeof(uint32_t));
-	//int recibidos = recv(socketNodo, respuesta, sizeof(uint32_t), MSG_WAITALL);
-	int recibidos = recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t));
-	if (recibidos > 0) {	//  no hubo error en el send
-		if (*(int*) respuesta == 1) {//La respuesta fue 1, el bloque se guardo correctamente.
-			printf("Bloque guardado correctamente");
-			rta = 1;
+
+	// No hubo error en el send.
+	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
+		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
+//			printf("Bloque guardado correctamente n°: %d\n", numeroBloque);
+			rta = GUARDO_BLOQUE_OK;
 		} else {
-			printf("algo paso y no se guardo el bloque");
+			printf("[Error]: no se guardo el bloque.\n");
 			rta = 0;
 		}
 	} else {
@@ -520,15 +522,14 @@ int buscarPrimerLugarLibre() {
 	return posicion;
 }
 
-// Borrar ?
-/*int obtenerIndice(char *directorio) {
- int i;
- for (i = 0; i < 100; i++) {
- if (sonIguales(directorio, directorios[i].nombre))
- return directorios[i].index;
- }
- return WARNING_DIR_NO_EXISTE;
- }*/
+int obtenerIndice(char *directorio) {
+	int i;
+	for (i = 0; i < 100; i++) {
+		if (sonIguales(directorio, directorios[i].nombre))
+			return directorios[i].index;
+	}
+	return DIR_NO_EXISTE;
+}
 
 bool existePathDirectorio(char *path) {
 	int coincidencias = 0;
@@ -666,7 +667,7 @@ void crearDirectorioFisico(int indice) {
 
 	DIR* directoryPointer = opendir(path);
 	if (directoryPointer) {
-// Si el directorio existe, no hace nada.
+		// Si el directorio existe, no hace nada.
 		closedir(directoryPointer);
 	}
 	// Si el directorio no existe, lo crea.
@@ -722,7 +723,7 @@ void crearTablaDeDirectorios() {
 	FILE *filePointer = fopen(path, "wb");
 
 	// Si el puntero a archivo devuelve null en este escenario es porque no tiene permisos de creacion sobre el directorio.
-	if(!filePointer) {
+	if (!filePointer) {
 		char *comando = string_new();
 		string_append(&comando, "sudo chmod 4777 ");
 		string_append(&comando, PATH_METADATA);
@@ -787,7 +788,7 @@ void crearBitmaps() {
 
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
-	restaurarTablaDeNodos();
+	//restaurarTablaDeNodos();
 }
 
 void restaurarTablaDeDirectorios() {
@@ -861,7 +862,47 @@ void restaurarTablaDeNodos() {
 	}
 }
 
-// Ver si conviene hacerlo como objeto con 1 solo parametro...
-void agregarNodo(t_nodo *nodo) {
-	list_add(nodos, nodo);
+void agregarNodo(t_list *lista, t_nodo *nodo) {
+	if (!lista) {
+		fprintf(stderr, "[WARNING]: La lista no esta inicializada.");
+	} else {
+		list_add(lista, nodo);
+	}
+}
+/*
+ void persistirTablaDeArchivos(char *nombreArchivo, int indice) {
+ char *path = string_new();
+ string_append(&path, PATH_METADATA);
+ string_append(&path, "/archivos/");
+ string_append(&path, string_itoa(indice));
+ string_append(&path, nombreArchivo);
+
+ FILE *archivo = fopen(path, "w");
+
+ if(!archivo) {
+ fprintf(stderr, "[ERROR]: ocurrio un error al intentar crear el archivo. Sugerencia: revisar permisos.");
+ }
+
+ fclose(archivo);
+ }
+ */
+
+t_list* copiarListaNodos(t_list *lista) {
+	t_list *copia = list_create();
+	t_nodo *aux;
+	int i;
+	for (i = 0; i < lista->elements_count; i++) {
+		t_nodo *nodo = malloc(sizeof(t_nodo));
+		aux = list_get(lista, i);
+		nodo->idNodo = aux->idNodo;
+		nodo->socketDescriptor = aux->socketDescriptor;
+		nodo->bloquesTotales = aux->bloquesTotales;
+		nodo->bloquesLibres = aux->bloquesLibres;
+		nodo->bitmap = aux->bitmap;
+		nodo->ip = aux->ip;
+		nodo->puertoWorker = aux->puertoWorker;
+		list_add(copia, nodo);
+	}
+
+	return copia;
 }

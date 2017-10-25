@@ -1,6 +1,4 @@
 #include "suite.h"
-#include "../funcionesFileSystem.h"
-#include <CUnit/Basic.h>
 
 int correrTests() {
 	// Inicializa un registro de suites vacío.
@@ -10,12 +8,19 @@ int correrTests() {
 	CU_pSuite suiteFs = CU_add_suite("Suite fileSystem", NULL, NULL);
 
 	// Agrego un caso de prueba a la suite.
-	CU_add_test(suiteFs, "noExistePath",
+	CU_add_test(suiteFs, "existePathDirectorio",
 			test_existePathDirectorio_noExistePath);
-	CU_add_test(suiteFs, "existePath", test_existePathDirectorio_existePath);
-	CU_add_test(suiteFs, "devuelveFalse",
-			test_obtenerNodoMAsLibre_devuelveFalse);
-	//CU_add_test(suiteFs, "devuelveTrue", test_obtenerNodoMAsLibre_devuelveTrue);
+	CU_add_test(suiteFs, "existePathDirectorio",
+			test_existePathDirectorio_existePath);
+	CU_add_test(suiteFs, "compararBloquesLibres",
+			test_compararBloquesLibres_Nodo1MasLibreQueNodo2);
+	CU_add_test(suiteFs, "ordenarListaNodos",
+			test_ordenarListaNodos_ordenaCorrectamente);
+	CU_add_test(suiteFs, "copiarListaNodos",
+			test_copiarListaNodos_copiaCorrectamente);
+	CU_add_test(suiteFs, "modificarListaCopiadaDeNodos",
+			test_modificarListaCopiadaDeNodos_noModificaListaOriginal
+);
 
 	// Settea la librería de modo tal que muestre la mayor cantidad de información posible (con el flag CU_BRM_VERBOSE).
 	CU_basic_set_mode(CU_BRM_VERBOSE);
@@ -41,63 +46,92 @@ void test_existePathDirectorio_existePath(void) {
 	CU_ASSERT_TRUE(existePathDirectorio("/root"));
 }
 
-void test_obtenerNodoMAsLibre_devuelveFalse(void) {
-	t_nodo *nodo = malloc(sizeof(t_nodo));
-	nodo->socketDescriptor = 1;
-	nodo->idNodo = 1;
-	nodo->bloquesTotales = 5;
-	nodo->bloquesLibres = 5;
-	nodo->puertoWorker = 8888;
-	nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
-	nodo->ip = "127.0.0.1";
-	agregarNodo(nodo);
+void test_compararBloquesLibres_Nodo1MasLibreQueNodo2(void) {
+	t_list *listaNodos = list_create();
 
-	nodo = malloc(sizeof(t_nodo));
-	nodo->socketDescriptor = 2;
-	nodo->idNodo = 2;
-	nodo->bloquesTotales = 10;
-	nodo->bloquesLibres = 10;
-	nodo->puertoWorker = 9999;
-	nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
-	nodo->ip = "127.0.0.1";
-	agregarNodo(nodo);
+	t_nodo *nodo1 = malloc(sizeof(t_nodo));
+	nodo1->idNodo = 1;
+	nodo1->bloquesLibres = 5;
+	agregarNodo(listaNodos, nodo1);
 
-	//CU_ASSERT_NOT_EQUAL(obtenerNodoMasLibre(nodos), 1);
+	t_nodo * nodo2 = malloc(sizeof(t_nodo));
+	nodo2->idNodo = 2;
+	nodo2->bloquesLibres = 10;
+	agregarNodo(listaNodos, nodo2);
 
-	// Limpia lo que genero en Fs de linux. Hardcodeadisimo.
-	char *comando = string_new();
-	string_append(&comando, "rm /home/utnso/thePonchos/metadata/bitmaps/1.dat");
-	system(comando);
+	// Devuelve true si el primero tiene mas bloques libres que el segundo.
+	CU_ASSERT_EQUAL(compararBloquesLibres(nodo1, nodo2), false);
 
-	comando = string_new();
-	string_append(&comando, "rm /home/utnso/thePonchos/metadata/bitmaps/2.dat");
-	system(comando);
+	free(nodo1);
+	free(nodo2);
 }
 
-/*sLibres = 5;
-	nodo->puertoWorker = 8888;
-	nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
-	nodo->ip = "127.0.0.1";
-	agregarNodo(nodo);
+void test_ordenarListaNodos_ordenaCorrectamente(void) {
+	t_list *listaNodos = list_create();
+
+	// Nodo 1
+	t_nodo *nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 1;
+	nodo->bloquesLibres = 10;
+	agregarNodo(listaNodos, nodo);
+
+	// Nodo 2
+	nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 2;
+	nodo->bloquesLibres = 10;
+	agregarNodo(listaNodos, nodo);
+
+	// Nodo 3
+	nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 3;
+	nodo->bloquesLibres = 15;
+	agregarNodo(listaNodos, nodo);
+
+	ordenarListaNodos(listaNodos);
 
 	nodo = malloc(sizeof(t_nodo));
-	nodo->socketDescriptor = 2;
-	nodo->idNodo = 2;
-	nodo->bloquesTotales = 10;
+	nodo = list_get(listaNodos, 0);
+
+	CU_ASSERT_EQUAL(nodo->idNodo, 3);
+}
+
+void test_copiarListaNodos_copiaCorrectamente(void) {
+	t_list *copia, *lista = list_create();
+	t_nodo *nodoCopia, *nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 1;
+	nodo->bloquesTotales = 50;
 	nodo->bloquesLibres = 10;
-	nodo->puertoWorker = 9999;
-	nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
-	nodo->ip = "127.0.0.1";
-	agregarNodo(nodo);
+	list_add(lista, nodo);
 
-	CU_ASSERT_EQUAL(obtenerNodoMasLibre(nodos), 2);
+	nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 2;
+	nodo->bloquesTotales = 30;
+	nodo->bloquesLibres = 5;
+	list_add(lista, nodo);
 
-	// Limpia lo que genero en Fs de linux. Hardcodeadisimo.
-	char *comando = string_new();
-	string_append(&comando, "rm /home/utnso/thePonchos/metadata/bitmaps/1.dat");
-	system(comando);
+	copia = copiarListaNodos(lista);
+	nodoCopia = list_get(copia, 1);
+	CU_ASSERT_EQUAL(nodoCopia->idNodo, 2);
+}
 
-	comando = string_new();
-	string_append(&comando, "rm /home/utnso/thePonchos/metadata/bitmaps/2.dat");
-	system(comando);
-}*/
+void test_modificarListaCopiadaDeNodos_noModificaListaOriginal(void) {
+	t_list *copia, *lista = list_create();
+	t_nodo *nodoCopia, *nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 1;
+	nodo->bloquesTotales = 50;
+	nodo->bloquesLibres = 10;
+	list_add(lista, nodo);
+
+	nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 2;
+	nodo->bloquesTotales = 30;
+	nodo->bloquesLibres = 5;
+	list_add(lista, nodo);
+
+	copia = copiarListaNodos(lista);
+	nodoCopia = list_get(copia, 1);
+	nodoCopia->idNodo = 0;
+	CU_ASSERT_NOT_EQUAL(nodo->idNodo, 0);
+	CU_ASSERT_EQUAL(nodo->idNodo, 2);
+}
+

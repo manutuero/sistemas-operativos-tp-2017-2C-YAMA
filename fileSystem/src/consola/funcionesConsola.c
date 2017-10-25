@@ -48,18 +48,13 @@ char** cargarArgumentos(char* linea) {
 }
 
 char* invocarFuncionFormat(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-	comando.funcion = 1;
 	printf("Funcion de format.\n");
 	char *path = "/home/utnso/thePonchos/prueba.txt";
-
 	FILE *datos = fopen(path, "r");
-
 	if (!datos)
 		  fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
-	almacenarArchivo("root/manu", "asdadas", TEXTO, datos);
+	almacenarArchivo("/root", "asdadas", TEXTO, datos);
 
 	fclose(datos);
 	return "";

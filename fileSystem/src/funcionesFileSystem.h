@@ -8,7 +8,7 @@
 #include <dirent.h>
 #include "test/suite.h"
 #include "utils.h"
-
+#include <semaphore.h> // Para probar...
 #define BACKLOG 3
 
 /* Enums */
@@ -18,6 +18,18 @@ enum resultadosDeOperacion {
 
 enum estados {
 	ESTABLE, NO_ESTABLE
+};
+
+enum directorios {
+	DIR_NO_EXISTE = 100
+};
+
+enum bitmaps {
+	ESTA_LLENO = -1
+};
+
+enum respuestasDatanode {
+	GUARDO_BLOQUE_OK = 1
 };
 
 /* Variables globales */
@@ -65,6 +77,9 @@ typedef struct {
 extern t_directory directorios[100];
 extern t_list *nodos;
 
+extern pthread_mutex_t mutexPrueba;
+extern sem_t sem;
+
 /*********************** Firmas de funciones ************************/
 
 /* Firmas de funciones para archivo de configuracion */
@@ -78,7 +93,7 @@ void crearTablaDeNodos();
 void crearBitmaps();
 
 /* Firmas de funciones para nodos */
-void agregarNodo(t_nodo *nodo);
+void agregarNodo(t_list *lista, t_nodo *nodo);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
@@ -111,6 +126,11 @@ void crearDirectorioFisico(int);
 // Posible implementacion de ls
 void mostrar(t_directory directorios[], int cantidad);
 bool existePathDirectorio(char *path);
+int obtenerIndice(char *directorio);
+
+
+/* Firmas de funciones para tabla de archivos */
+void persistirTablaDeArchivos(char *path);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
@@ -123,7 +143,8 @@ void validarMetadata(char* path);
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
-int guardarBloqueEnNodo(int, uint32_t, void*,int);
+int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo);
 int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap);
+t_list* copiarListaNodos(t_list *lista);
 
 #endif

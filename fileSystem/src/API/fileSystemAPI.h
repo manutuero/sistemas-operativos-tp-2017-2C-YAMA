@@ -35,14 +35,20 @@ typedef struct {
 	uint32_t numeroBloque;
 	size_t bytesOcupados;
 	char *contenido;
+	int numeroBloqueCopia0;
+	int numeroBloqueCopia1;
+	t_nodo *nodoCopia0;
+	t_nodo *nodoCopia1;
 } t_bloque;
 
 /* API */
 int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo, FILE *datos);// stream de datos
 
+/* Metadata */
+void actualizarBitmaps();
+
 /* Auxiliares*/
 void escribirStreamConFormato(FILE *stream, char *format, ...);
-char* nuevoArchivo();
 void liberarBLoque(t_bloque* bloque);
 int proximoRegistro(FILE *datos, char *registro);
 t_list* obtenerBloques(FILE *datos, int tipo);
@@ -50,7 +56,8 @@ t_list* parsearArchivoDeTexto(FILE *datos);
 t_list* parsearArchivoBinario(FILE *datos);
 void limpiar(char* string, size_t largo);
 t_bloque* nuevoBloque(uint32_t numeroBloque);
-void ordenarListaNodos();
+void ordenarListaNodos(t_list *nodos);
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo);
+void destruirNodo(t_nodo *nodo);
 
 #endif
