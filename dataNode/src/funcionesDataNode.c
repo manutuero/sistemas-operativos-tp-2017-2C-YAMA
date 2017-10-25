@@ -228,7 +228,7 @@ void escucharFileSystem(int socketFs) {
 				setBloque(*(int*) numeroDeBloqueRecibido,
 						(char*) bloqueRecibido);
 				int *respuesta = malloc(sizeof(uint32_t));
-				printf("Bloque guardado Nº: %d",numeroDeBloqueRecibido);
+				printf("Bloque guardado Nº: %d",*(int*)numeroDeBloqueRecibido);
 				puts("");
 				*respuesta = 1;	//set bloque deberia devolver un valor si estuvo todo ok
 				send(socketFs, (void*) respuesta, sizeof(uint32_t), 0);
