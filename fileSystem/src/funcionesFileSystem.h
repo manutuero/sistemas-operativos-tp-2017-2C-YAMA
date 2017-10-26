@@ -77,9 +77,6 @@ typedef struct {
 extern t_directory directorios[100];
 extern t_list *nodos;
 
-extern pthread_mutex_t mutexPrueba;
-extern sem_t sem;
-
 /*********************** Firmas de funciones ************************/
 
 /* Firmas de funciones para archivo de configuracion */
@@ -88,9 +85,9 @@ void cargarArchivoDeConfiguracionFS(char *path);
 /* Firmas de funciones para inicializacion */
 void crearMetadata();
 void crearTablaDeDirectorios();
-void crearTablaDeArchivos();
+void crearDirectorioArchivos();
 void crearTablaDeNodos();
-void crearBitmaps();
+void crearDirectorioBitmaps();
 
 /* Firmas de funciones para nodos */
 void agregarNodo(t_list *lista, t_nodo *nodo);
@@ -98,10 +95,6 @@ void agregarNodo(t_list *lista, t_nodo *nodo);
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
 char* persistirBitmap(uint32_t idNodo, int tamanioDatabin);
-int verificarExistenciaArchBitmap(char*, char*);
-void crearArchivoBitmapNodo(int, int);
-void liberarBloqueBitmapNodo(int, int);
-void ocuparBloqueBitmapNodo(int, int);
 char* obtenerPathBitmap(int);
 
 /* Firmas de funciones para mensajes */

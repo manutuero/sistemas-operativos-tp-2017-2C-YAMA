@@ -31,6 +31,7 @@ typedef struct {
 	char *ip;
 } t_nodo;
 
+/* Estructuras de archivo */
 typedef struct {
 	uint32_t numeroBloque;
 	size_t bytesOcupados;
@@ -41,8 +42,17 @@ typedef struct {
 	t_nodo *nodoCopia1;
 } t_bloque;
 
+typedef struct {
+	int indiceDirectorio;
+	char *nombreArchivo;
+	int tamanio;
+	int tipo;
+	t_list *bloques;
+} t_archivo_a_persistir; // nombre temporal...cambiar a t_archivo cuando hagan refactor de la utils.
+
 /* API */
-int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo, FILE *datos);// stream de datos
+int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo,
+		FILE *datos); // stream de datos
 
 /* Metadata */
 void actualizarBitmaps();
@@ -59,5 +69,9 @@ t_bloque* nuevoBloque(uint32_t numeroBloque);
 void ordenarListaNodos(t_list *nodos);
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo);
 void destruirNodo(t_nodo *nodo);
+t_archivo_a_persistir* nuevoArchivo(int indiceDirectorio, char *nombreArchivo, int tipo, int tamanio, t_list *bloques);
+void crearTablaDeArchivo(t_archivo_a_persistir *archivo);
+void liberarArchivo(t_archivo_a_persistir *archivo);
+void destruirBloque(t_bloque *bloque);
 
 #endif

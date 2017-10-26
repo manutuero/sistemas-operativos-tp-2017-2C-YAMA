@@ -7,9 +7,6 @@ int estadoFs = ESTABLE;
 t_directory directorios[100];
 t_list *nodos;
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-sem_t sem;
-
 /*********************** Implementacion de funciones ************************/
 /* Implementacion de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char *path) {
@@ -69,80 +66,6 @@ char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 	fclose(archivo);
 	return bitmap;
 }
-/*
- int verificarExistenciaArchBitmap(char *nombreArchBitmap, char *path) {
- DIR *directorio = opendir(path);
-
- if (!directorio) { // Verifica si el directorio a bitmaps existe.
- closedir(directorio);
- return 2;
- }
-
- closedir(directorio);
-
- if (access(nombreArchBitmap, F_OK) != -1) {
- return 1;
- }
- return 0;
- }
-
- // Esta funcion crea un archivo bitmap con el nombre id del nodo y
- // tamanio de databin,verifica si existe de antes y si no lo crea.
- void crearArchivoBitmapNodo(int idNodo, int tamanioDatabinNodo) {
- FILE *arch;
- char *path = string_new(), *nombreArchBitmap = obtenerPathBitmap(idNodo);
- string_append(&path, PATH_METADATA);
- string_append(&path, "/bitmaps");
-
- switch (verificarExistenciaArchBitmap(nombreArchBitmap, path)) {
- case 0:
- arch = fopen(nombreArchBitmap, "w+");
- persistirBitmap(arch, tamanioDatabinNodo);
- fclose(arch);
- break;
- case 1:
- printf("Archivo bitmap ya existe");
- break;
- case 2:
- printf("La carpeta bitmaps no existe");  // validacion de carpeta bitmap
- break;
- }
- }
-
- //Accede al numero de bloque en el array y modifica su estado
- void liberarBloqueBitmapNodo(int bloque, int idNodo) {
- char *path = obtenerPathBitmap(idNodo);
- FILE *archivo;
- t_bitmap bitmap[bloque] = 'L';
-
- archivo = fopen(path, "r+");
- fseek(archivo, (bloque - 1), SEEK_SET);
- fwrite(&bitmap, sizeof(t_bitmap), 1, archivo);
- fclose(archivo);
- }
-
- void ocuparBloqueBitmapNodo(int numBloque, int idNodo) {
- char* nombreArchBitmap = obtenerPathBitmap(idNodo);
- FILE* arch;
- t_bitmap regActualizado = 'O';
-
- arch = fopen(nombreArchBitmap, "r+");
- fseek(arch, (numBloque - 1), SEEK_SET);
- fwrite(&regActualizado, sizeof(t_bitmap), 1, arch);
- fclose(arch);
- }
-
- // Arma el path nombre del bitmap a partir del id del nodo
- char* obtenerPathBitmap(int idNodo) {
- char *path = string_new(), *sIdNodo = string_itoa(idNodo);
- string_append(&path, PATH_METADATA);
- string_append(&path, "/bitmaps/");
- string_append(&path, sIdNodo);
- string_append(&path, ".dat");
-
- return path;
- }
- */
 
 int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap) {
 	int i;
@@ -246,8 +169,8 @@ t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload) {
 
 void* esperarConexionesDatanodes() {
 	int socketServidor = nuevoSocket(), numeroClientes = 10,
-			socketsClientes[10] = { }, //opt = 1,
-			addrlen, max_sd, i, sd, actividad, socketEntrante;
+			socketsClientes[10] = { }, opt = 1, addrlen, max_sd, i, sd,
+			actividad, socketEntrante;
 	fd_set readfds;
 	t_header header;
 	void *buffer = NULL;
@@ -258,11 +181,11 @@ void* esperarConexionesDatanodes() {
 	tv.tv_usec = 0;
 
 	// Seteo el socketServidor para permitir multiples conexiones, aunque no sea necesario es una buena practica.
-	/*	if (setsockopt(socketServidor, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
-	 sizeof(opt)) < 0) {
-	 perror("setsockopt");
-	 exit(EXIT_FAILURE);
-	 }*/
+	if (setsockopt(socketServidor, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
+			sizeof(opt)) < 0) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
 
 	// Defino el tipo de socket con sus parametros.
 	struct sockaddr_in address;
@@ -433,7 +356,6 @@ int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
 	// No hubo error en el send.
 	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
 		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
-//			printf("Bloque guardado correctamente n°: %d\n", numeroBloque);
 			rta = GUARDO_BLOQUE_OK;
 		} else {
 			printf("[Error]: no se guardo el bloque.\n");
@@ -646,7 +568,7 @@ void validarMetadata(char* path) {
 	DIR* directoryPointer = opendir(newPath);
 
 	if (directoryPointer) {
-// El directorio existe.
+		// El directorio existe.
 		closedir(directoryPointer);
 	}
 	// Si el directorio no existe lo crea
@@ -709,9 +631,9 @@ void crearMetadata() {
 	}
 
 	crearTablaDeDirectorios();
-	crearTablaDeArchivos();
+	crearDirectorioArchivos();
 	crearTablaDeNodos();
-	crearBitmaps();
+	crearDirectorioBitmaps();
 
 	closedir(directorio);
 }
@@ -722,13 +644,10 @@ void crearTablaDeDirectorios() {
 	string_append(&path, "/directorios.dat");
 	FILE *filePointer = fopen(path, "wb");
 
-	// Si el puntero a archivo devuelve null en este escenario es porque no tiene permisos de creacion sobre el directorio.
 	if (!filePointer) {
-		char *comando = string_new();
-		string_append(&comando, "sudo chmod 4777 ");
-		string_append(&comando, PATH_METADATA);
-		system(comando);
-		filePointer = fopen(path, "wb");
+		fprintf(stderr,
+				"[ERROR]: no se pudo crear la tabla de directorios en la ruta '%s'.\nSugerencia: verificar si existe el directorio.",
+				path);
 	}
 
 	// Carga el array en memoria y escribe en el archivo.
@@ -737,11 +656,29 @@ void crearTablaDeDirectorios() {
 	directorios[0].padre = -1;
 
 	fwrite(&directorios[0], sizeof(t_directory), 1, filePointer);
+	free(path);
 
+	// Crea el directorio /metadata/archivos/0 (root).
+	path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/archivos/0");
+
+	DIR *directorio = opendir(path);
+	// Si el directorio no existe, lo crea.
+	if (ENOENT == errno) {
+		char *comando = string_new();
+		string_append(&comando, "mkdir ");
+		string_append(&comando, path);
+		system(comando);
+	}
+
+	// Libero recursos.
+	free(path);
+	closedir(directorio);
 	fclose(filePointer);
 }
 
-void crearTablaDeArchivos() {
+void crearDirectorioArchivos() {
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/archivos");
@@ -769,7 +706,7 @@ void crearTablaDeNodos() {
 	nodos = list_create();
 }
 
-void crearBitmaps() {
+void crearDirectorioBitmaps() {
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/bitmaps");
@@ -869,23 +806,6 @@ void agregarNodo(t_list *lista, t_nodo *nodo) {
 		list_add(lista, nodo);
 	}
 }
-/*
- void persistirTablaDeArchivos(char *nombreArchivo, int indice) {
- char *path = string_new();
- string_append(&path, PATH_METADATA);
- string_append(&path, "/archivos/");
- string_append(&path, string_itoa(indice));
- string_append(&path, nombreArchivo);
-
- FILE *archivo = fopen(path, "w");
-
- if(!archivo) {
- fprintf(stderr, "[ERROR]: ocurrio un error al intentar crear el archivo. Sugerencia: revisar permisos.");
- }
-
- fclose(archivo);
- }
- */
 
 t_list* copiarListaNodos(t_list *lista) {
 	t_list *copia = list_create();

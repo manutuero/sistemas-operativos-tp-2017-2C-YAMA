@@ -5,8 +5,10 @@
 int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	t_list *bloques, *nodosAux = copiarListaNodos(nodos);
 	t_bloque *bloque;
-	int i;
+	int i, indice, tamanio = 0;
 	t_nodo *nodo1, *nodo2;
+	char *directorio;
+	t_archivo_a_persistir *archivo;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
@@ -55,14 +57,22 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 		guardarBloqueEnNodo(bloque->numeroBloqueCopia1, bloque->contenido,
 				bloque->nodoCopia1->socketDescriptor);
+
+		tamanio += bloque->bytesOcupados;
 	}
 
-	// Si la operacion se realizo correctamente actualizo (reapunto) mi lista de nodos.
-	free(nodos);
-	nodos = nodosAux;
+	// Si la operacion se realizo correctamente actualizo mi lista de nodos.
+	list_clean_and_destroy_elements(nodos, (void*) destruirNodo);
+	nodos = copiarListaNodos(nodosAux);
+	list_destroy(nodosAux);
 
 	// 3)  Persistir /metadata/nodos.bin y crear /metadata/index/nombreArchivo correspondiente.
 	actualizarBitmaps();
+
+	directorio = string_substring_from(strrchr(path, '/'), 1);
+	indice = obtenerIndice(directorio);
+	archivo = nuevoArchivo(indice, nombreArchivo, tipo, tamanio, bloques);
+	crearTablaDeArchivo(archivo);
 
 	return EXITO;
 }
@@ -79,7 +89,6 @@ void escribirStreamConFormato(FILE *stream, char *format, ...) {
 }
 
 void liberarBLoque(t_bloque* bloque) {
-	free(bloque->contenido);
 	free(bloque);
 }
 
@@ -214,8 +223,14 @@ bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo) {
 }
 
 void destruirNodo(t_nodo *nodo) {
-	free(nodo->bitmap);
 	free(nodo);
+}
+
+void destruirBloque(t_bloque *bloque) {
+	free(bloque->contenido);
+	free(bloque->nodoCopia0);
+	free(bloque->nodoCopia1);
+	free(bloque);
 }
 
 void limpiar(char* string, size_t largo) {
@@ -245,21 +260,103 @@ void actualizarBitmaps() {
 			exit(EXIT_FAILURE);
 		}
 
-		fwrite(nodo->bitmap, sizeof(char), strlen(nodo->bitmap)-1, archivo);
+		nodo->bitmap[strlen(nodo->bitmap)] = '\0';
+		fputs(nodo->bitmap, archivo);
 
 		// Libero recursos.
 		free(path);
 		free(nodo);
 		fclose(archivo);
 	}
+}
 
-	/* Creo tabla de archivo en el indice del directorio 'path' */
-	/*	char *directorio;
-	 directorio	= string_substring_from(strrchr(path, '/'), 1);
-	 int indice = obtenerIndice(directorio);
+t_archivo_a_persistir* nuevoArchivo(int indiceDirectorio, char *nombreArchivo,
+		int tipo, int tamanio, t_list *bloques) {
+	t_archivo_a_persistir *archivo = malloc(sizeof(t_archivo_a_persistir));
+	archivo->indiceDirectorio = indiceDirectorio;
+	archivo->nombreArchivo = string_new();
+	string_append(&archivo->nombreArchivo, nombreArchivo);
+	archivo->tipo = tipo;
+	archivo->tamanio = tamanio;
+	archivo->bloques = list_create();
+	list_add_all(archivo->bloques, bloques);
+	return archivo;
+}
 
-	 printf("Directorio: %s\n", directorio);
-	 printf("Indice directorio: %d\n", indice);*/
+void liberarArchivo(t_archivo_a_persistir *archivo) {
+	list_destroy_and_destroy_elements(archivo->bloques, (void*) liberarBLoque);
+	free(archivo->nombreArchivo);
+	free(archivo);
+}
 
-	// no olvidar liberar char* pathBitmap, path y directorio!
+void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
+	int i;
+	t_bloque *bloque;
+	t_list *bloques = archivo->bloques;
+
+	char *clave, *valor, *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/archivos/");
+	string_append(&path, string_itoa(archivo->indiceDirectorio));
+	string_append(&path, "/");
+	string_append(&path, archivo->nombreArchivo);
+
+	FILE *filePointer = fopen(path, "w");
+	if (!filePointer) {
+		fprintf(stderr, "[ERROR]: no se pudo crear el archivo '%s'.\n", path);
+		exit(EXIT_FAILURE);
+	}
+
+	// TAMANIO
+	clave = "TAMANIO=";
+	valor = string_itoa(archivo->tamanio);
+	fputs(clave, filePointer);
+	fputs(valor, filePointer);
+
+	// TIPO
+	clave = "\nTIPO=";
+	valor = string_itoa(archivo->tipo);
+	fputs(clave, filePointer);
+	fputs(valor, filePointer);
+
+	// BLOQUES
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(archivo->bloques, i);
+
+		// BLOQUE COPIA0
+		clave = string_new();
+		string_append(&clave, "\nBLOQUE");
+		string_append(&clave, string_itoa(bloque->numeroBloque));
+		string_append(&clave, "COPIA0=");
+		valor = string_new();
+		string_append(&valor, "[");
+		string_append(&valor, string_itoa(bloque->nodoCopia0->idNodo));
+		string_append(&valor, ",");
+		string_append(&valor, string_itoa(bloque->numeroBloqueCopia0));
+		string_append(&valor, "]");
+		fputs(clave, filePointer);
+		fputs(valor, filePointer);
+		free(clave);
+		free(valor);
+
+		// BLOQUE COPIA1
+		clave = string_new();
+		string_append(&clave, "\nBLOQUE");
+		string_append(&clave, string_itoa(bloque->numeroBloque));
+		string_append(&clave, "COPIA1=");
+		valor = string_new();
+		string_append(&valor, "[");
+		string_append(&valor, string_itoa(bloque->nodoCopia1->idNodo));
+		string_append(&valor, ",");
+		string_append(&valor, string_itoa(bloque->numeroBloqueCopia1));
+		string_append(&valor, "]");
+		fputs(clave, filePointer);
+		fputs(valor, filePointer);
+		free(clave);
+		free(valor);
+	}
+
+	// Cierro recursos.
+	fclose(filePointer);
+	liberarArchivo(archivo);
 }

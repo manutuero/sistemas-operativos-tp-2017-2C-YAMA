@@ -32,6 +32,7 @@ int main(int argc, char **argv) {
 
 		pthread_join(hiloConexiones, NULL);
 		pthread_join(hiloConsola, NULL);
+		// Liberar la estructura de config pasandola como puntero...
 		return 0;
 	}
 }
