@@ -1,18 +1,18 @@
 #include "fileSystemAPI.h"
 #include "../funcionesFileSystem.h"
 
-// Poner un mutex
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
+	pthread_mutex_lock(&mutex);
 	t_list *bloques, *nodosAux = copiarListaNodos(nodos);
 	t_bloque *bloque;
-	int i, indice, tamanio = 0;
+	int i, tamanio = 0;
 	t_nodo *nodo1, *nodo2;
-	char *directorio;
-	t_archivo_a_persistir *archivo;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
-		free(nodosAux);
+		list_clean_and_destroy_elements(nodosAux, (void*) destruirNodo);
 		return ERROR;
 	}
 
@@ -68,12 +68,8 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 	// 3)  Persistir /metadata/nodos.bin y crear /metadata/index/nombreArchivo correspondiente.
 	actualizarBitmaps();
-
-	directorio = string_substring_from(strrchr(path, '/'), 1);
-	indice = obtenerIndice(directorio);
-	archivo = nuevoArchivo(indice, nombreArchivo, tipo, tamanio, bloques);
-	crearTablaDeArchivo(archivo);
-
+	crearTablaDeArchivo(nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques));
+	pthread_mutex_unlock(&mutex);
 	return EXITO;
 }
 
@@ -116,6 +112,7 @@ int proximoRegistro(FILE *datos, char *registro) {
 t_bloque* nuevoBloque(uint32_t numeroBloque) {
 	t_bloque* bloque = malloc(sizeof(t_bloque));
 	bloque->contenido = malloc(UN_BLOQUE);
+	limpiar(bloque->contenido, UN_MEGABYTE);
 	bloque->bytesOcupados = 0;
 	bloque->numeroBloque = numeroBloque;
 	return bloque;
@@ -260,7 +257,6 @@ void actualizarBitmaps() {
 			exit(EXIT_FAILURE);
 		}
 
-		nodo->bitmap[strlen(nodo->bitmap)] = '\0';
 		fputs(nodo->bitmap, archivo);
 
 		// Libero recursos.
@@ -270,16 +266,21 @@ void actualizarBitmaps() {
 	}
 }
 
-t_archivo_a_persistir* nuevoArchivo(int indiceDirectorio, char *nombreArchivo,
-		int tipo, int tamanio, t_list *bloques) {
+t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
+		int tamanio, t_list *bloques) {
+	char *directorio = string_substring_from(strrchr(path, '/'), 1);
 	t_archivo_a_persistir *archivo = malloc(sizeof(t_archivo_a_persistir));
-	archivo->indiceDirectorio = indiceDirectorio;
+
+	archivo->indiceDirectorio = obtenerIndice(directorio);
 	archivo->nombreArchivo = string_new();
 	string_append(&archivo->nombreArchivo, nombreArchivo);
 	archivo->tipo = tipo;
 	archivo->tamanio = tamanio;
 	archivo->bloques = list_create();
 	list_add_all(archivo->bloques, bloques);
+
+	// Libero recursos
+	free(directorio);
 	return archivo;
 }
 

@@ -1,6 +1,7 @@
 #include "suite.h"
 
 int correrTests() {
+	crearMetadata();
 	// Inicializa un registro de suites vacío.
 	CU_initialize_registry();
 
@@ -20,12 +21,8 @@ int correrTests() {
 			test_copiarYLiberarListaNodos_copiaCorrectamente);
 	CU_add_test(suiteFs, "modificarListaCopiadaDeNodos",
 			test_modificarListaCopiadaDeNodos_noModificaListaOriginal);
-	CU_add_test(suiteFs, "crearNuevoArchivo",
-			test_crearNuevoArchivo_creaLaEstructura);
 	CU_add_test(suiteFs, "crearArchivoDiccionario",
 			test_crearArchivoDiccionario_creaArchivoCorrectamente);
-	CU_add_test(suiteFs, "crearArchivoDiccionario",
-				test_crearArchivoDiccionario_creaArchivoCorrectamente);
 
 	// Settea la librería de modo tal que muestre la mayor cantidad de información posible (con el flag CU_BRM_VERBOSE).
 	CU_basic_set_mode(CU_BRM_VERBOSE);
@@ -136,40 +133,6 @@ void test_modificarListaCopiadaDeNodos_noModificaListaOriginal(void) {
 	CU_ASSERT_EQUAL(nodo->idNodo, 2);
 }
 
-void test_crearNuevoArchivo_creaLaEstructura(void) {
-	t_list *bloques = list_create();
-
-	t_nodo *nodo0 = malloc(sizeof(t_nodo));
-	nodo0->idNodo = 1;
-
-	t_nodo *nodo1 = malloc(sizeof(t_nodo));
-	nodo0->idNodo = 2;
-
-	t_bloque *bloque = malloc(sizeof(t_bloque));
-	bloque->numeroBloque = 0;
-	bloque->nodoCopia0 = nodo0;
-	bloque->nodoCopia1 = nodo1;
-	bloque->bytesOcupados = 1048500;
-	bloque->numeroBloqueCopia0 = 33;
-	bloque->numeroBloqueCopia1 = 11;
-	list_add(bloques, bloque);
-
-	bloque = malloc(sizeof(t_bloque));
-	bloque->numeroBloque = 1;
-	bloque->nodoCopia0 = nodo0;
-	bloque->nodoCopia1 = nodo1;
-	bloque->bytesOcupados = 1048532;
-	bloque->numeroBloqueCopia0 = 34;
-	bloque->numeroBloqueCopia1 = 12;
-	list_add(bloques, bloque);
-
-	t_archivo_a_persistir *archivo = nuevoArchivo(0, "unArchivo.txt", TEXTO, 20, bloques);
-
-	CU_ASSERT_EQUAL(archivo->tipo, TEXTO);
-	CU_ASSERT_STRING_EQUAL(archivo->nombreArchivo, "unArchivo.txt");
-	CU_ASSERT_EQUAL(archivo->bloques->elements_count, 2);
-}
-
 void test_crearArchivoDiccionario_creaArchivoCorrectamente(void) {
 	int tamanio;
 	char *path = "/home/utnso/thePonchos/nuevo.txt";
@@ -200,7 +163,6 @@ void test_crearArchivoDiccionario_creaArchivoCorrectamente(void) {
 	// Borra el archivo del FS de linux.
 	unlink(path);
 
-	fclose(archivo);
-
 	CU_ASSERT_EQUAL(tamanio, 12356334);
+	fclose(archivo);
 }

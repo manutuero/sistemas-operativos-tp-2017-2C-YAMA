@@ -50,6 +50,9 @@ typedef struct {
 	t_list *bloques;
 } t_archivo_a_persistir; // nombre temporal...cambiar a t_archivo cuando hagan refactor de la utils.
 
+/* Semaforos */
+extern pthread_mutex_t mutex;
+
 /* API */
 int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo,
 		FILE *datos); // stream de datos
@@ -69,7 +72,7 @@ t_bloque* nuevoBloque(uint32_t numeroBloque);
 void ordenarListaNodos(t_list *nodos);
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo);
 void destruirNodo(t_nodo *nodo);
-t_archivo_a_persistir* nuevoArchivo(int indiceDirectorio, char *nombreArchivo, int tipo, int tamanio, t_list *bloques);
+t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo, int tamanio, t_list *bloques);
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo);
 void liberarArchivo(t_archivo_a_persistir *archivo);
 void destruirBloque(t_bloque *bloque);

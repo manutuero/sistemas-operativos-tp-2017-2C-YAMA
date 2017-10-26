@@ -5,9 +5,7 @@ int main(int argc, char **argv) {
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
 
 	if (argc > 1 && sonIguales(argv[1], "--tests")) {
-		crearMetadata(); // Necesario para correr los tests.
-		correrTests();
-		return 0;
+		return correrTests();
 	} else {
 		// Agregar un logger (cuando estemos por terminar).
 		if (hayEstadoAnterior()) {
@@ -17,6 +15,9 @@ int main(int argc, char **argv) {
 					"Hay estado anterior.. para las pruebas borrar la carpeta metadata"); // borrar luego :p
 		} else {
 			crearMetadata();
+			if(estadoFs == ESTABLE) {
+
+			}
 			puts("No hay estado anterior. Esperando datanodes..."); // borrar luego :p
 		}
 

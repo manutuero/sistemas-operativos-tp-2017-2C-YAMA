@@ -45,8 +45,11 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 /* Implementacion de funciones para bitmaps */
 char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 	int i;
-	t_bitmap bitmap = malloc(sizeof(char) * tamanioDatabin);
-	char *path = string_new();
+	char *path;
+	t_bitmap bitmap = malloc(sizeof(char) * tamanioDatabin + 1);
+	limpiar(bitmap, tamanioDatabin);
+
+	path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/bitmaps/");
 	string_append(&path, string_itoa(idNodo));
@@ -56,12 +59,10 @@ char* persistirBitmap(uint32_t idNodo, int tamanioDatabin) {
 
 	for (i = 0; i < tamanioDatabin; i++) {
 		bitmap[i] = 'L';
-		fwrite(&bitmap[i], sizeof(char), 1, archivo);
 	}
 
-	for (i = 0; i < tamanioDatabin; i++) {
-		bitmap[i] = 'L';
-	}
+	bitmap[i] = '\0';
+	fputs(bitmap, archivo);
 
 	fclose(archivo);
 	return bitmap;
@@ -77,7 +78,6 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap) {
 			//Cortar For
 			break;
 		}
-
 	}
 	//Si no encontro nada devuelve -1 indicando que esta completo el bitmap;Hay que ver que hacemos ahi del otro lado
 	return -1;
@@ -277,7 +277,6 @@ void* esperarConexionesDatanodes() {
 					//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
 					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
 					//DESCONECTADO A NO DISPONIBLES
-
 					break;
 				}
 

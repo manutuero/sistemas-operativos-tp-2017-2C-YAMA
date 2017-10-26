@@ -17,11 +17,6 @@ void test_compararBloquesLibres_Nodo1MasLibreQueNodo2(void);
 void test_copiarYLiberarListaNodos_copiaCorrectamente(void);
 void test_modificarListaCopiadaDeNodos_noModificaListaOriginal(void);
 
-/* Test cases Bitmaps */
-
-/* Test cases Archivos */
-void test_crearNuevoArchivo_creaLaEstructura(void);
-
 /* Test cases Commons Config */
 void test_crearArchivoDiccionario_creaArchivoCorrectamente(void);
 
