@@ -29,7 +29,9 @@ enum bitmaps {
 };
 
 enum respuestasDatanode {
-	GUARDO_BLOQUE_OK = 1
+	ERROR_AL_RECIBIR_RESPUESTA = -1,
+	ERROR_NO_SE_PUDO_GUARDAR_BLOQUE,
+	GUARDO_BLOQUE_OK
 };
 
 /* Variables globales */
@@ -83,7 +85,7 @@ extern t_list *nodos;
 void cargarArchivoDeConfiguracionFS(char *path);
 
 /* Firmas de funciones para inicializacion */
-void crearMetadata();
+void crearDirectorioMetadata();
 void crearTablaDeDirectorios();
 void crearDirectorioArchivos();
 void crearTablaDeNodos();
@@ -91,6 +93,8 @@ void crearDirectorioBitmaps();
 
 /* Firmas de funciones para nodos */
 void agregarNodo(t_list *lista, t_nodo *nodo);
+void persistirTablaDeNodos();
+int totalBloquesFileSystem(t_list *nodos);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
@@ -121,7 +125,6 @@ void mostrar(t_directory directorios[], int cantidad);
 bool existePathDirectorio(char *path);
 int obtenerIndice(char *directorio);
 
-
 /* Firmas de funciones para tabla de archivos */
 void persistirTablaDeArchivos(char *path);
 
@@ -137,7 +140,7 @@ char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo);
-int obtenerYReservarBloqueBitmap(t_bitmap bitmap,int tamanioBitmap);
+int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 t_list* copiarListaNodos(t_list *lista);
 
 #endif

@@ -14,10 +14,7 @@ int main(int argc, char **argv) {
 			puts(
 					"Hay estado anterior.. para las pruebas borrar la carpeta metadata"); // borrar luego :p
 		} else {
-			crearMetadata();
-			if(estadoFs == ESTABLE) {
-
-			}
+			crearDirectorioMetadata();
 			puts("No hay estado anterior. Esperando datanodes..."); // borrar luego :p
 		}
 

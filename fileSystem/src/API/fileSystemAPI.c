@@ -7,7 +7,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	pthread_mutex_lock(&mutex);
 	t_list *bloques, *nodosAux = copiarListaNodos(nodos);
 	t_bloque *bloque;
-	int i, tamanio = 0;
+	int i, respuesta, tamanio = 0;
 	t_nodo *nodo1, *nodo2;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
@@ -41,7 +41,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		if (bloque->numeroBloqueCopia0 == ESTA_LLENO
 				|| bloque->numeroBloqueCopia1 == ESTA_LLENO) {
 			fprintf(stderr,
-					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.");
+					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.\n");
 
 			free(nodosAux);
 			return ERROR;
@@ -52,11 +52,19 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	for (i = 0; i < bloques->elements_count; i++) {
 		bloque = list_get(bloques, i);
 
-		guardarBloqueEnNodo(bloque->numeroBloqueCopia0, bloque->contenido,
-				bloque->nodoCopia0->socketDescriptor);
+		respuesta = guardarBloqueEnNodo(bloque->numeroBloqueCopia0,
+				bloque->contenido, bloque->nodoCopia0->socketDescriptor);
+		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
+				!= GUARDO_BLOQUE_OK) {
+			return ERROR;
+		}
 
-		guardarBloqueEnNodo(bloque->numeroBloqueCopia1, bloque->contenido,
-				bloque->nodoCopia1->socketDescriptor);
+		respuesta = guardarBloqueEnNodo(bloque->numeroBloqueCopia1,
+				bloque->contenido, bloque->nodoCopia1->socketDescriptor);
+		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
+				!= GUARDO_BLOQUE_OK) {
+			return ERROR;
+		}
 
 		tamanio += bloque->bytesOcupados;
 	}
@@ -68,9 +76,24 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 	// 3)  Persistir /metadata/nodos.bin y crear /metadata/index/nombreArchivo correspondiente.
 	actualizarBitmaps();
-	crearTablaDeArchivo(nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques));
+	crearTablaDeArchivo(
+			nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques));
 	pthread_mutex_unlock(&mutex);
 	return EXITO;
+}
+
+int validarGuardado(int respuesta, t_bloque *bloque, t_nodo *nodo) {
+	if (respuesta == ERROR_NO_SE_PUDO_GUARDAR_BLOQUE) {
+		fprintf(stderr,
+				"[ERROR]: no se pudo guardar el bloque n° '%d' en el nodo id '%d'.\n",
+				bloque->numeroBloque, nodo->idNodo);
+		return ERROR;
+	} else if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
+		fprintf(stderr, "[ERROR]: no se pudo recibir la respuesta.\n");
+		return ERROR;
+	} else {
+		return GUARDO_BLOQUE_OK;
+	}
 }
 
 /* Funcion que uso para escribir sobre un stream, con la posibilidad de

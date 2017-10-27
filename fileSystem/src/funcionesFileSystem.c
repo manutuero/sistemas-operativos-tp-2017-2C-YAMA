@@ -347,7 +347,7 @@ void* serializarSetBloque(void *bloque, uint32_t numBloque) {
 }
 
 int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
-	int rta = 0;
+	int rta;
 	void *paquete = serializarSetBloque(bloque, numeroBloque);
 	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
 	void *respuesta = malloc(sizeof(uint32_t));
@@ -358,10 +358,10 @@ int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
 			rta = GUARDO_BLOQUE_OK;
 		} else {
 			printf("[Error]: no se guardo el bloque.\n");
-			rta = 0;
+			rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
 		}
 	} else {
-		rta = 0;
+		rta = ERROR_AL_RECIBIR_RESPUESTA;
 	}
 	free(respuesta);
 	free(paquete);
@@ -618,7 +618,7 @@ bool hayEstadoAnterior() {
 }
 
 /* Implementacion de funciones de inicializacion */
-void crearMetadata() {
+void crearDirectorioMetadata() {
 	DIR *directorio = opendir(PATH_METADATA);
 
 	// Si el directorio no existe, lo crea.
@@ -698,11 +698,16 @@ void crearTablaDeNodos() {
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/nodos.bin");
+
 	FILE *filePointer = fopen(path, "wb");
-	fclose(filePointer);
+	if (!filePointer) {
+		fprintf(stderr, "[ERROR]: no se pudo crear el archivo '%s'.\n", path);
+		exit(EXIT_FAILURE);
+	}
 
 	// Inicializo la lista de nodos, ahora a esperar que se conecten...
 	nodos = list_create();
+	fclose(filePointer);
 }
 
 void crearDirectorioBitmaps() {
@@ -824,4 +829,46 @@ t_list* copiarListaNodos(t_list *lista) {
 	}
 
 	return copia;
+}
+
+int totalBloquesFileSystem(t_list *nodos) {
+	t_nodo *nodo;
+	int i, totalBloques = 0;
+
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		totalBloques += nodo->bloquesTotales;
+	}
+
+	free(nodo);
+	return totalBloques;
+}
+
+void persistirTablaDeNodos() {
+	int i;
+	t_nodo *nodo;
+	char *clave, *valor, *path;
+
+	path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/nodos.bin");
+	FILE *filePointer = fopen(path, "r+b");
+
+	if (!filePointer) {
+		fprintf(stderr, "[ERROR]: no se encontro el archivo '%s'.\n", path);
+		exit(EXIT_FAILURE);
+	}
+
+	// Bloques totales FileSystem.
+	clave = "TAMANIO=";
+	printf("Cant nodos antes: %d\n", nodos->elements_count);
+	valor = string_itoa(totalBloquesFileSystem(nodos));
+	printf("Cant nodos despues: %d\n", nodos->elements_count);
+	fputs(clave, filePointer);
+	fputs(valor, filePointer);
+	for (i = 0; i < nodos->elements_count; i++) {
+
+	}
+
+	fclose(filePointer);
 }

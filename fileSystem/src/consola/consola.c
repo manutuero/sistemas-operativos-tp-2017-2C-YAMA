@@ -2,7 +2,6 @@
 
 void * levantarConsola() {
 	char *linea;
-	//char *resultado;
 	char **argumentos;
 	int cantidadElementos;
 
@@ -20,8 +19,8 @@ void * levantarConsola() {
 		case 1:
 			if (sonIguales(argumentos[0], "format")) {
 				printf("Funcion format \n");
-				invocarFuncionFormat(argumentos);
-				puts("vuelve al hilo principal");
+				ejecutarFormat(argumentos);
+				puts("vuelve al hilo consola");
 				break;
 			}
 			if (sonIguales(argumentos[0], "exit")) {

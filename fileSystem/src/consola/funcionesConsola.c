@@ -47,17 +47,20 @@ char** cargarArgumentos(char* linea) {
 	return (string_split(linea, ESPACIO));
 }
 
-char* invocarFuncionFormat(char **argumentos) {
-	printf("Funcion de format.\n");
+void ejecutarFormat(char **argumentos) {
+	// Ver si esta bien que se persistan los nodos conectados al ejecutar format...ya no se aceptan mas nodos nuevos.
+	//persistirTablaDeNodos();
+
+	// ---- Borrar
 	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
 	FILE *datos = fopen(path, "r");
 	if (!datos)
 		  fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
 	almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
+	// ----
 
 	fclose(datos);
-	return "";
 }
 
 char* invocarFuncionRm(char **argumentos) {

@@ -15,7 +15,7 @@ int cantidadArgumentos(char**);
 void inicializarComando(t_comando*);
 int validarParametro(char*);
 char** cargarArgumentos(char*);
-char* invocarFuncionFormat(char**);
+void ejecutarFormat(char**);
 char* invocarFuncionRm(char**);
 char* invocarFuncionRmDirectory(char**);
 char* invocarFuncionRmBloque(char**);

@@ -1,7 +1,7 @@
 #include "suite.h"
 
 int correrTests() {
-	crearMetadata();
+	crearDirectorioMetadata();
 	// Inicializa un registro de suites vacío.
 	CU_initialize_registry();
 
@@ -23,6 +23,8 @@ int correrTests() {
 			test_modificarListaCopiadaDeNodos_noModificaListaOriginal);
 	CU_add_test(suiteFs, "crearArchivoDiccionario",
 			test_crearArchivoDiccionario_creaArchivoCorrectamente);
+	CU_add_test(suiteFs, "liberarVariableNodo",
+			test_liberarVariableNodo_noModificaUltimoElementoDeLaLista);
 
 	// Settea la librería de modo tal que muestre la mayor cantidad de información posible (con el flag CU_BRM_VERBOSE).
 	CU_basic_set_mode(CU_BRM_VERBOSE);
@@ -165,4 +167,20 @@ void test_crearArchivoDiccionario_creaArchivoCorrectamente(void) {
 
 	CU_ASSERT_EQUAL(tamanio, 12356334);
 	fclose(archivo);
+}
+
+void test_liberarVariableNodo_noModificaUltimoElementoDeLaLista(void) {
+	t_list *nodos = list_create();
+
+	t_nodo *nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 1;
+	list_add(nodos, nodo);
+
+	nodo = malloc(sizeof(t_nodo));
+	nodo->idNodo = 2;
+	list_add(nodos, nodo);
+
+	totalBloquesFileSystem(nodos);
+
+	CU_ASSERT_NOT_EQUAL(nodos->elements_count, 1);
 }

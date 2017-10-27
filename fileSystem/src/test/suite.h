@@ -16,6 +16,7 @@ void test_ordenarListaNodos_ordenaCorrectamente(void);
 void test_compararBloquesLibres_Nodo1MasLibreQueNodo2(void);
 void test_copiarYLiberarListaNodos_copiaCorrectamente(void);
 void test_modificarListaCopiadaDeNodos_noModificaListaOriginal(void);
+void test_liberarVariableNodo_noModificaUltimoElementoDeLaLista(void);
 
 /* Test cases Commons Config */
 void test_crearArchivoDiccionario_creaArchivoCorrectamente(void);
