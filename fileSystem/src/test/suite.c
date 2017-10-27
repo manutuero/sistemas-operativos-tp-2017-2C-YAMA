@@ -17,10 +17,6 @@ int correrTests() {
 			test_compararBloquesLibres_Nodo1MasLibreQueNodo2);
 	CU_add_test(suiteFs, "ordenarListaNodos",
 			test_ordenarListaNodos_ordenaCorrectamente);
-	CU_add_test(suiteFs, "copiarListaNodos",
-			test_copiarYLiberarListaNodos_copiaCorrectamente);
-	CU_add_test(suiteFs, "modificarListaCopiadaDeNodos",
-			test_modificarListaCopiadaDeNodos_noModificaListaOriginal);
 	CU_add_test(suiteFs, "crearArchivoDiccionario",
 			test_crearArchivoDiccionario_creaArchivoCorrectamente);
 	CU_add_test(suiteFs, "liberarVariableNodo",
@@ -97,42 +93,6 @@ void test_ordenarListaNodos_ordenaCorrectamente(void) {
 	nodo = list_get(listaNodos, 0);
 
 	CU_ASSERT_EQUAL(nodo->idNodo, 3);
-}
-
-void test_copiarYLiberarListaNodos_copiaCorrectamente(void) {
-	t_list *copia, *lista = list_create();
-	t_nodo *nodoCopia, *nodo = malloc(sizeof(t_nodo));
-	nodo->idNodo = 1;
-	list_add(lista, nodo);
-
-	nodo = malloc(sizeof(t_nodo));
-	nodo->idNodo = 2;
-	list_add(lista, nodo);
-
-	copia = copiarListaNodos(lista);
-	nodoCopia = list_get(copia, 1);
-	CU_ASSERT_EQUAL(nodoCopia->idNodo, 2);
-}
-
-void test_modificarListaCopiadaDeNodos_noModificaListaOriginal(void) {
-	t_list *copia, *lista = list_create();
-	t_nodo *nodoCopia, *nodo = malloc(sizeof(t_nodo));
-	nodo->idNodo = 1;
-	nodo->bloquesTotales = 50;
-	nodo->bloquesLibres = 10;
-	list_add(lista, nodo);
-
-	nodo = malloc(sizeof(t_nodo));
-	nodo->idNodo = 2;
-	nodo->bloquesTotales = 30;
-	nodo->bloquesLibres = 5;
-	list_add(lista, nodo);
-
-	copia = copiarListaNodos(lista);
-	nodoCopia = list_get(copia, 1);
-	nodoCopia->idNodo = 0;
-	CU_ASSERT_NOT_EQUAL(nodo->idNodo, 0);
-	CU_ASSERT_EQUAL(nodo->idNodo, 2);
 }
 
 void test_crearArchivoDiccionario_creaArchivoCorrectamente(void) {

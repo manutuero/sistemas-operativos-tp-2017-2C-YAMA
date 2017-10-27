@@ -822,8 +822,8 @@ t_list* copiarListaNodos(t_list *lista) {
 		nodo->socketDescriptor = aux->socketDescriptor;
 		nodo->bloquesTotales = aux->bloquesTotales;
 		nodo->bloquesLibres = aux->bloquesLibres;
-		nodo->bitmap = aux->bitmap;
-		nodo->ip = aux->ip;
+		nodo->bitmap = string_duplicate(aux->bitmap);
+		nodo->ip = string_duplicate(aux->ip);
 		nodo->puertoWorker = aux->puertoWorker;
 		list_add(copia, nodo);
 	}
@@ -831,7 +831,7 @@ t_list* copiarListaNodos(t_list *lista) {
 	return copia;
 }
 
-int totalBloquesFileSystem(t_list *nodos) {
+int totalBloquesFileSystem() {
 	t_nodo *nodo;
 	int i, totalBloques = 0;
 
@@ -840,8 +840,19 @@ int totalBloquesFileSystem(t_list *nodos) {
 		totalBloques += nodo->bloquesTotales;
 	}
 
-	free(nodo);
 	return totalBloques;
+}
+
+int bloquesLibresFileSystem() {
+	t_nodo *nodo;
+	int i, bloquesLibres = 0;
+
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		bloquesLibres += nodo->bloquesLibres;
+	}
+
+	return bloquesLibres;
 }
 
 void persistirTablaDeNodos() {
@@ -859,16 +870,74 @@ void persistirTablaDeNodos() {
 		exit(EXIT_FAILURE);
 	}
 
-	// Bloques totales FileSystem.
+	// TAMANIO.
 	clave = "TAMANIO=";
-	printf("Cant nodos antes: %d\n", nodos->elements_count);
-	valor = string_itoa(totalBloquesFileSystem(nodos));
-	printf("Cant nodos despues: %d\n", nodos->elements_count);
+	valor = string_itoa(totalBloquesFileSystem());
 	fputs(clave, filePointer);
 	fputs(valor, filePointer);
-	for (i = 0; i < nodos->elements_count; i++) {
 
+	// LIBRE.
+	clave = "\nLIBRE=";
+	valor = string_itoa(bloquesLibresFileSystem());
+	fputs(clave, filePointer);
+	fputs(valor, filePointer);
+
+	// NODOS
+	clave = "\nNODOS=";
+	valor = string_new();
+	string_append(&valor, "[");
+	nodo = list_get(nodos, 0);
+	string_append(&valor, string_itoa(nodo->idNodo));
+	for (i = 1; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		string_append(&valor, ",");
+		string_append(&valor, string_itoa(nodo->idNodo));
+	}
+	string_append(&valor, "]");
+	fputs(clave, filePointer);
+	fputs(valor, filePointer);
+	free(valor);
+
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+
+		// NodoxTotal
+		clave = string_new();
+		string_append(&clave, "\nNodo");
+		string_append(&clave, string_itoa(nodo->idNodo));
+		string_append(&clave, "Total=");
+		valor = string_itoa(nodo->bloquesTotales);
+		fputs(clave, filePointer);
+		fputs(valor, filePointer);
+		free(clave);
+
+		// NodoxLibre
+		clave = string_new();
+		string_append(&clave, "\nNodo");
+		string_append(&clave, string_itoa(nodo->idNodo));
+		string_append(&clave, "Libre=");
+		valor = string_itoa(nodo->bloquesLibres);
+		fputs(clave, filePointer);
+		fputs(valor, filePointer);
+		free(clave);
 	}
 
 	fclose(filePointer);
+}
+
+void actualizarTablaDeNodos() {
+	char *path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/nodos.bin");
+	FILE *filePointer = fopen(path, "wb");
+
+	if (!filePointer) {
+		fprintf(stderr, "[ERROR]: no se encontro el archivo '%s'.\n", path);
+		exit(EXIT_FAILURE);
+	}
+
+	persistirTablaDeNodos();
+
+	fclose(filePointer);
+	free(path);
 }

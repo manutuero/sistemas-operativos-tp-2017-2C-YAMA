@@ -49,7 +49,7 @@ char** cargarArgumentos(char* linea) {
 
 void ejecutarFormat(char **argumentos) {
 	// Ver si esta bien que se persistan los nodos conectados al ejecutar format...ya no se aceptan mas nodos nuevos.
-	//persistirTablaDeNodos();
+	persistirTablaDeNodos();
 
 	// ---- Borrar
 	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
@@ -57,7 +57,7 @@ void ejecutarFormat(char **argumentos) {
 	if (!datos)
 		  fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
-	almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
+	almacenarArchivo("/root", "tux-con-poncho.jpg", TEXTO, datos);
 	// ----
 
 	fclose(datos);

@@ -94,7 +94,9 @@ void crearDirectorioBitmaps();
 /* Firmas de funciones para nodos */
 void agregarNodo(t_list *lista, t_nodo *nodo);
 void persistirTablaDeNodos();
-int totalBloquesFileSystem(t_list *nodos);
+void actualizarTablaDeNodos();
+int totalBloquesFileSystem();
+int bloquesLibresFileSystem();
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.

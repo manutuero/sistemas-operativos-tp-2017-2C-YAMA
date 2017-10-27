@@ -69,15 +69,16 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		tamanio += bloque->bytesOcupados;
 	}
 
-	// Si la operacion se realizo correctamente actualizo mi lista de nodos.
-	list_clean_and_destroy_elements(nodos, (void*) destruirNodo);
-	nodos = copiarListaNodos(nodosAux);
+	// Si la operacion se realizo correctamente actualizo mi lista de nodos en memoria.
+	list_clean_and_destroy_elements(nodos, (void*)destruirNodo);
+	list_add_all(nodos, nodosAux);
 	list_destroy(nodosAux);
 
-	// 3)  Persistir /metadata/nodos.bin y crear /metadata/index/nombreArchivo correspondiente.
+	// Actualizo los archivos de metadata.
 	actualizarBitmaps();
 	crearTablaDeArchivo(
 			nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques));
+	actualizarTablaDeNodos();
 	pthread_mutex_unlock(&mutex);
 	return EXITO;
 }
@@ -284,7 +285,6 @@ void actualizarBitmaps() {
 
 		// Libero recursos.
 		free(path);
-		free(nodo);
 		fclose(archivo);
 	}
 }
@@ -347,7 +347,7 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	for (i = 0; i < bloques->elements_count; i++) {
 		bloque = list_get(archivo->bloques, i);
 
-		// BLOQUE COPIA0
+		// BLOQUExCOPIA0
 		clave = string_new();
 		string_append(&clave, "\nBLOQUE");
 		string_append(&clave, string_itoa(bloque->numeroBloque));
@@ -363,7 +363,7 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 		free(clave);
 		free(valor);
 
-		// BLOQUE COPIA1
+		// BLOQUExCOPIA1
 		clave = string_new();
 		string_append(&clave, "\nBLOQUE");
 		string_append(&clave, string_itoa(bloque->numeroBloque));
@@ -378,6 +378,16 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 		fputs(valor, filePointer);
 		free(clave);
 		free(valor);
+
+		// BLOQUExBYTES
+		clave = string_new();
+		string_append(&clave, "\nBLOQUE");
+		string_append(&clave, string_itoa(bloque->numeroBloque));
+		string_append(&clave, "BYTES=");
+		valor = string_itoa(bloque->bytesOcupados);
+		fputs(clave, filePointer);
+		fputs(valor, filePointer);
+		free(clave);
 	}
 
 	// Cierro recursos.
