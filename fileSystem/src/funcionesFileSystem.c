@@ -6,6 +6,7 @@ int estadoFs = ESTABLE;
 /* Inicializacion de estructuras administrativas */
 t_directory directorios[100];
 t_list *nodos;
+t_list *archivos;
 
 /*********************** Implementacion de funciones ************************/
 /* Implementacion de funciones para archivo de configuracion */
@@ -443,12 +444,15 @@ int buscarPrimerLugarLibre() {
 	return posicion;
 }
 
-int obtenerIndice(char *directorio) {
+int obtenerIndice(t_directorio path) {
+	char *nombre = string_substring_from(strrchr(path, '/'), 1);
 	int i;
+
 	for (i = 0; i < 100; i++) {
-		if (sonIguales(directorio, directorios[i].nombre))
+		if (sonIguales(nombre, directorios[i].nombre))
 			return directorios[i].index;
 	}
+
 	return DIR_NO_EXISTE;
 }
 
@@ -749,7 +753,6 @@ void restaurarTablaDeDirectorios() {
 		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
 	}
 
-	mostrar(directorios, 4); // borrar luego de las pruebas..
 	fclose(filePointer);
 }
 
@@ -857,6 +860,7 @@ int bloquesLibresFileSystem() {
 
 void persistirTablaDeNodos() {
 	int i;
+	t_list *nodosAux = list_create(); // Uso una lista auxiliar para cambiar el orden en que persisto en el archivo.
 	t_nodo *nodo;
 	char *clave, *valor, *path;
 
@@ -869,6 +873,9 @@ void persistirTablaDeNodos() {
 		fprintf(stderr, "[ERROR]: no se encontro el archivo '%s'.\n", path);
 		exit(EXIT_FAILURE);
 	}
+
+	list_add_all(nodosAux, nodos);
+	list_sort(nodosAux, (void*)compararPorIdDesc);
 
 	// TAMANIO.
 	clave = "TAMANIO=";
@@ -886,10 +893,10 @@ void persistirTablaDeNodos() {
 	clave = "\nNODOS=";
 	valor = string_new();
 	string_append(&valor, "[");
-	nodo = list_get(nodos, 0);
+	nodo = list_get(nodosAux, 0);
 	string_append(&valor, string_itoa(nodo->idNodo));
-	for (i = 1; i < nodos->elements_count; i++) {
-		nodo = list_get(nodos, i);
+	for (i = 1; i < nodosAux->elements_count; i++) {
+		nodo = list_get(nodosAux, i);
 		string_append(&valor, ",");
 		string_append(&valor, string_itoa(nodo->idNodo));
 	}
@@ -898,8 +905,8 @@ void persistirTablaDeNodos() {
 	fputs(valor, filePointer);
 	free(valor);
 
-	for (i = 0; i < nodos->elements_count; i++) {
-		nodo = list_get(nodos, i);
+	for (i = 0; i < nodosAux->elements_count; i++) {
+		nodo = list_get(nodosAux, i);
 
 		// NodoxTotal
 		clave = string_new();
@@ -922,7 +929,9 @@ void persistirTablaDeNodos() {
 		free(clave);
 	}
 
+	// Libero recursos.
 	fclose(filePointer);
+	list_destroy(nodosAux);
 }
 
 void actualizarTablaDeNodos() {
@@ -940,4 +949,28 @@ void actualizarTablaDeNodos() {
 
 	fclose(filePointer);
 	free(path);
+}
+
+bool buscarPorIndiceYNombre(int indice, char *nombreArchivo,
+		t_archivo_a_persistir *archivo) {
+	return archivo->indiceDirectorio == indice
+			&& archivo->nombreArchivo == nombreArchivo ? true : false;
+}
+
+// Retorna NULL si el archivo no existe.
+t_archivo_a_persistir* obtenerArchivo(char *path) {
+	t_archivo_a_persistir *archivo;
+	int indice = obtenerIndice(path);
+
+	printf("Path: %s\n.", path);
+	printf("Indice path: %d\n.", indice);
+
+	if (indice == DIR_NO_EXISTE)
+		return NULL;
+
+	archivo = list_find(archivos, (void*) buscarPorIndiceYNombre);
+	if (!archivo)
+		return NULL;
+
+	return archivo;
 }

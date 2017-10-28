@@ -53,12 +53,12 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "ls")) {
-				invocarFuncionLs(argumentos);
+				ejecutarLs(argumentos);
 				break;
 			}
 
 			if (sonIguales(argumentos[0], "info")) {
-				invocarFuncionInfo(argumentos);
+				ejecutarInfo(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);

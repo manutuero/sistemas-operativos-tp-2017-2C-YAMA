@@ -48,19 +48,17 @@ char** cargarArgumentos(char* linea) {
 }
 
 void ejecutarFormat(char **argumentos) {
-	// Ver si esta bien que se persistan los nodos conectados al ejecutar format...ya no se aceptan mas nodos nuevos.
 	persistirTablaDeNodos();
 
-	// ---- Borrar
+	// ---- Borrar luego
 	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
 	FILE *datos = fopen(path, "r");
 	if (!datos)
-		  fprintf(stderr, "\nEl archivo '%s' no existe.", path);
+		fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
 	almacenarArchivo("/root", "tux-con-poncho.jpg", TEXTO, datos);
-	// ----
-
 	fclose(datos);
+	// ----
 }
 
 char* invocarFuncionRm(char **argumentos) {
@@ -145,7 +143,9 @@ void ejecutarMkdir(char **argumentos) {
 	if (validarParametro(path) && strlen(path) > 1) {
 		mkdirFs(path);
 	} else
-		printf("mkdir: no se puede crear el directorio «%s»: La ruta ingresada no es valida.\n", path);
+		printf(
+				"mkdir: no se puede crear el directorio «%s»: La ruta ingresada no es valida.\n",
+				path);
 }
 
 char* invocarFuncionMd5(char **argumentos) {
@@ -163,34 +163,51 @@ char* invocarFuncionMd5(char **argumentos) {
 	return "<default>";
 }
 
-char* invocarFuncionLs(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
+void ejecutarLs(char **argumentos) {
+	t_directorio directorio = argumentos[1];
 
-	if (validarParametro(argumentos[1])) {
-		comando.funcion = 8;
-		comando.parametro1 = argumentos[1];
+	if (validarParametro(directorio)) {
+		if (!existePathDirectorio(directorio)) {
+			printf("El directorio '%s' no existe.\n", directorio);
+			free(directorio);
+			return;
+		}
 
-		printf("funcion ls\n");
-		printf("El directorio a listar es: %s.\n", argumentos[1]);
-	} else
-		printf("El parametro ingresado: %s no es valido.\n", argumentos[1]);
-	return "<default>";
+		int indice = obtenerIndice(directorio);
+		char *comando = string_new();
+		string_append(&comando, "ls ");
+		string_append(&comando, PATH_METADATA);
+		string_append(&comando, "/archivos/");
+		string_append(&comando, string_itoa(indice));
+		system(comando);
+		free(comando);
+	} else {
+		printf(
+				"El parametro ingresado '%s' no es valido. Debe ingresar una ruta.\n",
+				directorio);
+	}
+	free(directorio);
 }
 
-char* invocarFuncionInfo(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
+void ejecutarInfo(char **argumentos) {
+	char *pathArchivo = argumentos[1];
 
-	if (validarParametro(argumentos[1])) {
-		comando.funcion = 9;
-		comando.parametro1 = argumentos[1];
-
+	if (validarParametro(pathArchivo)) {
 		printf("Funcion info.\n");
-		printf("El archivo es: %s.\n", argumentos[1]);
+		t_archivo_a_persistir *archivo = obtenerArchivo(pathArchivo);
+
+		if (!archivo) {
+			printf("El archivo '%s' no existe.\n", pathArchivo);
+		}
+
+		printf("Indice archivo: %d\n", archivo->indiceDirectorio);
+		printf("Nombre archivo: %s\n", archivo->nombreArchivo);
+		printf("Cantidad de bloques archivo: %d\n",
+				archivo->bloques->elements_count);
 	} else
-		printf("El parametro ingresado: %s no es valido.\n", argumentos[1]);
-	return "<default>";
+		printf(
+				"El parametro ingresado '%s' no es valido. Debe ser un ruta a archivo valida.\n",
+				pathArchivo);
 }
 
 char* invocarFuncionRename(char **argumentos) {

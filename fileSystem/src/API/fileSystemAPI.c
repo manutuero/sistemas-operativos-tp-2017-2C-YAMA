@@ -70,7 +70,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	}
 
 	// Si la operacion se realizo correctamente actualizo mi lista de nodos en memoria.
-	list_clean_and_destroy_elements(nodos, (void*)destruirNodo);
+	list_clean_and_destroy_elements(nodos, (void*) destruirNodo);
 	list_add_all(nodos, nodosAux);
 	list_destroy(nodosAux);
 
@@ -239,8 +239,13 @@ void ordenarListaNodos(t_list *listaNodos) {
 	list_sort(listaNodos, (void*) compararBloquesLibres);
 }
 
+// Si la condicion retorna 'false' intercambia el orden, sino deja ordenado como esta.
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo) {
 	return otroNodo->bloquesLibres < unNodo->bloquesLibres;
+}
+
+bool compararPorIdDesc(t_nodo *unNodo, t_nodo *otroNodo) {
+	return unNodo->idNodo < otroNodo->idNodo;
 }
 
 void destruirNodo(t_nodo *nodo) {
@@ -291,19 +296,14 @@ void actualizarBitmaps() {
 
 t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
 		int tamanio, t_list *bloques) {
-	char *directorio = string_substring_from(strrchr(path, '/'), 1);
 	t_archivo_a_persistir *archivo = malloc(sizeof(t_archivo_a_persistir));
-
-	archivo->indiceDirectorio = obtenerIndice(directorio);
+	archivo->indiceDirectorio = obtenerIndice(path);
 	archivo->nombreArchivo = string_new();
 	string_append(&archivo->nombreArchivo, nombreArchivo);
 	archivo->tipo = tipo;
 	archivo->tamanio = tamanio;
 	archivo->bloques = list_create();
 	list_add_all(archivo->bloques, bloques);
-
-	// Libero recursos
-	free(directorio);
 	return archivo;
 }
 
@@ -317,6 +317,9 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	int i;
 	t_bloque *bloque;
 	t_list *bloques = archivo->bloques;
+
+	// Agrego la nueva entrada en la lista de archivos en el sistema.
+	//list_add(archivos, archivo);
 
 	char *clave, *valor, *path = string_new();
 	string_append(&path, PATH_METADATA);
@@ -392,5 +395,4 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 
 	// Cierro recursos.
 	fclose(filePointer);
-	liberarArchivo(archivo);
 }

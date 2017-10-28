@@ -71,6 +71,7 @@ void limpiar(char* string, size_t largo);
 t_bloque* nuevoBloque(uint32_t numeroBloque);
 void ordenarListaNodos(t_list *nodos);
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo);
+bool compararPorIdDesc(t_nodo *unNodo, t_nodo *otroNodo);
 void destruirNodo(t_nodo *nodo);
 t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo, int tamanio, t_list *bloques);
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo);

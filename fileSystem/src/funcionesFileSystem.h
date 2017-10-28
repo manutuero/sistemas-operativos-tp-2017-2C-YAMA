@@ -53,6 +53,8 @@ typedef struct {
 } t_infoNodo; // luego se eliminara..
 
 /* Estructuras de directorios */
+typedef char* t_directorio;
+
 typedef struct {
 	int index;
 	char nombre[255];
@@ -78,6 +80,7 @@ typedef struct {
 
 extern t_directory directorios[100];
 extern t_list *nodos;
+extern t_list *archivos;
 
 /*********************** Firmas de funciones ************************/
 
@@ -129,6 +132,7 @@ int obtenerIndice(char *directorio);
 
 /* Firmas de funciones para tabla de archivos */
 void persistirTablaDeArchivos(char *path);
+t_archivo_a_persistir* obtenerArchivo(char *path);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
