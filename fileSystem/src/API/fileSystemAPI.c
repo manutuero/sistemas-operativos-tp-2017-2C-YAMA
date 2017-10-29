@@ -319,7 +319,7 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	t_list *bloques = archivo->bloques;
 
 	// Agrego la nueva entrada en la lista de archivos en el sistema.
-	//list_add(archivos, archivo);
+	list_add(archivos, archivo);
 
 	char *clave, *valor, *path = string_new();
 	string_append(&path, PATH_METADATA);

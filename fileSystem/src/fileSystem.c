@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
 		// Agregar un logger (cuando estemos por terminar).
 		if (hayEstadoAnterior()) {
 			nodos = list_create(); // por ahora trabajamos asi porque es mas comodo. luego borrar
-			//archivos = list_create();
+			archivos = list_create();
 			restaurarEstructurasAdministrativas();
 			puts(
 					"Hay estado anterior.. para las pruebas borrar la carpeta metadata"); // borrar luego :p

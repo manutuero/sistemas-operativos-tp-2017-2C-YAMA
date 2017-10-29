@@ -733,6 +733,40 @@ void crearDirectorioBitmaps() {
 
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
+
+	// Para probar comando info..luego borrar
+	/*t_nodo *nodo1 = malloc(sizeof(t_nodo));
+	nodo1->idNodo = 1;
+	t_nodo *nodo2 = malloc(sizeof(t_nodo));
+	nodo2->idNodo = 2;
+	t_nodo *nodo3 = malloc(sizeof(t_nodo));
+	nodo3->idNodo = 3;
+
+	t_bloque *bloque0 = malloc(sizeof(t_bloque));
+	bloque0->numeroBloque = 0;
+	bloque0->nodoCopia0 = nodo1;
+	bloque0->numeroBloqueCopia0 = 5;
+	bloque0->nodoCopia1 = nodo2;
+	bloque0->numeroBloqueCopia1 = 2;
+	bloque0->bytesOcupados = 1048576;
+
+	t_bloque *bloque1 = malloc(sizeof(t_bloque));
+	bloque1->numeroBloque = 1;
+	bloque1->nodoCopia0 = nodo1;
+	bloque1->numeroBloqueCopia0 = 10;
+	bloque1->nodoCopia1 = nodo3;
+	bloque1->numeroBloqueCopia1 = 7;
+	bloque1->bytesOcupados = 1048500;
+
+	t_archivo_a_persistir *archPrueba = malloc(sizeof(t_archivo_a_persistir));
+	archPrueba->tamanio = 3145592;
+	archPrueba->indiceDirectorio = 0;
+	archPrueba->nombreArchivo = "tux-con-poncho.jpg";
+	archPrueba->bloques = list_create();
+	list_add(archPrueba->bloques, bloque0);
+	list_add(archPrueba->bloques, bloque1);
+	list_add(archivos, archPrueba);*/
+
 	//restaurarTablaDeNodos();
 }
 
@@ -875,7 +909,7 @@ void persistirTablaDeNodos() {
 	}
 
 	list_add_all(nodosAux, nodos);
-	list_sort(nodosAux, (void*)compararPorIdDesc);
+	list_sort(nodosAux, (void*) compararPorIdDesc);
 
 	// TAMANIO.
 	clave = "TAMANIO=";
@@ -951,24 +985,44 @@ void actualizarTablaDeNodos() {
 	free(path);
 }
 
-bool buscarPorIndiceYNombre(int indice, char *nombreArchivo,
-		t_archivo_a_persistir *archivo) {
-	return archivo->indiceDirectorio == indice
-			&& archivo->nombreArchivo == nombreArchivo ? true : false;
+// Busca por ese criterio en la lista global de archivos en memoria.
+t_archivo_a_persistir* buscarArchivoPorIndiceYNombre(int indice,
+		char *nombreArchivo) {
+	int i;
+	t_archivo_a_persistir *archivo;
+	for (i = 0; i < archivos->elements_count; i++) {
+		archivo = list_get(archivos, i);
+		if (archivo->indiceDirectorio == indice
+				&& sonIguales(archivo->nombreArchivo, nombreArchivo))
+			return archivo;
+	}
+	return NULL; // Devuelve NULL si no lo encuentra.
 }
 
-// Retorna NULL si el archivo no existe.
+// Devuelve la ultima ocurrencia de un caracter dado en una cadena.
+int lastIndexOf(char *cadena, char caracter) {
+	int i, ultimaPosicion = -1;
+
+	for (i = 0; i < string_length(cadena); i++) {
+		if (cadena[i] == caracter)
+			ultimaPosicion = i;
+	}
+
+	return ultimaPosicion;
+}
+
+// Obtiene el archivo segun su path, devuelve NULL si el archivo no existe en ese directorio.
 t_archivo_a_persistir* obtenerArchivo(char *path) {
 	t_archivo_a_persistir *archivo;
-	int indice = obtenerIndice(path);
-
-	printf("Path: %s\n.", path);
-	printf("Indice path: %d\n.", indice);
+	char *directorio = string_substring_until(path, lastIndexOf(path, '/'));
+	char *nombreArchivo = string_substring_from(path,
+			lastIndexOf(path, '/') + 1);
+	int indice = obtenerIndice(directorio);
 
 	if (indice == DIR_NO_EXISTE)
 		return NULL;
 
-	archivo = list_find(archivos, (void*) buscarPorIndiceYNombre);
+	archivo = buscarArchivoPorIndiceYNombre(indice, nombreArchivo);
 	if (!archivo)
 		return NULL;
 

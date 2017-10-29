@@ -190,20 +190,45 @@ void ejecutarLs(char **argumentos) {
 }
 
 void ejecutarInfo(char **argumentos) {
+	int i;
+	t_bloque *bloque;
 	char *pathArchivo = argumentos[1];
 
 	if (validarParametro(pathArchivo)) {
-		printf("Funcion info.\n");
 		t_archivo_a_persistir *archivo = obtenerArchivo(pathArchivo);
-
 		if (!archivo) {
 			printf("El archivo '%s' no existe.\n", pathArchivo);
+			return;
 		}
 
-		printf("Indice archivo: %d\n", archivo->indiceDirectorio);
-		printf("Nombre archivo: %s\n", archivo->nombreArchivo);
-		printf("Cantidad de bloques archivo: %d\n",
-				archivo->bloques->elements_count);
+		// Header
+		puts(
+				" ---------------------------------------------------------------------------------------");
+		printf("|				Info '%s'				|\n", archivo->nombreArchivo);
+		puts(
+				" ---------------------------------------------------------------------------------------\n");
+
+		// Body
+		printf("Tamaño: %d bytes.\n", archivo->tamanio);
+		if(archivo->tipo == BINARIO) {
+			printf("Tipo: binario.\n");
+		} else {
+			printf("Tipo: de texto.\n");
+		}
+		printf("Directorio padre: %d.\n", archivo->indiceDirectorio);
+		printf("Cantidad de bloques: %d.\n", archivo->bloques->elements_count);
+		printf("\n ----------------------------------------------------------------------------------------------------");
+		puts("\n|     Bloque    |           Copia0              |             Copia1            |     Fin de bloque  |");
+		printf(" ----------------------------------------------------------------------------------------------------");
+		for (i = 0; i < archivo->bloques->elements_count; i++) {
+			bloque = list_get(archivo->bloques, i);
+			printf("\n|	%d	", bloque->numeroBloque);
+			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia0->idNodo, bloque->numeroBloqueCopia0);
+			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia1->idNodo, bloque->numeroBloqueCopia1);
+			printf("|	%d      |\n", bloque->bytesOcupados);
+			printf(" ---------------------------------------------------------------------------------------------------- ");
+		}
+		printf("\n");
 	} else
 		printf(
 				"El parametro ingresado '%s' no es valido. Debe ser un ruta a archivo valida.\n",
