@@ -1,19 +1,7 @@
 #include "funcionesConsola.h"
 
-void inicializarComando(t_comando *comando) {
-	comando->funcion = 0;
-	comando->bloque = 0;
-	comando->idNodo = 0;
-	comando->opcion = 0;
-	comando->parametro1 = "";
-	comando->parametro2 = "";
-}
-
-int validarParametro(char *parametro) {
-	if ((string_starts_with(parametro, "/")))
-		return 1;
-	else
-		return 0;
+bool esValido(char *path) {
+	return string_starts_with(path, "/root") ? true : false;
 }
 
 int esNumero(char* valor) {
@@ -62,13 +50,7 @@ void ejecutarFormat(char **argumentos) {
 }
 
 char* invocarFuncionRm(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
-	if (validarParametro(argumentos[1]) == 1) {
-		comando.funcion = 2;
-		comando.parametro1 = argumentos[1];
-
+	if (esValido(argumentos[1])) {
 		printf("Funcion de remove archivo estandar.\n");
 		printf("El archivo a remover es: %s.\n", argumentos[1]);
 	} else {
@@ -80,14 +62,8 @@ char* invocarFuncionRm(char **argumentos) {
 
 char* invocarFuncionRmDirectory(char **argumentos) {
 	//revisar que directorio esta vacio primero
-	t_comando comando;
-	inicializarComando(&comando);
 
-	if ((strcmp(argumentos[1], "-d") == 0)
-			&& ((validarParametro(argumentos[2])) == 1)) {
-		comando.funcion = 3;
-		comando.opcion = 1;
-		comando.parametro1 = argumentos[2];
+	if ((strcmp(argumentos[1], "-d") == 0) && (esValido(argumentos[2]))) {
 
 		printf("Funcion de remove directorio.\n");
 		printf("El directorio a remover es: %s.\n", argumentos[2]);
@@ -100,16 +76,9 @@ char* invocarFuncionRmDirectory(char **argumentos) {
 }
 
 char* invocarFuncionRmBloque(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
 	//revisar que no es la ultima copia del bloque
 	if ((strcmp(argumentos[1], "-b") == 0) && (esNumero(argumentos[3]))
 			&& (esNumero(argumentos[4]))) {
-		comando.funcion = 4;
-		comando.opcion = 2;
-		comando.bloque = (int) argumentos[3];
-		comando.idNodo = (int) argumentos[4];
 
 		printf("Funcion de remover un bloque.\n");
 		printf("Se removera del archivo: %s.\n", argumentos[2]);
@@ -124,13 +93,7 @@ char* invocarFuncionRmBloque(char **argumentos) {
 }
 
 char* invocarFuncionCat(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
-	if (validarParametro(argumentos[1]) == 1) {
-		comando.funcion = 5;
-		comando.parametro1 = argumentos[1];
-
+	if (esValido(argumentos[1])) {
 		printf("Funcion de concatenar texto plano.\n");
 		printf("el archivo es: %s.\n", argumentos[1]);
 	} else
@@ -140,7 +103,7 @@ char* invocarFuncionCat(char **argumentos) {
 
 void ejecutarMkdir(char **argumentos) {
 	char *path = argumentos[1];
-	if (validarParametro(path) && strlen(path) > 1) {
+	if (esValido(path) && strlen(path) > 1) {
 		mkdirFs(path);
 	} else
 		printf(
@@ -149,13 +112,8 @@ void ejecutarMkdir(char **argumentos) {
 }
 
 char* invocarFuncionMd5(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
 
-	if (validarParametro(argumentos[1])) {
-		comando.funcion = 7;
-		comando.parametro1 = argumentos[1];
-
+	if (esValido(argumentos[1])) {
 		printf("funcion de md5.\n");
 		printf("El archivo es: %s.\n", argumentos[1]);
 	} else
@@ -166,7 +124,7 @@ char* invocarFuncionMd5(char **argumentos) {
 void ejecutarLs(char **argumentos) {
 	t_directorio directorio = argumentos[1];
 
-	if (validarParametro(directorio)) {
+	if (esValido(directorio)) {
 		if (!existePathDirectorio(directorio)) {
 			printf("El directorio '%s' no existe.\n", directorio);
 			free(directorio);
@@ -194,7 +152,7 @@ void ejecutarInfo(char **argumentos) {
 	t_bloque *bloque;
 	char *pathArchivo = argumentos[1];
 
-	if (validarParametro(pathArchivo)) {
+	if (esValido(pathArchivo)) {
 		t_archivo_a_persistir *archivo = obtenerArchivo(pathArchivo);
 		if (!archivo) {
 			printf("El archivo '%s' no existe.\n", pathArchivo);
@@ -210,23 +168,29 @@ void ejecutarInfo(char **argumentos) {
 
 		// Body
 		printf("Tamaño: %d bytes.\n", archivo->tamanio);
-		if(archivo->tipo == BINARIO) {
+		if (archivo->tipo == BINARIO) {
 			printf("Tipo: binario.\n");
 		} else {
 			printf("Tipo: de texto.\n");
 		}
 		printf("Directorio padre: %d.\n", archivo->indiceDirectorio);
 		printf("Cantidad de bloques: %d.\n", archivo->bloques->elements_count);
-		printf("\n ----------------------------------------------------------------------------------------------------");
-		puts("\n|     Bloque    |           Copia0              |             Copia1            |     Fin de bloque  |");
-		printf(" ----------------------------------------------------------------------------------------------------");
+		printf(
+				"\n ----------------------------------------------------------------------------------------------------");
+		puts(
+				"\n|     Bloque    |           Copia0              |             Copia1            |     Fin de bloque  |");
+		printf(
+				" ----------------------------------------------------------------------------------------------------");
 		for (i = 0; i < archivo->bloques->elements_count; i++) {
 			bloque = list_get(archivo->bloques, i);
 			printf("\n|	%d	", bloque->numeroBloque);
-			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia0->idNodo, bloque->numeroBloqueCopia0);
-			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia1->idNodo, bloque->numeroBloqueCopia1);
+			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia0->idNodo,
+					bloque->numeroBloqueCopia0);
+			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia1->idNodo,
+					bloque->numeroBloqueCopia1);
 			printf("|	%d      |\n", bloque->bytesOcupados);
-			printf(" ---------------------------------------------------------------------------------------------------- ");
+			printf(
+					" ---------------------------------------------------------------------------------------------------- ");
 		}
 		printf("\n");
 	} else
@@ -235,33 +199,31 @@ void ejecutarInfo(char **argumentos) {
 				pathArchivo);
 }
 
-char* invocarFuncionRename(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
+void ejecutarRename(char **argumentos) {
+	char *pathOriginal, *nombreFinal;
 
-	if (validarParametro(argumentos[1]) && validarParametro(argumentos[2])) {
-		comando.funcion = 10;
-		comando.parametro1 = argumentos[1];
-		comando.parametro2 = argumentos[2];
+	pathOriginal = argumentos[1];
+	if (!esValido(pathOriginal)) {
+		printf("La ruta '%s' no es valida.\n", pathOriginal);
+		return;
+	}
 
-		printf("Funcion rename.\n");
-		printf("El nombre original era: %s.\n", argumentos[1]);
-		printf("El nuevo nombre es: %s.\n", argumentos[2]);
-	} else
-		printf("Los parametros ingresados: %s,%s no son validos\n",
-				argumentos[1], argumentos[2]);
-	return "<default>";
+	nombreFinal = argumentos[2];
+	if (string_starts_with(nombreFinal, "/")) {
+		printf("El nombre '%s' no es valido.\n", nombreFinal);
+		return;
+	}
+
+	// Determina si lo que se desea renombrar es un archivo o un directorio.
+	if (existePathDirectorio(pathOriginal)) {
+		renombrarDirectorio(pathOriginal, nombreFinal);
+	} else {
+		renombrarArchivo(pathOriginal, nombreFinal);
+	}
 }
 
 char* invocarFuncionMv(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
-	if (validarParametro(argumentos[1]) && validarParametro(argumentos[2])) {
-		comando.funcion = 11;
-		comando.parametro1 = argumentos[1];
-		comando.parametro2 = argumentos[2];
-
+	if (esValido(argumentos[1]) && esValido(argumentos[2])) {
 		printf("funcion move\n");
 		printf("La ruta original era: %s\n", argumentos[1]);
 		printf("La nueva ruta es: %s\n", argumentos[2]);
@@ -272,14 +234,7 @@ char* invocarFuncionMv(char **argumentos) {
 }
 
 char* invocarFuncionCpfrom(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
-	if (validarParametro(argumentos[1]) && validarParametro(argumentos[2])) {
-		comando.funcion = 12;
-		comando.parametro1 = argumentos[1];
-		comando.parametro2 = argumentos[2];
-
+	if (esValido(argumentos[1]) && esValido(argumentos[2])) {
 		printf("funcion cpfrom\n");
 		printf("Los argumentos son: %s y %s\n", argumentos[1], argumentos[2]);
 	} else
@@ -289,14 +244,7 @@ char* invocarFuncionCpfrom(char **argumentos) {
 }
 
 char* invocarFuncionCpto(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
-	if (validarParametro(argumentos[1]) && validarParametro(argumentos[2])) {
-		comando.funcion = 13;
-		comando.parametro1 = argumentos[1];
-		comando.parametro2 = argumentos[2];
-
+	if (esValido(argumentos[1]) && esValido(argumentos[2])) {
 		printf("funcion cpto\n");
 		printf("Los argumentos son: %s y %s\n", argumentos[1], argumentos[2]);
 	} else
@@ -307,16 +255,8 @@ char* invocarFuncionCpto(char **argumentos) {
 }
 
 char* invocarFuncionCpblok(char **argumentos) {
-	t_comando comando;
-	inicializarComando(&comando);
-
 	if ((esNumero(argumentos[2])) && (esNumero(argumentos[3]))
-			&& (validarParametro(argumentos[1]))) {
-		comando.funcion = 14;
-		comando.parametro1 = argumentos[1];
-		comando.bloque = (int) argumentos[2];
-		comando.idNodo = (int) argumentos[3];
-
+			&& (esValido(argumentos[1]))) {
 		printf("funcion cpblock\n");
 		printf("El archivo al que pertenece el bloque: %s\n", argumentos[1]);
 		printf("El numero de bloque es: %s\n", argumentos[2]);

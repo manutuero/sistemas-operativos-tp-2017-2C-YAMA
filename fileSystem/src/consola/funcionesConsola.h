@@ -13,7 +13,7 @@
 /* Firmas de funciones */
 int cantidadArgumentos(char**);
 void inicializarComando(t_comando*);
-int validarParametro(char*);
+bool esValido(char *path);
 char** cargarArgumentos(char*);
 void  ejecutarFormat(char**);
 char* invocarFuncionRm(char**);
@@ -24,7 +24,7 @@ void  ejecutarMkdir(char **argumentos);
 char* invocarFuncionMd5(char**);
 void  ejecutarLs(char **argumentos);
 void  ejecutarInfo(char **argumentos);
-char* invocarFuncionRename(char**);
+void  ejecutarRename(char **argumentos);
 char* invocarFuncionMv(char**);
 char* invocarFuncionCpfrom(char**);
 char* invocarFuncionCpto(char**);

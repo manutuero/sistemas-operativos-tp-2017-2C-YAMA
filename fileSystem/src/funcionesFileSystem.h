@@ -126,13 +126,19 @@ void crearDirectorioLogico(char*, int, int);
 // Crea el directorio propiamente dicho(en FS de linux)
 void crearDirectorioFisico(int);
 // Posible implementacion de ls
-void mostrar(t_directory directorios[], int cantidad);
+void mostrar(int cantidad);
 bool existePathDirectorio(char *path);
 int obtenerIndice(char *directorio);
+t_directorio obtenerPathDirectorio(char *path);
 
 /* Firmas de funciones para tabla de archivos */
 void persistirTablaDeArchivos(char *path);
 t_archivo_a_persistir* obtenerArchivo(char *path);
+t_archivo_a_persistir* buscarArchivoPorIndiceYNombre(int indice,
+		char *nombreArchivo);
+char* obtenerNombreArchivo(char *path);
+void renombrarArchivo(char *pathOriginal, char *nombreFinal);
+void renombrarDirectorio(char *pathOriginal, char *nombreFinal);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
@@ -148,5 +154,6 @@ int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
 int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo);
 int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 t_list* copiarListaNodos(t_list *lista);
+int lastIndexOf(char *cadena, char caracter);
 
 #endif

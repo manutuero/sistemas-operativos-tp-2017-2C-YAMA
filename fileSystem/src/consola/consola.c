@@ -8,7 +8,7 @@ void * levantarConsola() {
 	while (1) {
 		linea = (char*) readline("> ");
 		if (!linea)
-			break; // Si recibe NULL corta la ejecucion, evita un segmentation fault.
+			break;
 
 		add_history(linea);
 
@@ -26,6 +26,12 @@ void * levantarConsola() {
 			if (sonIguales(argumentos[0], "exit")) {
 				puts("Que tenga un buen dia");
 				return EXIT_SUCCESS;
+				break;
+			}
+
+			if (sonIguales(argumentos[0], "clear")) {
+				char *comando = "clear";
+				system(comando);
 				break;
 			} else
 				printf("el comando ingresado no es valido.\n");
@@ -68,7 +74,7 @@ void * levantarConsola() {
 
 		case 3:
 			if (sonIguales(argumentos[0], "rename")) {
-				invocarFuncionRename(argumentos);
+				ejecutarRename(argumentos);
 				break;
 			}
 

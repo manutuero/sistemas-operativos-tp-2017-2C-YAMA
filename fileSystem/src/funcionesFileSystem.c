@@ -410,7 +410,7 @@ int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
 	return rta;
 }
 
-void mostrar(t_directory directorios[], int cantidad) {
+void mostrar(int cantidad) {
 	int i;
 	cantidad > 100 ? cantidad = 100 : cantidad;
 	printf("index			nombre						padre\n");
@@ -734,8 +734,9 @@ void crearDirectorioBitmaps() {
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
 
-	// Para probar comando info..luego borrar
-	/*t_nodo *nodo1 = malloc(sizeof(t_nodo));
+	// Para probar comando info y rename..(todavia no se recupera de un estado anterior completamente) luego borrar.
+	// Hacer la funcion restaurarTablaDeArchivos();
+	t_nodo *nodo1 = malloc(sizeof(t_nodo));
 	nodo1->idNodo = 1;
 	t_nodo *nodo2 = malloc(sizeof(t_nodo));
 	nodo2->idNodo = 2;
@@ -765,7 +766,7 @@ void restaurarEstructurasAdministrativas() {
 	archPrueba->bloques = list_create();
 	list_add(archPrueba->bloques, bloque0);
 	list_add(archPrueba->bloques, bloque1);
-	list_add(archivos, archPrueba);*/
+	list_add(archivos, archPrueba);
 
 	//restaurarTablaDeNodos();
 }
@@ -787,6 +788,7 @@ void restaurarTablaDeDirectorios() {
 		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
 	}
 
+	mostrar(4);
 	fclose(filePointer);
 }
 
@@ -1027,4 +1029,89 @@ t_archivo_a_persistir* obtenerArchivo(char *path) {
 		return NULL;
 
 	return archivo;
+}
+
+t_directorio obtenerPathDirectorio(char *path) {
+	return string_substring_until(path, lastIndexOf(path, '/'));
+}
+
+char* obtenerNombreArchivo(char *path) {
+	return string_substring_from(path, lastIndexOf(path, '/') + 1);
+}
+
+void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
+	char *comando, *nombreInicial;
+	t_archivo_a_persistir *archivo;
+	t_directorio directorio;
+	int indice;
+
+	directorio = obtenerPathDirectorio(pathOriginal);
+	indice = obtenerIndice(directorio);
+	if (indice == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", directorio);
+		return;
+	}
+
+	nombreInicial = obtenerNombreArchivo(pathOriginal);
+	archivo = buscarArchivoPorIndiceYNombre(indice, nombreInicial);
+	if (!archivo) {
+		printf("El archivo %s no existe.\n", pathOriginal);
+		return;
+	}
+
+	// Actualizo el nombre del archivo en la lista.
+	archivo->nombreArchivo = string_new();
+	strcpy(archivo->nombreArchivo, nombreFinal);
+
+	// Actualizo el nombre del archivo correspondiente al directorio.
+	comando = string_new();
+	string_append(&comando, "mv ");
+	string_append(&comando, PATH_METADATA);
+	string_append(&comando, "/archivos/");
+	string_append(&comando, string_itoa(indice));
+	string_append(&comando, "/");
+	string_append(&comando, nombreInicial);
+
+	string_append(&comando, " ");
+	string_append(&comando, PATH_METADATA);
+	string_append(&comando, "/archivos/");
+	string_append(&comando, string_itoa(indice));
+	string_append(&comando, "/");
+	string_append(&comando, nombreFinal);
+	system(comando);
+	free(comando);
+}
+
+void renombrarDirectorio(char *pathOriginal, char *nombreFinal) {
+	char *pathDirectorios;
+	int i, indice;
+	FILE *archivo;
+
+	indice = obtenerIndice(pathOriginal);
+	if (indice == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", pathOriginal);
+		return;
+	}
+
+	pathDirectorios = string_new();
+	string_append(&pathDirectorios, PATH_METADATA);
+	string_append(&pathDirectorios, "/directorios.dat");
+
+	archivo = fopen(pathDirectorios, "r+b");
+	if (!archivo) {
+		fprintf(stderr,
+				"[ERROR]: no se encontro el archivo 'directorios.dat'.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// Actualizo la tabla de directorios en memoria.
+	strcpy(directorios[indice].nombre, nombreFinal);
+
+	// Actualizo la tabla de directorios en disco.
+	for(i = 0; i < 100; i++)
+		fwrite(&directorios[i], sizeof(t_directory), 1, archivo);
+
+	// Libero recursos.
+	fclose(archivo);
+	free(pathDirectorios);
 }
