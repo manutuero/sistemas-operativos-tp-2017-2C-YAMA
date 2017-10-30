@@ -84,7 +84,7 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "mv")) {
-				invocarFuncionMv(argumentos);
+				ejecutarMv(argumentos);
 				break;
 			}
 
@@ -124,7 +124,6 @@ void * levantarConsola() {
 		}
 
 		}
-
 	}
 	return EXIT_SUCCESS;
 }

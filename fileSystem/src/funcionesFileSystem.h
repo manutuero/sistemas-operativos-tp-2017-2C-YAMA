@@ -130,6 +130,7 @@ void mostrar(int cantidad);
 bool existePathDirectorio(char *path);
 int obtenerIndice(char *directorio);
 t_directorio obtenerPathDirectorio(char *path);
+void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal);
 
 /* Firmas de funciones para tabla de archivos */
 void persistirTablaDeArchivos(char *path);
@@ -139,6 +140,7 @@ t_archivo_a_persistir* buscarArchivoPorIndiceYNombre(int indice,
 char* obtenerNombreArchivo(char *path);
 void renombrarArchivo(char *pathOriginal, char *nombreFinal);
 void renombrarDirectorio(char *pathOriginal, char *nombreFinal);
+void moverArchivo(char *pathOriginal, t_directorio pathFinal);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();

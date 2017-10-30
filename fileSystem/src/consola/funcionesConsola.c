@@ -222,15 +222,27 @@ void ejecutarRename(char **argumentos) {
 	}
 }
 
-char* invocarFuncionMv(char **argumentos) {
-	if (esValido(argumentos[1]) && esValido(argumentos[2])) {
-		printf("funcion move\n");
-		printf("La ruta original era: %s\n", argumentos[1]);
-		printf("La nueva ruta es: %s\n", argumentos[2]);
-	} else
-		printf("Los parametros ingresados: %s,%s no son validos\n",
-				argumentos[1], argumentos[2]);
-	return "<default>";
+void ejecutarMv(char **argumentos) {
+	char *pathOriginal, *pathFinal;
+
+	pathOriginal = argumentos[1];
+	if (!esValido(pathOriginal)) {
+		printf("La ruta '%s' no es valida.\n", pathOriginal);
+		return;
+	}
+
+	pathFinal = argumentos[2];
+	if (!esValido(pathFinal)) {
+		printf("La ruta '%s' no es valida.\n", pathFinal);
+		return;
+	}
+
+	// Determina si lo que hay que mover es un archivo o un directorio.
+	if(existePathDirectorio(pathOriginal)) {
+		moverDirectorio(pathOriginal, pathFinal);
+	} else {
+		moverArchivo(pathOriginal, pathFinal);
+	}
 }
 
 char* invocarFuncionCpfrom(char **argumentos) {

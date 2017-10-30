@@ -1108,7 +1108,125 @@ void renombrarDirectorio(char *pathOriginal, char *nombreFinal) {
 	strcpy(directorios[indice].nombre, nombreFinal);
 
 	// Actualizo la tabla de directorios en disco.
-	for(i = 0; i < 100; i++)
+	for (i = 0; i < 100; i++)
+		fwrite(&directorios[i], sizeof(t_directory), 1, archivo);
+
+	// Libero recursos.
+	fclose(archivo);
+	free(pathDirectorios);
+}
+
+void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
+	int indiceOriginal, indiceFinal;
+	char *nombreArchivo, *comando, *metadataOriginal, *metadataFinal;
+	t_directorio directorio;
+	t_archivo_a_persistir *archivo;
+
+	// Validaciones.
+	directorio = obtenerPathDirectorio(pathOriginal);
+	if (sonIguales(directorio, pathFinal))
+		return;
+
+	indiceOriginal = obtenerIndice(directorio);
+	if (!existePathDirectorio(directorio) || indiceOriginal == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", pathFinal);
+		return;
+	}
+	indiceFinal = obtenerIndice(pathFinal);
+	if (!existePathDirectorio(pathFinal) || indiceFinal == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", pathFinal);
+		return;
+	}
+
+	nombreArchivo = obtenerNombreArchivo(pathOriginal);
+	archivo = obtenerArchivo(pathOriginal);
+	if (!archivo) {
+		/* OJO! Como todavia no tenemos que se cargue el estado anterior el unico archivo que
+		 * conoce la lista en memoria es el hardcodeado. Cuando lo tengamos deberia funcar bn.
+		 */
+		printf("El archivo '%s' no existe.\n", pathOriginal);
+		return;
+	}
+
+	// Actualizo en memoria.
+	archivo->indiceDirectorio = indiceFinal;
+
+	// Actualizo en disco.
+	metadataOriginal = string_new();
+	string_append(&metadataOriginal, PATH_METADATA);
+	string_append(&metadataOriginal, "/archivos/");
+	string_append(&metadataOriginal, string_itoa(indiceOriginal));
+	string_append(&metadataOriginal, "/");
+	string_append(&metadataOriginal, nombreArchivo);
+
+	// Mas validaciones.
+	if (access(metadataOriginal, 0) != 0) {
+		printf("El archivo '%s' no existe.\n", pathOriginal);
+		return;
+	}
+
+	metadataFinal = string_new();
+	string_append(&metadataFinal, PATH_METADATA);
+	string_append(&metadataFinal, "/archivos/");
+	string_append(&metadataFinal, string_itoa(indiceFinal));
+	string_append(&metadataFinal, "/");
+	string_append(&metadataFinal, nombreArchivo);
+
+	if (access(metadataOriginal, 0) != 0) {
+		printf("El archivo '%s' no existe.\n", pathOriginal);
+		return;
+	}
+
+	comando = string_new();
+	string_append(&comando, "mv ");
+	string_append(&comando, metadataOriginal);
+	string_append(&comando, " ");
+	string_append(&comando, metadataFinal);
+
+	// Muevo el archivo entre directorios.
+	system(comando);
+
+	// Libero recursos.
+	free(metadataOriginal);
+	free(metadataFinal);
+	free(nombreArchivo);
+	free(comando);
+}
+
+void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal) {
+	int i, indiceOriginal, indiceFinal;
+	char *pathDirectorios;
+	FILE *archivo;
+
+	// Validaciones.
+	indiceOriginal = obtenerIndice(pathOriginal);
+	if (indiceOriginal == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", pathOriginal);
+		return;
+	}
+
+	indiceFinal= obtenerIndice(pathFinal);
+	if (indiceFinal == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", pathFinal);
+		return;
+	}
+
+	pathDirectorios = string_new();
+	string_append(&pathDirectorios, PATH_METADATA);
+	string_append(&pathDirectorios, "/directorios.dat");
+
+	archivo = fopen(pathDirectorios, "r+b");
+	if (!archivo) {
+		fprintf(stderr,
+				"[ERROR]: no se encontro el archivo 'directorios.dat'.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// Actualizo en memoria.
+	directorios[indiceOriginal].padre = directorios[indiceFinal].index;
+
+	// Actualizo la tabla de directorios en disco.
+	for (i = 0; i < 100; i++)
 		fwrite(&directorios[i], sizeof(t_directory), 1, archivo);
 
 	// Libero recursos.

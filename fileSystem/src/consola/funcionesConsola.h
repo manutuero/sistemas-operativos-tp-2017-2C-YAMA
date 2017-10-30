@@ -25,7 +25,7 @@ char* invocarFuncionMd5(char**);
 void  ejecutarLs(char **argumentos);
 void  ejecutarInfo(char **argumentos);
 void  ejecutarRename(char **argumentos);
-char* invocarFuncionMv(char**);
+void  ejecutarMv(char **argumentos);
 char* invocarFuncionCpfrom(char**);
 char* invocarFuncionCpto(char**);
 char* invocarFuncionCpblok(char**);
