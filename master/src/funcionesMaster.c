@@ -80,19 +80,12 @@ void masterEscuchando(int* socketMaster) {
 	listen(*socketMaster, 100);
 }
 
-//FUNCION CON EL SELECT PARA LOS WORKERS
 //TODO se va a cambiar por hilos mas adelante
 void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAprocesar,char* direccionDeResultado){
-	//struct sockaddr_in dir;
-	int socketMaster;
-	int nuevoSocket , max_clients = 5 , i ;
-	int maxPuerto;
-	fd_set readfds, auxRead;
-	int socketYama;
+
+	//int socketYama;
 
 	crearListas();
-
-
 
 	socketYama = conectarseAYama(6670,"127.0.0.1");
 
@@ -101,91 +94,9 @@ void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAproc
 
 	recibirPlanificacionDeYama(socketYama);
 
-	masterEscuchando(&socketMaster);
+	//masterEscuchando(&socketMaster);
 
-	//inicializar todos los socketCliente
-	    for (i = 0; i < max_clients; i++)
-	    {
-	        //socketCliente[i] = 0;
-	    }
-
-	/********************************************************/
-
-	struct sockaddr_in direccionCliente;
-	int tamanioDir;
-
-	char *buffer;
-	int bytesRecibidos;
-
-	FD_ZERO(&readfds);
-	FD_ZERO(&auxRead);
-	FD_SET(socketMaster, &auxRead);
-
-	maxPuerto = socketMaster;
-	tamanioDir = sizeof(struct sockaddr_in);
-
-	//-----------------------
-
-	enviarTransformacionAWorkers(rutaTransformador, rutaReductor); //FALTA HACER ESTO
-
-
-
-	/*
-	//Entro al select de conexiones
-	printf("Esperando conexiones\n");
-	while(1){
-		readfds = auxRead;
-		if (select(maxPuerto+1, &readfds, NULL, NULL, NULL) == -1) {
-					perror("select");
-					exit(1);
-				}
-
-		for ( i = 0 ; i <= maxPuerto ; i++)
-		{
-		    if(FD_ISSET(i, &readfds)){
-		      if(i == socketMaster){
-
-				if((nuevoSocket = accept(socketMaster, (void*)&direccionCliente, &tamanioDir)) <= 0) perror("accept");
-				else{
-					//Le envia el archivo apenas se conecta con un puerto
-					printf("Entro una conexion por el puerto %d\n", nuevoSocket);
-					FD_SET(nuevoSocket,&auxRead);
-*/
-					//TODO
-					/*-------Envio archivo-------------------------
-					 *Actualmente manda el primer parametro, en este caso el tranformador.
-					 * Seguramente va a haber que cambiarlo
-					 */
-	/*
-					enviarArchivo(nuevoSocket, buffer, rutaTransformador);
-					if(nuevoSocket > maxPuerto)
-						maxPuerto = nuevoSocket;
-				}
-		      }
-		      else{
-		    	char*  buffer = malloc(1001);
-				bytesRecibidos = recibirPorSocket(i,buffer,1000);
-				if(bytesRecibidos < 0){
-					perror("Error");
-					free(buffer);
-					//break;
-					exit(1);
-				}
-				if(bytesRecibidos == 0){
-					//printf("Se desconecto del fileSystem el socket %d", i);
-					 FD_CLR(i, &readfds);
-					//free(buffer);
-					 shutdown(i, 2);
-				}else{
-					 buffer[bytesRecibidos] = '\0';
-					 printf("Socket: %d -- BytesRecibidos: %d -- Buffer recibido : %s\n",i, bytesRecibidos , buffer);
-						free(buffer);
-				}
-		      }
-		    }
-		}
-		*/
-
+	operarEtapas();
 
 }
 
@@ -209,7 +120,7 @@ int conectarseAYama(int puerto,char* ip){
 		}
 
 
-	printf("se conecto a YAMA\n");
+	printf("se conecto a YAMA en el socket %d\n",yama);
 
 	return yama;
 }
@@ -293,25 +204,6 @@ void deserializarPlanificacion(void* buffer){
 	deserializarReduccionesLocales(cantRedLocal, buffer, &desplazamiento);
 
 	deserializarReduccionesGlobales(cantRedGlobal, buffer, &desplazamiento);
-
-	printf("archivos de transformacion:\n");
-	for(i=0;i<list_size(listaTransformaciones);i++){
-		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->ip);
-		printf("en lista: %s\n", ((t_transformacionMaster*)list_get(listaTransformaciones,i))->archivoTransformacion);
-
-	}
-
-	printf("archivos de reduccion local:\n");
-		for(i=0;i<list_size(listaRedLocales);i++){
-			printf("en lista: %s\n", ((t_reduccionLocalMaster*)list_get(listaRedLocales,i))->archivoRedLocal);
-
-		}
-
-	printf("archivos de reduccion global:\n");
-		for(i=0;i<list_size(listaRedGloblales);i++){
-			printf("en lista: %s\n", ((t_reduccionGlobalMaster*)list_get(listaRedGloblales,i))->archivoRedGlobal);
-
-	}
 }
 
 
@@ -422,6 +314,41 @@ void deserializarReduccionesGlobales(int cantRedGlobales, void* buffer, int* des
 	}
 }
 
+void operarEtapas(){
+
+	int i,j;
+	int transformaciones = list_size(listaTransformaciones);
+	int redLocales = list_size(listaRedLocales);
+	int redGlobales = list_size(listaRedGloblales);
+
+	//t_transformacionesNodo nodosTransformacion[redGlobales];
+	nodosTransformacion = malloc(sizeof(t_transformacionesNodo)*transformaciones);
+
+	for(i=0;i<transformaciones;i++){
+		 nodosTransformacion[i].idNodo = 0;
+		 nodosTransformacion[i].cantidadTransformaciones = 0;
+		}
+
+	t_transformacionMaster* tmaster;
+
+	for(i=0;i<transformaciones;i++){
+		 tmaster = list_get(listaTransformaciones, i);
+		 for(j=0;j<redGlobales;j++){
+			 if(nodosTransformacion[j].idNodo==tmaster->idNodo)
+				 nodosTransformacion[j].cantidadTransformaciones++;
+			 if(nodosTransformacion[j].idNodo==0){
+				nodosTransformacion[j].idNodo = tmaster->idNodo;
+				nodosTransformacion[j].cantidadTransformaciones = 1;
+				j=redGlobales;
+			 }
+		}
+	}
+
+	enviarTransformacionAWorkers(transformador, reductor);
+
+
+}
+
 void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
 
 	int i;
@@ -431,6 +358,7 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
 	printf("enviar etapa de transformacion: \n");
 	for(i=0;i<list_size(listaTransformaciones);i++){
 		//transformacion = malloc(sizeof(t_transformacionMaster));
+
 		transformacion = *(t_transformacionMaster*) list_get(listaTransformaciones, i);
 
 		pthread_t hiloConexionesWorker;
@@ -444,14 +372,20 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
 		printf("ip: %s, tamanio = %d, temporal: %s\n", transformacion.ip, transformacion.largoIp, transformacion.archivoTransformacion);
 		//free(transformacion);
 
-
-
-
 	}
 	while(1){
 
+		for(i=0;i<list_size(listaRedGloblales);i++){
+			if(nodosTransformacion[i].cantidadTransformaciones == 0){
+				printf("termino todas las transformaciones del nodo %d\n",nodosTransformacion[i].idNodo);
+			}
+		}
+
+
 	}
 }
+
+			// * Hilo conexion con cada worker   * ///
 
 void hiloConexionWorker(t_transformacionMaster* transformacion){
 	t_transformacionWorker* worker;
@@ -461,36 +395,59 @@ void hiloConexionWorker(t_transformacionMaster* transformacion){
 	worker = malloc(sizeof(t_transformacionWorker));
 //	worker->socketWorker = socketWorker;
 	worker->bloqueATransformar = transformacion->nroBloqueNodo;
-	worker->bytesOcupados = transformacion->bytesOcupados;
-	worker->largoArchivoTransformador = transformacion->largoArchivo;
+	//worker->bytesOcupados = transformacion->bytesOcupados;
+	worker->largoRutaArchivo = transformacion->largoArchivo;
 	worker->rutaArchivoTemporal = malloc(transformacion->largoArchivo);
 	strcpy(worker->rutaArchivoTemporal,transformacion->archivoTransformacion);
-	worker->largoArchivoTransformador = devolverTamanioArchivo();
-	worker->archivoTransformador = malloc(worker->largoArchivoTransformador);
+	worker->largoArchivoTransformador = devolverTamanioArchivo(transformador);
+	//worker->archivoTransformador = malloc(worker->largoArchivoTransformador);
+	worker->archivoTransformador = obtenerContenidoArchivo(transformador);
 	worker->etapa = 1; //DEFINIR MACRO TRANSFORMACION
 
 	printf("%d\n", worker->largoArchivoTransformador);
+	printf("%s\n", worker->archivoTransformador);
 
+	transformacion->puerto = 24000;
 	int socketWorker = conectarseAWorker(transformacion->puerto, transformacion->ip);
 
+	if(socketWorker == -1){
+		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
+	}
+	else {
+		buffer = serializarTransformacionWorker(worker, &largoBuffer);
+		tamanioMensaje = largoBuffer+sizeof(t_header);
+		bufferMensaje = malloc(tamanioMensaje);
+		t_header header;
+		header.id = 3;
+		header.tamanioPayload = largoBuffer;
 
-	buffer = serializarTransformacionWorker(worker, &largoBuffer);
-	tamanioMensaje = largoBuffer+sizeof(t_header);
-	bufferMensaje = malloc(tamanioMensaje);
-	t_header header;
-	header.id = 3;
-	header.tamanioPayload = largoBuffer;
+		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload, sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje+desplazamiento, buffer, header.tamanioPayload);
 
-	memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(bufferMensaje+desplazamiento, buffer, header.tamanioPayload);
+		enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
+		free(buffer);
+		free(bufferMensaje);
+		printf("enviado a worker\n");
 
-	enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
-	free(buffer);
-	free(bufferMensaje);
-	printf("enviado a worker\n");
+
+
+		if(respuestaTransformacion(socketWorker) == 10){
+			printf("transformacion OK\n");
+			//entre mutex
+			disminuirTransformacionesDeNodo(transformacion->idNodo);
+		}
+	}
+}
+
+void disminuirTransformacionesDeNodo(int nodo){
+	int i;
+	for(i=0;i<list_size(listaRedGloblales);i++){
+		if(nodosTransformacion[i].idNodo==nodo)
+			nodosTransformacion[i].cantidadTransformaciones--;
+	}
 }
 
 int conectarseAWorker(int puerto, char* ip){
@@ -501,7 +458,7 @@ int conectarseAWorker(int puerto, char* ip){
 	direccionWorker.sin_port = htons(puerto);
 	direccionWorker.sin_addr.s_addr = inet_addr(ip);
 	//memset(&(direccionYama.sin_zero), '\0', 8);
-
+	direccionWorker.sin_port = htons(24000);
 
 	int socketWorker;
 
@@ -509,7 +466,8 @@ int conectarseAWorker(int puerto, char* ip){
 
 	if(connect(socketWorker, (struct sockaddr *)&direccionWorker, sizeof(struct sockaddr)) != 0){
 			perror("fallo la conexion al worker");
-			exit(1);
+			printf("El nodo no se encontraba levantado.\n");
+			return -1;
 		}
 
 	return socketWorker;
@@ -519,11 +477,9 @@ int conectarseAWorker(int puerto, char* ip){
 void* serializarTransformacionWorker(t_transformacionWorker* worker, int* largoBuffer){
 	void* buffer;
 	int desplazamiento = 0;
-	int tamanioBuffer = worker->largoRutaArchivo + worker->largoArchivoTransformador + 5*sizeof(uint32_t);
+	int tamanioBuffer = worker->largoRutaArchivo + worker->largoArchivoTransformador + 4*sizeof(uint32_t);
 	buffer = malloc(tamanioBuffer);
 	memcpy(buffer+desplazamiento, &worker->bloqueATransformar, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer+desplazamiento, &worker->bytesOcupados, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer+desplazamiento, &worker->etapa, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -543,9 +499,18 @@ void* serializarTransformacionWorker(t_transformacionWorker* worker, int* largoB
 	return buffer;
 }
 
-int devolverTamanioArchivo(){
-	printf("%s\n", archivoAprocesar);
-	int file = open(archivoAprocesar, O_RDONLY);
+int respuestaTransformacion(int socketWorker){
+
+	char* buffer = malloc(sizeof(int));
+	int respuesta;
+	recibirPorSocket(socketWorker, &respuesta, sizeof(int));
+	//respuesta = atoi(buffer);
+	return respuesta;
+}
+
+int devolverTamanioArchivo(char* archivo){
+	printf("%s\n", archivo);
+	int file = open(archivo, O_RDONLY);
 		struct stat mystat;
 		if (file == -1) {
 			perror("open");
@@ -558,5 +523,31 @@ int devolverTamanioArchivo(){
 		}
 		int tam = mystat.st_size;
 
+	close(file);
 	return tam;
+}
+
+char* obtenerContenidoArchivo(char* archivo){
+	char* buffer;
+	int file = open(archivo, O_RDWR);
+		struct stat mystat;
+		if (file == -1) {
+			perror("open");
+			exit(1);
+		}
+		if (fstat(file, &mystat) < 0) {
+			perror("fstat");
+			close(file);
+			exit(1);
+		}
+		int tam = mystat.st_size;
+		buffer = (char*) malloc(tam * sizeof(char) + 1);
+		char* pmap = (char *) mmap(0, tam, PROT_READ, MAP_SHARED, file, 0);
+		int i;
+		for (i = 0; i < tam; i++) {
+			buffer[i] = pmap[i];
+		}
+		buffer[i]='\0';
+		close(file);
+		return buffer;
 }

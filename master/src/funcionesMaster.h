@@ -59,9 +59,7 @@ typedef struct rutaArchivo{
 
 
 	typedef struct{
-		int socketWorker;
 		uint32_t bloqueATransformar;
-		uint32_t bytesOcupados;
 		uint32_t etapa;
 		uint32_t largoRutaArchivo;
 		char* rutaArchivoTemporal;
@@ -69,14 +67,23 @@ typedef struct rutaArchivo{
 		char* archivoTransformador;
 	}t_transformacionWorker;
 
+	typedef struct{
+		int idNodo;
+		int cantidadTransformaciones;
+	}t_transformacionesNodo;
+
 t_list* listaTransformaciones;
 t_list* listaRedLocales;
 t_list* listaRedGloblales;
+
+t_transformacionesNodo* nodosTransformacion;
 
 char* transformador;
 char* reductor;
 char* archivoAprocesar;
 char* direccionDeResultado;
+int socketYama;
+
 
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
@@ -93,6 +100,7 @@ void deserializarTransformaciones(int , void*, int*);
 void deserializarReduccionesLocales(int , void* , int* );
 void deserializarReduccionesGlobales(int , void* , int*);
 
+void operarEtapas();
 
 void enviarAWorkers(char*,char*);
 
@@ -102,5 +110,11 @@ void hiloConexionWorker(t_transformacionMaster*);
 
 void* serializarTransformacionWorker(t_transformacionWorker* , int* );
 
-int devolverTamanioArchivo();
+int respuestaTransformacion(int);
+
+void disminuirTransformacionesDeNodo(int);
+
+int devolverTamanioArchivo(char*);
+char* obtenerContenidoArchivo(char*);
+
 #endif /* FUNCIONESMASTER_H_ */
