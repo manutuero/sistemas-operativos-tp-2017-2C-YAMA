@@ -492,8 +492,8 @@ void mkdirFs(char *path) {
 
 	if (!sonIguales(pathSeparado[0], "root")) {
 		printf(
-				"mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n",
-				path);
+				"mkdir: no se puede crear el directorio «%s»: No existe el directorio '%s'.\n",
+				path, obtenerPathDirectorio(path));
 		return;
 	}
 
@@ -525,8 +525,8 @@ void mkdirFs(char *path) {
 
 	default:
 		printf(
-				"mkdir: no se puede crear el directorio «%s»: No existe el directorio padre.\n",
-				path);
+				"mkdir: no se puede crear el directorio «%s»: No existe el directorio '%s'.\n",
+				path, obtenerPathDirectorio(path));
 	}
 }
 
@@ -733,42 +733,8 @@ void crearDirectorioBitmaps() {
 
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
-
-	// Para probar comando info y rename..(todavia no se recupera de un estado anterior completamente) luego borrar.
-	// Hacer la funcion restaurarTablaDeArchivos();
-	t_nodo *nodo1 = malloc(sizeof(t_nodo));
-	nodo1->idNodo = 1;
-	t_nodo *nodo2 = malloc(sizeof(t_nodo));
-	nodo2->idNodo = 2;
-	t_nodo *nodo3 = malloc(sizeof(t_nodo));
-	nodo3->idNodo = 3;
-
-	t_bloque *bloque0 = malloc(sizeof(t_bloque));
-	bloque0->numeroBloque = 0;
-	bloque0->nodoCopia0 = nodo1;
-	bloque0->numeroBloqueCopia0 = 5;
-	bloque0->nodoCopia1 = nodo2;
-	bloque0->numeroBloqueCopia1 = 2;
-	bloque0->bytesOcupados = 1048576;
-
-	t_bloque *bloque1 = malloc(sizeof(t_bloque));
-	bloque1->numeroBloque = 1;
-	bloque1->nodoCopia0 = nodo1;
-	bloque1->numeroBloqueCopia0 = 10;
-	bloque1->nodoCopia1 = nodo3;
-	bloque1->numeroBloqueCopia1 = 7;
-	bloque1->bytesOcupados = 1048500;
-
-	t_archivo_a_persistir *archPrueba = malloc(sizeof(t_archivo_a_persistir));
-	archPrueba->tamanio = 3145592;
-	archPrueba->indiceDirectorio = 0;
-	archPrueba->nombreArchivo = "tux-con-poncho.jpg";
-	archPrueba->bloques = list_create();
-	list_add(archPrueba->bloques, bloque0);
-	list_add(archPrueba->bloques, bloque1);
-	list_add(archivos, archPrueba);
-
-	//restaurarTablaDeNodos();
+	restaurarTablaDeArchivos();
+	restaurarTablaDeNodos();
 }
 
 void restaurarTablaDeDirectorios() {
@@ -804,7 +770,7 @@ void restaurarTablaDeNodos() {
 	t_config* diccionario = config_create(path);
 
 	if (!diccionario) {
-		perror("[Error]: No se encontro la tabla de nodos.");
+		fprintf(stderr, "[Error]: no se encontro la tabla de nodos.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -812,10 +778,10 @@ void restaurarTablaDeNodos() {
 	// El tamaño se mide en bloques de 1 MiB
 	sNodos = config_get_string_value(diccionario, "NODOS");
 	if (!sNodos) {
-		puts("[Error]: La tabla de nodos de un estado anterior esta vacia.");
+		fprintf(stderr,
+				"[Error]: la tabla de nodos de un estado anterior esta vacia.\n");
 		return;
 	}
-	printf("NODOS = %s \n", sNodos);
 
 	largo = strlen(sNodos);
 	sNodos = string_substring(sNodos, 1, largo - 2);
@@ -834,12 +800,40 @@ void restaurarTablaDeNodos() {
 		list_add(nodos, nodo);
 	}
 
-	puts("Mostrando lista de nodos cargada en memoria...");
+	puts("Mostrando lista de nodos cargada en memoria...\n");
+	printf("NODOS = %s \n", sNodos);
 	for (i = 0; i < nodos->elements_count; i++) {
 		nodo = list_get(nodos, i);
 		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
 				nodo->bloquesLibres);
 	}
+}
+
+// Ver si tiene sentido tener todas las referencias a archivos del FS en memoria...PREGUNTAR!!
+void restaurarTablaDeArchivos() {
+	/*int i;
+	 char *path;
+	 FILE *archivo;
+	 t_list *nombres = list_create();
+
+	 for (i = 0; i < CANTIDAD_DIRECTORIOS; i++) {
+	 path = string_new();
+	 string_append(&path, PATH_METADATA);
+	 string_append(&path, "/");
+	 string_append(&path, string_itoa(i));
+	 archivo = fopen(path, "r");
+
+	 if(!archivo) {
+	 fprintf(stderr, "[Error]: no se encontro la metadata del archivo.\n");
+	 exit(EXIT_FAILURE);
+	 }
+
+
+	 list_clean(nombres);
+	 free(path);
+	 }
+
+	 list_destroy_and_destroy_elements(nombres, free);*/
 }
 
 void agregarNodo(t_list *lista, t_nodo *nodo) {
@@ -1040,11 +1034,12 @@ char* obtenerNombreArchivo(char *path) {
 }
 
 void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
-	char *comando, *nombreInicial;
-	t_archivo_a_persistir *archivo;
+	char *comando, *nombreInicial, *path;
 	t_directorio directorio;
 	int indice;
+	FILE *filePointer;
 
+	// Valido que exista el directorio original.
 	directorio = obtenerPathDirectorio(pathOriginal);
 	indice = obtenerIndice(directorio);
 	if (indice == DIR_NO_EXISTE) {
@@ -1053,17 +1048,23 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 	}
 
 	nombreInicial = obtenerNombreArchivo(pathOriginal);
-	archivo = buscarArchivoPorIndiceYNombre(indice, nombreInicial);
-	if (!archivo) {
+
+	// Me genero el path donde esta el archivo con la metadata del archivo :p.
+	path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/archivos/");
+	string_append(&path, string_itoa(indice));
+	string_append(&path, "/");
+	string_append(&path, nombreInicial);
+
+	filePointer = fopen(path, "r+");
+	if (!filePointer) {
 		printf("El archivo %s no existe.\n", pathOriginal);
+		fclose(filePointer);
 		return;
 	}
 
-	// Actualizo el nombre del archivo en la lista.
-	archivo->nombreArchivo = string_new();
-	strcpy(archivo->nombreArchivo, nombreFinal);
-
-	// Actualizo el nombre del archivo correspondiente al directorio.
+	// Actualizo el nombre del archivo usando el comando 'mv' de linux.
 	comando = string_new();
 	string_append(&comando, "mv ");
 	string_append(&comando, PATH_METADATA);
@@ -1078,8 +1079,15 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 	string_append(&comando, string_itoa(indice));
 	string_append(&comando, "/");
 	string_append(&comando, nombreFinal);
+
+	// Ejecuto.
 	system(comando);
+
+	// Libero recursos.
 	free(comando);
+	free(path);
+	free(nombreInicial);
+	fclose(filePointer);
 }
 
 void renombrarDirectorio(char *pathOriginal, char *nombreFinal) {
@@ -1118,20 +1126,21 @@ void renombrarDirectorio(char *pathOriginal, char *nombreFinal) {
 
 void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	int indiceOriginal, indiceFinal;
-	char *nombreArchivo, *comando, *metadataOriginal, *metadataFinal;
+	char *nombreArchivo, *metadataOriginal, *metadataFinal, *comando;
 	t_directorio directorio;
-	t_archivo_a_persistir *archivo;
 
 	// Validaciones.
 	directorio = obtenerPathDirectorio(pathOriginal);
 	if (sonIguales(directorio, pathFinal))
-		return;
+		return; // Si lo mueve al mismo lugar no hacer nada.
 
+	// Si alguno de los dos paths no existen informar.
 	indiceOriginal = obtenerIndice(directorio);
-	if (!existePathDirectorio(directorio) || indiceOriginal == DIR_NO_EXISTE) {
+	if (indiceOriginal == DIR_NO_EXISTE) {
 		printf("El directorio '%s' no existe.\n", pathFinal);
 		return;
 	}
+
 	indiceFinal = obtenerIndice(pathFinal);
 	if (!existePathDirectorio(pathFinal) || indiceFinal == DIR_NO_EXISTE) {
 		printf("El directorio '%s' no existe.\n", pathFinal);
@@ -1139,19 +1148,8 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	}
 
 	nombreArchivo = obtenerNombreArchivo(pathOriginal);
-	archivo = obtenerArchivo(pathOriginal);
-	if (!archivo) {
-		/* OJO! Como todavia no tenemos que se cargue el estado anterior el unico archivo que
-		 * conoce la lista en memoria es el hardcodeado. Cuando lo tengamos deberia funcar bn.
-		 */
-		printf("El archivo '%s' no existe.\n", pathOriginal);
-		return;
-	}
 
-	// Actualizo en memoria.
-	archivo->indiceDirectorio = indiceFinal;
-
-	// Actualizo en disco.
+	// Busco el archivo en disco.
 	metadataOriginal = string_new();
 	string_append(&metadataOriginal, PATH_METADATA);
 	string_append(&metadataOriginal, "/archivos/");
@@ -1159,12 +1157,13 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	string_append(&metadataOriginal, "/");
 	string_append(&metadataOriginal, nombreArchivo);
 
-	// Mas validaciones.
+	// Si no lo encuentra informa.
 	if (access(metadataOriginal, 0) != 0) {
 		printf("El archivo '%s' no existe.\n", pathOriginal);
 		return;
 	}
 
+	// Si lo encuentra prepara la ruta para el comando de linux.
 	metadataFinal = string_new();
 	string_append(&metadataFinal, PATH_METADATA);
 	string_append(&metadataFinal, "/archivos/");
@@ -1172,21 +1171,16 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	string_append(&metadataFinal, "/");
 	string_append(&metadataFinal, nombreArchivo);
 
-	if (access(metadataOriginal, 0) != 0) {
-		printf("El archivo '%s' no existe.\n", pathOriginal);
-		return;
-	}
-
 	comando = string_new();
 	string_append(&comando, "mv ");
 	string_append(&comando, metadataOriginal);
 	string_append(&comando, " ");
 	string_append(&comando, metadataFinal);
 
-	// Muevo el archivo entre directorios.
+	// Y lo ejecuta.
 	system(comando);
 
-	// Libero recursos.
+	// Por ultimo libero recursos.
 	free(metadataOriginal);
 	free(metadataFinal);
 	free(nombreArchivo);
@@ -1205,7 +1199,7 @@ void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal) {
 		return;
 	}
 
-	indiceFinal= obtenerIndice(pathFinal);
+	indiceFinal = obtenerIndice(pathFinal);
 	if (indiceFinal == DIR_NO_EXISTE) {
 		printf("El directorio '%s' no existe.\n", pathFinal);
 		return;
@@ -1232,4 +1226,95 @@ void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal) {
 	// Libero recursos.
 	fclose(archivo);
 	free(pathDirectorios);
+}
+
+// Si el archivo a abrir no existe en ese path retorna NULL.
+t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
+	int i, indiceDirectorio, cantidadBloques, ID_NODO = 0, NRO_BLOQUE_DATABIN =
+			1;
+	char *path, *nombreArchivo, *clave, **valores;
+	t_config *diccionario;
+	t_bloque *bloque;
+	t_nodo *nodoCopia0, *nodoCopia1;
+	t_archivo_a_persistir *archivo;
+
+	indiceDirectorio = obtenerIndice(obtenerPathDirectorio(pathArchivo));
+	nombreArchivo = obtenerNombreArchivo(pathArchivo);
+
+	path = string_new();
+	string_append(&path, PATH_METADATA);
+	string_append(&path, "/archivos/");
+	string_append(&path, string_itoa(indiceDirectorio));
+	string_append(&path, "/");
+	string_append(&path, nombreArchivo);
+
+	// Verifico existencia del archivo en ese path.
+	diccionario = config_create(path);
+	if (!diccionario)
+		return NULL;
+
+	// Pido memoria correspondiente.
+	archivo = malloc(sizeof(t_archivo_a_persistir));
+	nodoCopia0 = malloc(sizeof(t_nodo));
+	nodoCopia1 = malloc(sizeof(t_nodo));
+
+	// Nombre.
+	archivo->nombreArchivo = string_duplicate(nombreArchivo);
+
+	// Tamaño.
+	archivo->tamanio = config_get_int_value(diccionario, "TAMANIO");
+
+	// Tipo.
+	archivo->tipo = config_get_int_value(diccionario, "TIPO");
+
+	// Indice (es util luego para calcular el indice del padre).
+	archivo->indiceDirectorio = indiceDirectorio;
+
+	// Bloques.
+	archivo->bloques = list_create();
+	cantidadBloques = archivo->tamanio / UN_MEGABYTE + 1; // Division entera
+	for (i = 0; i < cantidadBloques; i++) {
+		// Reservo un bloque.
+		bloque = malloc(sizeof(t_bloque));
+		bloque->numeroBloque = i;
+
+		bloque->nodoCopia0 = nodoCopia0;
+		clave = string_new();
+		string_append(&clave, "BLOQUE");
+		string_append(&clave, string_itoa(i));
+		string_append(&clave, "COPIA0");
+		valores = config_get_array_value(diccionario, clave);
+		bloque->nodoCopia0->idNodo = atoi(valores[ID_NODO]);
+		bloque->numeroBloqueCopia0 = atoi(valores[NRO_BLOQUE_DATABIN]);
+		free(clave);
+		free(valores[ID_NODO]);
+		free(valores[NRO_BLOQUE_DATABIN]);
+
+		bloque->nodoCopia1 = nodoCopia1;
+		clave = string_new();
+		string_append(&clave, "BLOQUE");
+		string_append(&clave, string_itoa(i));
+		string_append(&clave, "COPIA1");
+		valores = config_get_array_value(diccionario, clave);
+		bloque->nodoCopia1->idNodo = atoi(valores[ID_NODO]);
+		bloque->numeroBloqueCopia1 = atoi(valores[NRO_BLOQUE_DATABIN]);
+		free(clave);
+		free(valores[ID_NODO]);
+		free(valores[NRO_BLOQUE_DATABIN]);
+
+		clave = string_new();
+		string_append(&clave, "BLOQUE");
+		string_append(&clave, string_itoa(i));
+		string_append(&clave, "BYTES");
+		bloque->bytesOcupados = config_get_int_value(diccionario, clave);
+		free(clave);
+
+		list_add(archivo->bloques, bloque);
+	}
+
+	// Libero recursos.
+	free(path);
+	config_destroy(diccionario);
+
+	return archivo;
 }

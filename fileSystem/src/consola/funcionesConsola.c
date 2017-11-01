@@ -44,7 +44,7 @@ void ejecutarFormat(char **argumentos) {
 	if (!datos)
 		fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
-	almacenarArchivo("/root", "tux-con-poncho.jpg", TEXTO, datos);
+	almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
 	fclose(datos);
 	// ----
 }
@@ -122,16 +122,20 @@ char* invocarFuncionMd5(char **argumentos) {
 }
 
 void ejecutarLs(char **argumentos) {
-	t_directorio directorio = argumentos[1];
+	int i;
+	char *path;
 
-	if (esValido(directorio)) {
-		if (!existePathDirectorio(directorio)) {
-			printf("El directorio '%s' no existe.\n", directorio);
-			free(directorio);
+	path = argumentos[1];
+	if (esValido(path)) {
+		if (!existePathDirectorio(path)) {
+			printf("El directorio '%s' no existe.\n", path);
+			free(path);
 			return;
 		}
 
-		int indice = obtenerIndice(directorio);
+		int indice = obtenerIndice(path);
+
+		// Muestro todos los archivos que estan en este directorio.
 		char *comando = string_new();
 		string_append(&comando, "ls ");
 		string_append(&comando, PATH_METADATA);
@@ -139,64 +143,81 @@ void ejecutarLs(char **argumentos) {
 		string_append(&comando, string_itoa(indice));
 		system(comando);
 		free(comando);
+
+		// Muestro todos los directorios que estan en este directorio.
+		for (i = 0; i < CANTIDAD_DIRECTORIOS && directorios[i].nombre != NULL; i++) {
+			if (directorios[i].padre == indice) {
+				printf(ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET, directorios[i].nombre);
+			}
+		}
+		puts("");
+
 	} else {
-		printf(
-				"El parametro ingresado '%s' no es valido. Debe ingresar una ruta.\n",
-				directorio);
+		printf("La ruta '%s' no es valida.\n", path);
 	}
-	free(directorio);
+	free(path);
 }
 
 void ejecutarInfo(char **argumentos) {
 	int i;
 	t_bloque *bloque;
-	char *pathArchivo = argumentos[1];
+	char *pathArchivo;
+	t_archivo_a_persistir *archivo;
 
-	if (esValido(pathArchivo)) {
-		t_archivo_a_persistir *archivo = obtenerArchivo(pathArchivo);
-		if (!archivo) {
-			printf("El archivo '%s' no existe.\n", pathArchivo);
-			return;
-		}
+	pathArchivo = argumentos[1];
+	if (!esValido(pathArchivo)) {
+		printf("La ruta ingresada '%s' no es valida.\n", pathArchivo);
+		return;
+	}
 
-		// Header
-		puts(
-				" ---------------------------------------------------------------------------------------");
-		printf("|				Info '%s'				|\n", archivo->nombreArchivo);
-		puts(
-				" ---------------------------------------------------------------------------------------\n");
+	archivo = abrirArchivo(pathArchivo);
+	if (!archivo) {
+		printf("El archivo '%s' no existe.\n", pathArchivo);
+		return;
+	}
 
-		// Body
-		printf("Tamaño: %d bytes.\n", archivo->tamanio);
-		if (archivo->tipo == BINARIO) {
-			printf("Tipo: binario.\n");
-		} else {
-			printf("Tipo: de texto.\n");
-		}
-		printf("Directorio padre: %d.\n", archivo->indiceDirectorio);
-		printf("Cantidad de bloques: %d.\n", archivo->bloques->elements_count);
+	// Header
+	puts(
+			" ---------------------------------------------------------------------------------------");
+	printf("|				Info '%s'				|\n", archivo->nombreArchivo);
+	puts(
+			" ---------------------------------------------------------------------------------------\n");
+
+	// Body
+	printf("Tamaño: %d bytes.\n", archivo->tamanio);
+	if (archivo->tipo == BINARIO) {
+		printf("Tipo: binario.\n");
+	} else if (archivo->tipo == TEXTO) {
+		printf("Tipo: de texto.\n");
+	} else {
+		fprintf(stderr, "[ERRO]: el tipo del archivo no se pudo determinar.\n");
+	}
+
+	printf("Directorio padre: %d.\n", archivo->indiceDirectorio);
+	printf("Cantidad de bloques: %d.\n", archivo->bloques->elements_count);
+	printf(
+			"\n ----------------------------------------------------------------------------------------------------");
+	puts(
+			"\n|     Bloque    |           Copia0              |             Copia1            |     Fin de bloque  |");
+	printf(
+			" ----------------------------------------------------------------------------------------------------");
+	for (i = 0; i < archivo->bloques->elements_count; i++) {
+		bloque = list_get(archivo->bloques, i);
+		printf("\n|	%d	", bloque->numeroBloque);
+		printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia0->idNodo,
+				bloque->numeroBloqueCopia0);
+		printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia1->idNodo,
+				bloque->numeroBloqueCopia1);
+		printf("|	%d      |\n", bloque->bytesOcupados);
 		printf(
-				"\n ----------------------------------------------------------------------------------------------------");
-		puts(
-				"\n|     Bloque    |           Copia0              |             Copia1            |     Fin de bloque  |");
-		printf(
-				" ----------------------------------------------------------------------------------------------------");
-		for (i = 0; i < archivo->bloques->elements_count; i++) {
-			bloque = list_get(archivo->bloques, i);
-			printf("\n|	%d	", bloque->numeroBloque);
-			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia0->idNodo,
-					bloque->numeroBloqueCopia0);
-			printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia1->idNodo,
-					bloque->numeroBloqueCopia1);
-			printf("|	%d      |\n", bloque->bytesOcupados);
-			printf(
-					" ---------------------------------------------------------------------------------------------------- ");
-		}
-		printf("\n");
-	} else
-		printf(
-				"El parametro ingresado '%s' no es valido. Debe ser un ruta a archivo valida.\n",
-				pathArchivo);
+				" ---------------------------------------------------------------------------------------------------- ");
+	}
+	printf("\n");
+
+	// Libero recursos.
+	free(archivo->nombreArchivo);
+	list_destroy_and_destroy_elements(archivo->bloques, (void*) liberarBLoque);
+	free(archivo);
 }
 
 void ejecutarRename(char **argumentos) {
@@ -220,6 +241,10 @@ void ejecutarRename(char **argumentos) {
 	} else {
 		renombrarArchivo(pathOriginal, nombreFinal);
 	}
+
+	// Libero recursos.
+	free(pathOriginal);
+	free(nombreFinal);
 }
 
 void ejecutarMv(char **argumentos) {
@@ -238,11 +263,15 @@ void ejecutarMv(char **argumentos) {
 	}
 
 	// Determina si lo que hay que mover es un archivo o un directorio.
-	if(existePathDirectorio(pathOriginal)) {
+	if (existePathDirectorio(pathOriginal)) {
 		moverDirectorio(pathOriginal, pathFinal);
 	} else {
 		moverArchivo(pathOriginal, pathFinal);
 	}
+
+	// Libero recursos.
+	free(pathOriginal);
+	free(pathFinal);
 }
 
 char* invocarFuncionCpfrom(char **argumentos) {

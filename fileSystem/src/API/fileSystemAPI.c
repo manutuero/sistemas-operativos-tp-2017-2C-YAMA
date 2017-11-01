@@ -109,6 +109,8 @@ void escribirStreamConFormato(FILE *stream, char *format, ...) {
 }
 
 void liberarBLoque(t_bloque* bloque) {
+	free(bloque->nodoCopia0);
+	free(bloque->nodoCopia1);
 	free(bloque);
 }
 

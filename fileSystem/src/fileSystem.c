@@ -5,11 +5,10 @@ int main(int argc, char **argv) {
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
 
 	if (argc > 1 && sonIguales(argv[1], "--tests")) {
-		return correrTests();
+		return correrTests(); // Cuidado que borra el estado anterior jeje.
 	} else {
 		// Agregar un logger (cuando estemos por terminar).
 		if (hayEstadoAnterior()) {
-			nodos = list_create(); // por ahora trabajamos asi porque es mas comodo. luego borrar
 			archivos = list_create();
 			restaurarEstructurasAdministrativas();
 			puts(
