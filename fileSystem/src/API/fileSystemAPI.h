@@ -57,6 +57,8 @@ extern pthread_mutex_t mutex;
 int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo,
 		FILE *datos); // stream de datos
 
+char* leerArchivo(char *pathArchivo);
+
 /* Metadata */
 void actualizarBitmaps();
 

@@ -1,8 +1,12 @@
 #include "funcionesFileSystem.h"
 
+sem_t sem;
+
 int main(int argc, char **argv) {
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
+
+	sem_init(&sem, 0, 0);
 
 	if (argc > 1 && sonIguales(argv[1], "--tests")) {
 		return correrTests(); // Cuidado que borra el estado anterior jeje.
@@ -10,6 +14,7 @@ int main(int argc, char **argv) {
 		// Agregar un logger (cuando estemos por terminar).
 		if (hayEstadoAnterior()) {
 			archivos = list_create();
+			nodos = list_create();
 			restaurarEstructurasAdministrativas();
 			puts(
 					"Hay estado anterior.. para las pruebas borrar la carpeta metadata"); // borrar luego :p

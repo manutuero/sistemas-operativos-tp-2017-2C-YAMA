@@ -29,7 +29,7 @@ void  ejecutarInfo(char **argumentos);
 void  ejecutarRename(char **argumentos);
 void  ejecutarMv(char **argumentos);
 char* invocarFuncionCpfrom(char**);
-char* invocarFuncionCpto(char**);
+void  ejecutarCpto(char **argumentos);
 char* invocarFuncionCpblok(char**);
 void* levantarConsola();
 #endif

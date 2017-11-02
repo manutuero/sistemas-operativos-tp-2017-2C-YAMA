@@ -94,7 +94,7 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "cpto")) {
-				invocarFuncionCpto(argumentos);
+				ejecutarCpto(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);

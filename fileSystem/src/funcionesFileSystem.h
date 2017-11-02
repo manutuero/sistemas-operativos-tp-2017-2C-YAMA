@@ -29,10 +29,17 @@ enum bitmaps {
 	ESTA_LLENO = -1
 };
 
+enum nodos {
+	NO_DISPONIBLE = -1
+};
+
 enum respuestasDatanode {
-	ERROR_AL_RECIBIR_RESPUESTA = -1,
+	ERROR_AL_ENVIAR_PETICION = -3,
+	ERROR_AL_TRAER_BLOQUE,
+	ERROR_AL_RECIBIR_RESPUESTA,
 	ERROR_NO_SE_PUDO_GUARDAR_BLOQUE,
-	GUARDO_BLOQUE_OK
+	GUARDO_BLOQUE_OK,
+	TRAJO_BLOQUE_OK
 };
 
 /* Variables globales */
@@ -83,6 +90,8 @@ extern t_directory directorios[100];
 extern t_list *nodos;
 extern t_list *archivos;
 
+
+extern sem_t sem;
 /*********************** Firmas de funciones ************************/
 
 /* Firmas de funciones para archivo de configuracion */
@@ -101,6 +110,7 @@ void persistirTablaDeNodos();
 void actualizarTablaDeNodos();
 int totalBloquesFileSystem();
 int bloquesLibresFileSystem();
+int obtenerSocketNodo(t_bloque *bloque);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
@@ -157,7 +167,7 @@ void restaurarTablaDeArchivos();
 /* Auxiliares */
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
-int traerBloqueNodo(int nodo, uint32_t numBloque, void *bloque);
+int traerBloqueNodo(t_bloque *bloque);
 int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo);
 int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 t_list* copiarListaNodos(t_list *lista);

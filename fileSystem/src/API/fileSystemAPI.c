@@ -3,6 +3,46 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+char* leerArchivo(char *pathArchivo) {
+	int i;
+	char *contenido;
+	t_list *bloques;
+	t_bloque *bloque;
+	t_archivo_a_persistir *archivo;
+	off_t offset = 0;
+
+	// Verifico su existencia.
+	archivo = abrirArchivo(pathArchivo);
+	if (!archivo) {
+		printf("El archivo '%s' no existe.\n", pathArchivo);
+		return NULL;
+	}
+
+	// Carga los bloques del archivo con el contenido que solicita a los datanodes.
+	bloques = archivo->bloques;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		bloque->contenido = malloc(UN_BLOQUE);
+		limpiar(bloque->contenido, UN_MEGABYTE);
+		if (traerBloqueNodo(bloque) != TRAJO_BLOQUE_OK) {
+			fprintf(stderr, "[ERROR]: no se pudo traer el bloque n° '%d'.\n",
+					bloque->numeroBloque);
+			return NULL;
+		}
+	}
+
+	// Si no hubo fallos procede a serializar el contenido en un solo espacio de memoria.
+	contenido = malloc(sizeof(char) * archivo->tamanio);
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		memcpy(contenido + offset, bloque->contenido, bloque->bytesOcupados);
+		offset += bloque->bytesOcupados;
+	}
+
+	// Habria que liberar la lista de bloques, el archivo...para que no hayan leaks en cada llamado.
+	return contenido;
+}
+
 int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	pthread_mutex_lock(&mutex);
 	t_list *bloques, *nodosAux = copiarListaNodos(nodos);

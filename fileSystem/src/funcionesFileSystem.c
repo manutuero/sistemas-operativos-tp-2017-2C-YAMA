@@ -177,9 +177,9 @@ void* esperarConexionesDatanodes() {
 	void *buffer = NULL;
 
 	/* Esperar hasta 5 segundos. */
-	struct timeval tv;
+	/*struct timeval tv;
 	tv.tv_sec = 5;
-	tv.tv_usec = 0;
+	tv.tv_usec = 0;*/
 
 	// Seteo el socketServidor para permitir multiples conexiones, aunque no sea necesario es una buena practica.
 	if (setsockopt(socketServidor, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
@@ -233,7 +233,7 @@ void* esperarConexionesDatanodes() {
 		}
 
 		// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
-		actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
+		actividad = select(max_sd + 1, &readfds, NULL, NULL, NULL);
 
 		//&& (errno!=EINTR))
 		if (actividad < 0) {
@@ -280,7 +280,6 @@ void* esperarConexionesDatanodes() {
 					//DESCONECTADO A NO DISPONIBLES
 					break;
 				}
-
 				//Si entra aca recibi un header que va a tener la info de quien se conecto.
 				else {
 					//printf("Header : %d.\n", header.tamanioPayload);
@@ -369,9 +368,23 @@ int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
 	return rta;
 }
 
-int getNodo(int nodoNumero) {
-	//Tiene que buscar en la lista de nodos conectados, por ahora trae el unico conectado
-	return socketNodoConectado;
+/* Verifica si alguno de los 2 nodos (copia0/copia1) esta conectado,
+ * devolviendo el socketDescriptor del primero que encuentra o un flag si no encontro ninguno.
+ */
+int obtenerSocketNodo(t_bloque *bloque) {
+	int i;
+	t_nodo *nodo;
+
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+
+		if (nodo->idNodo == bloque->nodoCopia0->idNodo
+				|| nodo->idNodo == bloque->nodoCopia1->idNodo) {
+			return nodo->socketDescriptor;
+		}
+	}
+
+	return NO_DISPONIBLE;
 }
 
 void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete) {
@@ -390,23 +403,32 @@ void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete)
 	free(header);
 }
 
-int traerBloqueNodo(int nodo, uint32_t numBloque, void*bloque) {
+int traerBloqueNodo(t_bloque *bloque) {
 	int rta = 0;
-	int socketNodo = getNodo(nodo);
+	int socketNodo = obtenerSocketNodo(bloque);
+	if (socketNodo == NO_DISPONIBLE) {
+		fprintf(stderr,
+				"[ERROR]: el bloque numero '%d' no esta disponible en el sistema.\n",
+				bloque->numeroBloque);
+		return NO_DISPONIBLE;
+	}
+
 	void *paquete = malloc(sizeof(uint32_t) * 2);
-	serializarHeaderTraerBloque(3, numBloque, paquete);
+	serializarHeaderTraerBloque(3, bloque->numeroBloque, paquete);
 	int bytesEnviados = enviarPorSocket(socketNodo, paquete, 0);
 	if (bytesEnviados <= 0) {
-		printf("Error al enviar peticion al nodo \n");
-		rta = 0;
+		fprintf(stderr, "[ERROR]: fallo al enviar peticion al nodo.\n");
+		rta = ERROR_AL_ENVIAR_PETICION;
 	} else {
-
-		if (recibirPorSocket(socketNodo, bloque, UN_BLOQUE) > 0) {
-			rta = 1;
+		if (recibirPorSocket(socketNodo, bloque->contenido, UN_BLOQUE) > 0) {
+			rta = TRAJO_BLOQUE_OK;
 		} else
-			rta = 0;
+			rta = ERROR_AL_TRAER_BLOQUE;
 	}
+
+	// Libero recursos.
 	free(paquete);
+
 	return rta;
 }
 
@@ -734,7 +756,7 @@ void crearDirectorioBitmaps() {
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
 	restaurarTablaDeArchivos();
-	restaurarTablaDeNodos();
+	//restaurarTablaDeNodos();
 }
 
 void restaurarTablaDeDirectorios() {
@@ -771,7 +793,7 @@ void restaurarTablaDeNodos() {
 
 	if (!diccionario) {
 		fprintf(stderr, "[Error]: no se encontro la tabla de nodos.\n");
-		exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE); // Abortar el filesystem.
 	}
 
 	nodos = list_create();
@@ -1312,7 +1334,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		list_add(archivo->bloques, bloque);
 	}
 
-	// Libero recursos.
+	// Libero recursos. Liberar las listas desde la funcion que llama.
 	free(path);
 	config_destroy(diccionario);
 

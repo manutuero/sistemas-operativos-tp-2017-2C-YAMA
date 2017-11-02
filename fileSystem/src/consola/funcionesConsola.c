@@ -39,12 +39,12 @@ void ejecutarFormat(char **argumentos) {
 	persistirTablaDeNodos();
 
 	// ---- Borrar luego
-	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
+	char *path = "/home/utnso/thePonchos/prueba.txt";
 	FILE *datos = fopen(path, "r");
 	if (!datos)
 		fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
-	almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
+	almacenarArchivo("/root", "prueba.txt", TEXTO, datos);
 	fclose(datos);
 	// ----
 }
@@ -145,9 +145,11 @@ void ejecutarLs(char **argumentos) {
 		free(comando);
 
 		// Muestro todos los directorios que estan en este directorio.
-		for (i = 0; i < CANTIDAD_DIRECTORIOS && directorios[i].nombre != NULL; i++) {
+		for (i = 0; i < CANTIDAD_DIRECTORIOS && directorios[i].nombre != NULL;
+				i++) {
 			if (directorios[i].padre == indice) {
-				printf(ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET, directorios[i].nombre);
+				printf(ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET,
+						directorios[i].nombre);
 			}
 		}
 		puts("");
@@ -284,15 +286,16 @@ char* invocarFuncionCpfrom(char **argumentos) {
 	return "<default>";
 }
 
-char* invocarFuncionCpto(char **argumentos) {
-	if (esValido(argumentos[1]) && esValido(argumentos[2])) {
-		printf("funcion cpto\n");
-		printf("Los argumentos son: %s y %s\n", argumentos[1], argumentos[2]);
-	} else
-		printf("Los parametros ingresados: %s,%s no son validos\n",
-				argumentos[1], argumentos[2]);
-
-	return "<default>";
+void ejecutarCpto(char **argumentos) {
+	char *pathArchivo = argumentos[1], *contenido;
+	if (esValido(pathArchivo)) {
+		contenido = leerArchivo(pathArchivo);
+		if(!contenido) {
+			fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n", pathArchivo);
+			return;
+		}
+		printf("%s", contenido);
+	}
 }
 
 char* invocarFuncionCpblok(char **argumentos) {
