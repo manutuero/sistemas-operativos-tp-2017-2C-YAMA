@@ -59,7 +59,9 @@ typedef struct rutaArchivo{
 
 
 	typedef struct{
+		//int socketWorker;
 		uint32_t bloqueATransformar;
+		//uint32_t bytesOcupados;
 		uint32_t etapa;
 		uint32_t largoRutaArchivo;
 		char* rutaArchivoTemporal;
@@ -68,9 +70,27 @@ typedef struct rutaArchivo{
 	}t_transformacionWorker;
 
 	typedef struct{
+		int largoRutaTemporal;
+		char* rutaTemporal;
+	}t_respuestaTransformacion;
+
+	typedef struct{
 		int idNodo;
 		int cantidadTransformaciones;
 	}t_transformacionesNodo;
+
+	typedef struct{
+		uint32_t etapa;
+		uint32_t largoArchivoReductorLocal;
+		char* archivoReductorLocal;
+		uint32_t cantidadTransformaciones;
+		t_list* temporalesTranformacion;
+	}t_redLocalesWorker;
+
+	typedef struct{
+		uint32_t largoRutaTemporalTransformacion;
+		char* rutaTemporalTransformacion;
+	}t_temporalesTransformacionWorker;
 
 t_list* listaTransformaciones;
 t_list* listaRedLocales;
@@ -89,6 +109,7 @@ int socketYama;
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 int file_exists (char * fileName);
 void crearListas();
+void destruirListas();
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
 int conectarseAYama(int puerto,char* ip);
 int conectarseAWorker(int, char*);
@@ -106,9 +127,13 @@ void enviarAWorkers(char*,char*);
 
 void enviarTransformacionAWorkers(char* , char* );
 
+void enviarRedLocalesAWorker(t_reduccionGlobalMaster* );
+
 void hiloConexionWorker(t_transformacionMaster*);
 
 void* serializarTransformacionWorker(t_transformacionWorker* , int* );
+
+void* serializarReduccionLocalWorker(t_redLocalesWorker* , int*);
 
 int respuestaTransformacion(int);
 
@@ -116,5 +141,8 @@ void disminuirTransformacionesDeNodo(int);
 
 int devolverTamanioArchivo(char*);
 char* obtenerContenidoArchivo(char*);
+
+void avisarAYama(t_transformacionMaster*);
+
 
 #endif /* FUNCIONESMASTER_H_ */
