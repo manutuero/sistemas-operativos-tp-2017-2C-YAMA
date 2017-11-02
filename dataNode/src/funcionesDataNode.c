@@ -94,7 +94,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	//Armo struct, lo serializo y lo envio x socket. Del lado del fs lo recibe para agregarlo a la lista de nodos.
 	t_infoNodo *infoNodo = malloc(sizeof(t_infoNodo));
 	infoNodo->sdNodo = 0;
-	infoNodo->idNodo = 9;
+	infoNodo->idNodo = atoi(ID_NODO);
 	infoNodo->cantidadBloques = 300;
 	int largoIp = strlen(IP_FILESYSTEM);
 	infoNodo->ip = malloc(largoIp + 1);
