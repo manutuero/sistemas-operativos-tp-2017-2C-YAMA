@@ -110,7 +110,7 @@ void persistirTablaDeNodos();
 void actualizarTablaDeNodos();
 int totalBloquesFileSystem();
 int bloquesLibresFileSystem();
-int obtenerSocketNodo(t_bloque *bloque);
+int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.

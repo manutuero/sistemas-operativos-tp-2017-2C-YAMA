@@ -211,108 +211,113 @@ void* esperarConexionesDatanodes() {
 	// Acceptar conexiones entrantes
 	addrlen = sizeof(address);
 	while (1) {
-		// Limpio la lista de sockets
-		FD_ZERO(&readfds);
+		if (nodos->elements_count < 3) {
 
-		//Agrego el socket master a la lista, para que tambien revise si hay cambios
-		FD_SET(socketServidor, &readfds);
-		max_sd = socketServidor;
+			// Limpio la lista de sockets
+			FD_ZERO(&readfds);
 
-		//add child sockets to set
-		for (i = 0; i < numeroClientes; i++) {
-			// Socket descriptor
-			sd = socketsClientes[i];
+			//Agrego el socket master a la lista, para que tambien revise si hay cambios
+			FD_SET(socketServidor, &readfds);
+			max_sd = socketServidor;
 
-			// Si es un socket descriptor valido lo agrega a la lista "read" (monitoreados).
-			if (sd > 0)
-				FD_SET(sd, &readfds);
-
-			// El numero de socket descriptor mas alto, es requerido por la funcion select().
-			if (sd > max_sd)
-				max_sd = sd;
-		}
-
-		// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
-		actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
-
-		//&& (errno!=EINTR))
-		if (actividad < 0) {
-			fprintf(stderr, "[ERROR]: Fallo la funcion select().");
-		}
-
-		// Si algo cambio en el socket master, es una conexion entrante.
-		if (FD_ISSET(socketServidor, &readfds)) {
-			if ((socketEntrante = accept(socketServidor,
-					(struct sockaddr *) &address, (socklen_t*) &addrlen)) < 0) {
-				perror("accept");
-				exit(EXIT_FAILURE);
-			}
-
-			//printf("Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
-			//socketEntrante, inet_ntoa(address.sin_addr), PUERTO);
-
-			// Agrego el nuevo socket al array
+			//add child sockets to set
 			for (i = 0; i < numeroClientes; i++) {
-				//Busco una pos vacia en la lista de clientes para guardar el socket entrante
-				if (socketsClientes[i] == 0) {
-					socketsClientes[i] = socketEntrante;
-					//printf("Se agrego el nuevo socket en la posicion: %d.\n",
-					//	i);
-					break;
+				// Socket descriptor
+				sd = socketsClientes[i];
+
+				// Si es un socket descriptor valido lo agrega a la lista "read" (monitoreados).
+				if (sd > 0)
+					FD_SET(sd, &readfds);
+
+				// El numero de socket descriptor mas alto, es requerido por la funcion select().
+				if (sd > max_sd)
+					max_sd = sd;
+			}
+
+			// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
+			actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
+
+			//&& (errno!=EINTR))
+			if (actividad < 0) {
+				fprintf(stderr, "[ERROR]: Fallo la funcion select().");
+			}
+
+			// Si algo cambio en el socket master, es una conexion entrante.
+			if (FD_ISSET(socketServidor, &readfds)) {
+				if ((socketEntrante = accept(socketServidor,
+						(struct sockaddr *) &address, (socklen_t*) &addrlen))
+						< 0) {
+					perror("accept");
+					exit(EXIT_FAILURE);
+				}
+
+				//printf("Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
+				//socketEntrante, inet_ntoa(address.sin_addr), PUERTO);
+
+				// Agrego el nuevo socket al array
+				for (i = 0; i < numeroClientes; i++) {
+					//Busco una pos vacia en la lista de clientes para guardar el socket entrante
+					if (socketsClientes[i] == 0) {
+						socketsClientes[i] = socketEntrante;
+						//printf("Se agrego el nuevo socket en la posicion: %d.\n",
+						//	i);
+						break;
+					}
 				}
 			}
-		}
-		//else  es un cambio en los sockets que estaba escuchando.
-		for (i = 0; i < numeroClientes; i++) {
-			sd = socketsClientes[i];
+			//else  es un cambio en los sockets que estaba escuchando.
+			for (i = 0; i < numeroClientes; i++) {
+				sd = socketsClientes[i];
 
-			if (FD_ISSET(sd, &readfds)) {
-				//Chequea si fue para cerrarse y sino lee el mensaje;
-				// desconexion
-				if (recibirHeader(sd, &header) == 0) {
-					//getpeername(sd, (struct sockaddr*) &address, (socklen_t*) &addrlen);
-					//printf("Cliente desconectado sd: %d \n", sd);
-					close(sd);
-					socketsClientes[i] = 0;
-					//SI SE DESCONECTO UN NODO BUSCARLO EN LA LISTA DE NODOS
-					//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
-					//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
-					//DESCONECTADO A NO DISPONIBLES
-					break;
+				if (FD_ISSET(sd, &readfds)) {
+					//Chequea si fue para cerrarse y sino lee el mensaje;
+					// desconexion
+					if (recibirHeader(sd, &header) == 0) {
+						//getpeername(sd, (struct sockaddr*) &address, (socklen_t*) &addrlen);
+						//printf("Cliente desconectado sd: %d \n", sd);
+						close(sd);
+						socketsClientes[i] = 0;
+						//SI SE DESCONECTO UN NODO BUSCARLO EN LA LISTA DE NODOS
+						//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
+						//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
+						//DESCONECTADO A NO DISPONIBLES
+						break;
+					}
+					//Si entra aca recibi un header que va a tener la info de quien se conecto.
+					else {
+						//printf("Header : %d.\n", header.tamanioPayload);
+					}
+
+					buffer = malloc(header.tamanioPayload);
+
+					//Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
+					if (recibirPorSocket(sd, buffer, header.tamanioPayload)
+							<= 0) {
+						perror(
+								"Error. El payload no se pudo recibir correctamente.");
+					} else {
+						t_infoNodo infoNodo = deserializarInfoNodo(buffer,
+								header.tamanioPayload);
+
+						t_nodo *nodo = malloc(sizeof(t_nodo));
+						nodo->socketDescriptor = sd;
+						nodo->idNodo = infoNodo.idNodo;
+						nodo->bloquesTotales = infoNodo.cantidadBloques;
+						nodo->bloquesLibres = nodo->bloquesTotales;
+						nodo->puertoWorker = 0;
+						nodo->bitmap = persistirBitmap(nodo->idNodo,
+								nodo->bloquesTotales);
+						nodo->ip = infoNodo.ip;
+
+						agregarNodo(nodos, nodo);
+						// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
+						// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
+						// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
+						// BLOQUES DE ESE NODO
+					}
+
+					free(buffer);
 				}
-				//Si entra aca recibi un header que va a tener la info de quien se conecto.
-				else {
-					//printf("Header : %d.\n", header.tamanioPayload);
-				}
-
-				buffer = malloc(header.tamanioPayload);
-
-				//Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
-				if (recibirPorSocket(sd, buffer, header.tamanioPayload) <= 0) {
-					perror(
-							"Error. El payload no se pudo recibir correctamente.");
-				} else {
-					t_infoNodo infoNodo = deserializarInfoNodo(buffer,
-							header.tamanioPayload);
-
-					t_nodo *nodo = malloc(sizeof(t_nodo));
-					nodo->socketDescriptor = sd;
-					nodo->idNodo = infoNodo.idNodo;
-					nodo->bloquesTotales = infoNodo.cantidadBloques;
-					nodo->bloquesLibres = nodo->bloquesTotales;
-					nodo->puertoWorker = 0;
-					nodo->bitmap = persistirBitmap(nodo->idNodo,
-							nodo->bloquesTotales);
-					nodo->ip = infoNodo.ip;
-
-					agregarNodo(nodos, nodo);
-					// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
-					// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
-					// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
-					// BLOQUES DE ESE NODO
-				}
-
-				free(buffer);
 			}
 		}
 	}
@@ -371,15 +376,20 @@ int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
 /* Verifica si alguno de los 2 nodos (copia0/copia1) esta conectado,
  * devolviendo el socketDescriptor del primero que encuentra o un flag si no encontro ninguno.
  */
-int obtenerSocketNodo(t_bloque *bloque) {
+int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin) {
 	int i;
 	t_nodo *nodo;
 
 	for (i = 0; i < nodos->elements_count; i++) {
 		nodo = list_get(nodos, i);
 
-		if (nodo->idNodo == bloque->nodoCopia0->idNodo
-				|| nodo->idNodo == bloque->nodoCopia1->idNodo) {
+		if (nodo->idNodo == bloque->nodoCopia0->idNodo) {
+			*nroBloqueDatabin = bloque->numeroBloqueCopia0;
+			return nodo->socketDescriptor;
+		}
+
+		if (nodo->idNodo == bloque->nodoCopia1->idNodo) {
+			*nroBloqueDatabin = bloque->numeroBloqueCopia1;
 			return nodo->socketDescriptor;
 		}
 	}
@@ -387,11 +397,12 @@ int obtenerSocketNodo(t_bloque *bloque) {
 	return NO_DISPONIBLE;
 }
 
-void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete) {
+void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloqueDataBin,
+		void* paquete) {
 	t_header *header = malloc(sizeof(t_header));
 	//header->id=malloc(sizeof(uint32_t));
 	header->id = id;
-	header->tamanioPayload = numBloque;
+	header->tamanioPayload = numBloqueDataBin;
 	int desplazamiento = 0;
 	int bytesACopiar = sizeof(uint32_t);
 	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
@@ -404,8 +415,8 @@ void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloque, void* paquete)
 }
 
 int traerBloqueNodo(t_bloque *bloque) {
-	int rta = 0;
-	int socketNodo = obtenerSocketNodo(bloque);
+	int nroBloqueDatabin, rta = 0;
+	int socketNodo = obtenerSocketNodo(bloque, &nroBloqueDatabin);
 	if (socketNodo == NO_DISPONIBLE) {
 		fprintf(stderr,
 				"[ERROR]: el bloque numero '%d' no esta disponible en el sistema.\n",
@@ -1313,11 +1324,11 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		// Borrar
 		printf("i: %d\n", i);
 		printf("BLOQUEiCOPIA0: %d\n", bloque->nodoCopia0->idNodo);
+		printf("Nro bloque copia0 databin: %d\n", bloque->numeroBloqueCopia0);
 
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
-
 
 		bloque->nodoCopia1 = nodoCopia1;
 		clave = string_new();
@@ -1329,6 +1340,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		bloque->numeroBloqueCopia1 = atoi(valores[NRO_BLOQUE_DATABIN]);
 
 		printf("BLOQUEiCOPIA1: %d\n", bloque->nodoCopia1->idNodo);
+		printf("Nro bloque copia1 databin: %d\n", bloque->numeroBloqueCopia1);
 
 		free(clave);
 		free(valores[ID_NODO]);
