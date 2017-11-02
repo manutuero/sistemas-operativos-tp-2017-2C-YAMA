@@ -177,9 +177,9 @@ void* esperarConexionesDatanodes() {
 	void *buffer = NULL;
 
 	/* Esperar hasta 5 segundos. */
-	/*struct timeval tv;
+	struct timeval tv;
 	tv.tv_sec = 5;
-	tv.tv_usec = 0;*/
+	tv.tv_usec = 0;
 
 	// Seteo el socketServidor para permitir multiples conexiones, aunque no sea necesario es una buena practica.
 	if (setsockopt(socketServidor, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
@@ -233,7 +233,7 @@ void* esperarConexionesDatanodes() {
 		}
 
 		// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
-		actividad = select(max_sd + 1, &readfds, NULL, NULL, NULL);
+		actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
 
 		//&& (errno!=EINTR))
 		if (actividad < 0) {
@@ -414,7 +414,7 @@ int traerBloqueNodo(t_bloque *bloque) {
 	}
 
 	void *paquete = malloc(sizeof(uint32_t) * 2);
-	serializarHeaderTraerBloque(3, bloque->numeroBloque, paquete);
+	serializarHeaderTraerBloque(3, bloque->numeroBloque, paquete); // Aca puede estar el error, bloque->numeroBloque es del data.bin del datanode ?? si es asi esto esta mal
 	int bytesEnviados = enviarPorSocket(socketNodo, paquete, 0);
 	if (bytesEnviados <= 0) {
 		fprintf(stderr, "[ERROR]: fallo al enviar peticion al nodo.\n");
@@ -1277,8 +1277,6 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 
 	// Pido memoria correspondiente.
 	archivo = malloc(sizeof(t_archivo_a_persistir));
-	nodoCopia0 = malloc(sizeof(t_nodo));
-	nodoCopia1 = malloc(sizeof(t_nodo));
 
 	// Nombre.
 	archivo->nombreArchivo = string_duplicate(nombreArchivo);
@@ -1298,6 +1296,9 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 	for (i = 0; i < cantidadBloques; i++) {
 		// Reservo un bloque.
 		bloque = malloc(sizeof(t_bloque));
+		nodoCopia0 = malloc(sizeof(t_nodo));
+		nodoCopia1 = malloc(sizeof(t_nodo));
+
 		bloque->numeroBloque = i;
 
 		bloque->nodoCopia0 = nodoCopia0;
@@ -1308,9 +1309,15 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		valores = config_get_array_value(diccionario, clave);
 		bloque->nodoCopia0->idNodo = atoi(valores[ID_NODO]);
 		bloque->numeroBloqueCopia0 = atoi(valores[NRO_BLOQUE_DATABIN]);
+
+		// Borrar
+		printf("i: %d\n", i);
+		printf("BLOQUEiCOPIA0: %d\n", bloque->nodoCopia0->idNodo);
+
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
+
 
 		bloque->nodoCopia1 = nodoCopia1;
 		clave = string_new();
@@ -1320,6 +1327,9 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		valores = config_get_array_value(diccionario, clave);
 		bloque->nodoCopia1->idNodo = atoi(valores[ID_NODO]);
 		bloque->numeroBloqueCopia1 = atoi(valores[NRO_BLOQUE_DATABIN]);
+
+		printf("BLOQUEiCOPIA1: %d\n", bloque->nodoCopia1->idNodo);
+
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
@@ -1330,6 +1340,8 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		string_append(&clave, "BYTES");
 		bloque->bytesOcupados = config_get_int_value(diccionario, clave);
 		free(clave);
+
+		printf("BLOQUEiBYTES: %d\n", bloque->bytesOcupados);
 
 		list_add(archivo->bloques, bloque);
 	}
