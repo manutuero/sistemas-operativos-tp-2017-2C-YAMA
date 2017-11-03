@@ -39,12 +39,12 @@ void ejecutarFormat(char **argumentos) {
 	persistirTablaDeNodos();
 
 	// ---- Borrar luego
-	char *path = "/home/utnso/thePonchos/prueba.txt";
+	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
 	FILE *datos = fopen(path, "r");
 	if (!datos)
 		fprintf(stderr, "\nEl archivo '%s' no existe.", path);
 
-	almacenarArchivo("/root", "prueba.txt", TEXTO, datos);
+	almacenarArchivo("/root", "tux-con-poncho.jpg", TEXTO, datos);
 	fclose(datos);
 	// ----
 }
@@ -294,7 +294,8 @@ void ejecutarCpto(char **argumentos) {
 			fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n", pathArchivo);
 			return;
 		}
-		printf("%s", contenido);
+
+		//printf("%s", contenido);
 	}
 }
 

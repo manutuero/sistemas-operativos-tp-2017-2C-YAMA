@@ -38,8 +38,11 @@ char* leerArchivo(char *pathArchivo) {
 		memcpy(contenido + offset, bloque->contenido, bloque->bytesOcupados);
 		offset += bloque->bytesOcupados;
 	}
-
+	contenido[archivo->tamanio]='\0';
 	// Habria que liberar la lista de bloques, el archivo...para que no hayan leaks en cada llamado.
+	FILE* fp=fopen("/home/utnso/recuperados/archRecuperado.jpeg","w");
+	fwrite(contenido,sizeof(char),archivo->tamanio,fp);
+	fclose(fp);
 	return contenido;
 }
 
