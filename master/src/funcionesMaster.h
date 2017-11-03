@@ -81,16 +81,38 @@ typedef struct rutaArchivo{
 
 	typedef struct{
 		uint32_t etapa;
-		uint32_t largoArchivoReductorLocal;
-		char* archivoReductorLocal;
+		uint32_t largoRutaArchivoReductorLocal;
+		char* rutaArchivoReductorLocal;
+		uint32_t largoArchivoReductor;
+		char* archivoReductor;
 		uint32_t cantidadTransformaciones;
 		t_list* temporalesTranformacion;
 	}t_redLocalesWorker;
+
+
+	typedef struct{
+		uint32_t etapa;
+		uint32_t largoRutaArchivoTemporal;
+		char* rutaArchivoTemporal;
+		uint32_t largoArchivoReductor;
+		char* archivoReductor;
+		uint32_t cantidadNodos;
+		t_list* nodosAConectar;
+	}t_reduccionGlobalWorker;
 
 	typedef struct{
 		uint32_t largoRutaTemporalTransformacion;
 		char* rutaTemporalTransformacion;
 	}t_temporalesTransformacionWorker;
+
+
+	typedef struct{
+		uint32_t puerto;
+		uint32_t largoIp;
+		char* ip;
+		uint32_t largoRutaArchivoReduccionLocal;
+		char* rutaArchivoReduccionLocal;
+	}t_datosNodoAEncargado;
 
 t_list* listaTransformaciones;
 t_list* listaRedLocales;
@@ -129,11 +151,15 @@ void enviarTransformacionAWorkers(char* , char* );
 
 void enviarRedLocalesAWorker(t_reduccionGlobalMaster* );
 
+void enviarReduccionGlobalAWorkerEncargado();
+
 void hiloConexionWorker(t_transformacionMaster*);
 
 void* serializarTransformacionWorker(t_transformacionWorker* , int* );
 
 void* serializarReduccionLocalWorker(t_redLocalesWorker* , int*);
+
+void* serializarReduccionGlobalWorker(t_reduccionGlobalWorker* redGlobalWorker,int* largoBuffer);
 
 int respuestaTransformacion(int);
 
@@ -143,6 +169,7 @@ int devolverTamanioArchivo(char*);
 char* obtenerContenidoArchivo(char*);
 
 void avisarAYama(t_transformacionMaster*);
-
+void avisarAYamaRedLocal(t_redLocalesWorker,t_header);
+void avisarAYamaRedGlobal(t_reduccionGlobalWorker,t_header);
 
 #endif /* FUNCIONESMASTER_H_ */
