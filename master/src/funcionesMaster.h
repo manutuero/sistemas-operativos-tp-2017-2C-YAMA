@@ -117,14 +117,15 @@ typedef struct rutaArchivo{
 t_list* listaTransformaciones;
 t_list* listaRedLocales;
 t_list* listaRedGloblales;
-
 t_transformacionesNodo* nodosTransformacion;
 
+t_log* masterLogger;
+char* ipYama;
 char* transformador;
 char* reductor;
 char* archivoAprocesar;
 char* direccionDeResultado;
-int socketYama;
+int puertoYama, socketYama;
 
 
 
@@ -132,6 +133,10 @@ int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar
 int file_exists (char * fileName);
 void crearListas();
 void destruirListas();
+
+void crearLogger();
+void cargarArchivoDeConfiguracion();
+
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
 int conectarseAYama(int puerto,char* ip);
 int conectarseAWorker(int, char*);
@@ -171,5 +176,6 @@ char* obtenerContenidoArchivo(char*);
 void avisarAYama(t_transformacionMaster*);
 void avisarAYamaRedLocal(t_redLocalesWorker,t_header);
 void avisarAYamaRedGlobal(t_reduccionGlobalWorker,t_header);
+void avisarAlmacenadoFinal();
 
 #endif /* FUNCIONESMASTER_H_ */

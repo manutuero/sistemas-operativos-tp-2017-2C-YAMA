@@ -106,6 +106,47 @@ void masterEscuchando(int* socketMaster) {
 	listen(*socketMaster, 100);
 }
 
+void crearLogger() {
+	char *pathLogger = string_new();
+	char cwd[1024];
+	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+	string_append(&pathLogger, "/masterLogs.log");
+
+	char *logMasterFileName = strdup("masterLogs.log");
+	masterLogger = log_create(pathLogger, logMasterFileName, false, LOG_LEVEL_INFO);
+	free(logMasterFileName);
+
+	logMasterFileName = NULL;
+}
+
+void cargarArchivoDeConfiguracion(){
+	log_info(masterLogger, "Cargando archivo de configuracion del master.");
+	char* path = "masterConfig.cfg";
+	char cwd[1024];
+	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+			path);
+	t_config *config = config_create(pathArchConfig);
+
+
+	if (!config) {
+		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		exit(EXIT_FAILURE);
+	}
+
+	if (config_has_property(config, "YAMA_IP")) {
+			ipYama = config_get_string_value(config, "YAMA_IP");
+		}
+
+	if (config_has_property(config, "YAMA_PUERTO")) {
+		puertoYama = config_get_int_value(config, "YAMA_PUERTO");
+	}
+
+	log_info(masterLogger, "Archivo de configuracion cargado exitosamente");
+	printf("Puerto: %d\n", puertoYama);
+	printf("IP YAMA: %s\n", ipYama);
+}
+
+
 //TODO se va a cambiar por hilos mas adelante
 void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAprocesar,char* direccionDeResultado){
 
@@ -113,7 +154,11 @@ void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAproc
 
 	crearListas();
 
-	socketYama = conectarseAYama(6670,"127.0.0.1");
+	crearLogger();
+
+	cargarArchivoDeConfiguracion();
+
+	socketYama = conectarseAYama(puertoYama,ipYama);
 
 	mandarRutaArchivoAYama(socketYama, archivoAprocesar);
 
@@ -125,8 +170,10 @@ void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAproc
 	operarEtapas();
 
 
-
 	destruirListas();
+
+	log_info(masterLogger, "Finaliza la ejecucion del job");
+
 }
 
 
@@ -150,6 +197,7 @@ int conectarseAYama(int puerto,char* ip){
 
 
 	printf("se conecto a YAMA en el socket %d\n",yama);
+	log_info(masterLogger, "Establecida conexion con YAMA");
 
 	return yama;
 }
@@ -168,6 +216,7 @@ void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar){
 	int tamanioMensaje = header.tamanioPayload + sizeof(header);
 	enviarPorSocket(socketYama,buffer,tamanioMensaje);
 	free(buffer);
+	log_info(masterLogger, "Se envio la ruta del archivo a procesar a YAMA");
 }
 
 void recibirPlanificacionDeYama(int socketYama){
@@ -403,6 +452,8 @@ void operarEtapas(){
 
 	enviarReduccionGlobalAWorkerEncargado();
 
+	avisarAlmacenadoFinal();
+
 	free(nodosTransformacion);
 }
 
@@ -496,10 +547,8 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
 			enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
 			free(buffer);
 			free(bufferMensaje);
-
-
 			printf("enviado a worker la reduccion local\n");
-
+			log_info(masterLogger, "Se envia operacion de reduccion local al worker %d.",nodoReduccion->idNodo);
 			avisarAYamaRedLocal(redLocalWorker, header);
 
 
@@ -514,7 +563,7 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
 }
 
 void enviarReduccionGlobalAWorkerEncargado(){
-	int i, socketWorkerEncargado;
+	int i, socketWorkerEncargado, nodoEncargado;
 	t_reduccionGlobalWorker redGlobalWorker;
 	t_reduccionGlobalMaster* redGlobalMaster;
 	t_datosNodoAEncargado* nodoWorker;
@@ -532,6 +581,7 @@ void enviarReduccionGlobalAWorkerEncargado(){
 			redGlobalWorker.rutaArchivoTemporal = malloc(redGlobalWorker.largoRutaArchivoTemporal);
 			strcpy(redGlobalWorker.rutaArchivoTemporal,redGlobalMaster->archivoRedGlobal);
 			socketWorkerEncargado = conectarseAWorker(redGlobalMaster->puerto,redGlobalMaster->ip);
+			nodoEncargado = redGlobalMaster->idNodo;
 		}
 		else{
 			nodoWorker = malloc(sizeof(t_datosNodoAEncargado));
@@ -574,6 +624,7 @@ void enviarReduccionGlobalAWorkerEncargado(){
 
 
 			printf("enviado a worker la reduccion global\n");
+			log_info(masterLogger, "Se envia la operacion de reduccion global al worker %d",nodoEncargado);
 
 			avisarAYamaRedGlobal(redGlobalWorker, header);
 
@@ -648,6 +699,33 @@ void avisarAYamaRedGlobal(t_reduccionGlobalWorker redGlobalWorker,t_header heade
 			free(buffer);
 }
 
+void avisarAlmacenadoFinal(){
+	int i,socketWorker, nodoEncargado;
+	t_reduccionGlobalMaster* redGlobalMaster;
+	for(i=0;i<list_size(listaRedGloblales);i++){
+	//redGlobalMaster = malloc(sizeof(t_reduccionGlobalMaster));
+	redGlobalMaster = list_get(listaRedGloblales,i);
+		if(redGlobalMaster->encargado == 1){
+			socketWorker = conectarseAWorker(redGlobalMaster->puerto,redGlobalMaster->ip);
+			nodoEncargado = redGlobalMaster->idNodo;
+		}
+	}
+
+	if(socketWorker== -1){
+		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
+	}
+
+	t_header header;
+	header.id = 35;
+
+	enviarPorSocket(socketWorker, &header,sizeof(t_header));
+
+	printf("se avisa al worker encargado (nodo %d) para almacenar el resultado del job\n",nodoEncargado);
+	log_info(masterLogger, "Se avisa al worker encargado (nodo %d) para almacenar el resultado del job.",nodoEncargado);
+
+
+}
+
 			// * Hilo conexion con cada worker   * ///
 
 void hiloConexionWorker(t_transformacionMaster* transformacion){
@@ -694,7 +772,7 @@ void hiloConexionWorker(t_transformacionMaster* transformacion){
 		free(buffer);
 		free(bufferMensaje);
 		printf("enviado a worker\n");
-
+		log_info(masterLogger, "Enviado transformacion a worker %d",transformacion->idNodo);
 
 
 		if(respuestaTransformacion(socketWorker) == 10){
@@ -710,6 +788,7 @@ void hiloConexionWorker(t_transformacionMaster* transformacion){
 	free(worker->archivoTransformador);
 	free(worker);
 }
+
 
 void disminuirTransformacionesDeNodo(int nodo){
 	int i;
