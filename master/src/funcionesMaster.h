@@ -12,13 +12,21 @@
 #include <utils.h>
 #include <commons/collections/list.h>
 
+//MACROS
+#define TRANSFORMACION 1
+#define REDUCCIONLOCAL 2
+#define REDUCCIONGLOBAL 3
+#define ERRORTRANSFORMACION -1
+#define ERRORREDUCCIONLOCAL -2
+#define ERRORREDUCCIONGLOBAL -3
+#define ALMACENAFINAL 9
+#define ERRORALMACENADOFINAL -4
 
-/*
-typedef struct rutaArchivo{
-	int tamanio;
-	char* ruta;
-}__attribute__((packed)) t_rutaArchivo;
-*/
+//MACROS YAMA
+#define PLANIFICACION 5
+//define RUTAARCHIVO 4
+//serializarRutaArchivo de utils crea un header con id = 5. Habria que sacarlo
+
 
 /* Utilizada para enviar la etapa de transformacion */
 	typedef struct{
@@ -57,11 +65,9 @@ typedef struct rutaArchivo{
 		char* archivoRedGlobal;
 	}t_reduccionGlobalMaster;
 
-
+/* Estructuras de conexion con Worker */
 	typedef struct{
-		//int socketWorker;
 		uint32_t bloqueATransformar;
-		//uint32_t bytesOcupados;
 		uint32_t etapa;
 		uint32_t largoRutaArchivo;
 		char* rutaArchivoTemporal;
@@ -105,7 +111,6 @@ typedef struct rutaArchivo{
 		char* rutaTemporalTransformacion;
 	}t_temporalesTransformacionWorker;
 
-
 	typedef struct{
 		uint32_t puerto;
 		uint32_t largoIp;
@@ -114,28 +119,42 @@ typedef struct rutaArchivo{
 		char* rutaArchivoReduccionLocal;
 	}t_datosNodoAEncargado;
 
+
+/* 		Variables Globales  	 */
+
+//listas globales
 t_list* listaTransformaciones;
 t_list* listaRedLocales;
 t_list* listaRedGloblales;
-t_transformacionesNodo* nodosTransformacion;
 
-t_log* masterLogger;
-char* ipYama;
+//semaforos
+pthread_mutex_t mutexMaximasTareas;
+pthread_mutex_t mutexTotalFallos;
+pthread_mutex_t mutexTotalTransformaciones;
+pthread_mutex_t mutexTotalReduccionesLocales;
+pthread_mutex_t mutexTotalReduccionesGlobales;
+
+//rutas de archivos por parametros
 char* transformador;
 char* reductor;
 char* archivoAprocesar;
 char* direccionDeResultado;
+//variables
+t_transformacionesNodo* nodosTransformacion;
+t_log* masterLogger;
+char* ipYama;
 int puertoYama, socketYama;
-
-
+int transformacionesPendientes, fallos;
+int cantidadTareasCorriendo, maximoTareasCorriendo;
+/* FIRMAS DE FUNCIONES  */
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
 int file_exists (char * fileName);
 void crearListas();
 void destruirListas();
-
+void inicializarMutex();
 void crearLogger();
-void cargarArchivoDeConfiguracion();
+t_config* cargarArchivoDeConfiguracion();
 
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
 int conectarseAYama(int puerto,char* ip);
@@ -173,9 +192,11 @@ void disminuirTransformacionesDeNodo(int);
 int devolverTamanioArchivo(char*);
 char* obtenerContenidoArchivo(char*);
 
-void avisarAYama(t_transformacionMaster*);
+void avisarAYama(t_transformacionMaster*,t_header);
 void avisarAYamaRedLocal(t_redLocalesWorker,t_header);
 void avisarAYamaRedGlobal(t_reduccionGlobalWorker,t_header);
 void avisarAlmacenadoFinal();
+
+void metricas();
 
 #endif /* FUNCIONESMASTER_H_ */

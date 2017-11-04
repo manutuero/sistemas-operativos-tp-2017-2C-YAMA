@@ -81,6 +81,17 @@ void destruirListas(){
 	list_destroy_and_destroy_elements(listaRedGloblales,free);
 }
 
+void inicializarMutex(){
+/*
+	if (pthread_mutex_init(&lock, NULL) != 0)
+	{
+	    printf("\n mutex init failed\n");
+	    return 1;
+	}
+	*/
+	pthread_mutex_init(&mutexMaximasTareas, NULL);
+}
+
 void masterEscuchando(int* socketMaster) {
 
 	struct sockaddr_in dir;
@@ -115,18 +126,18 @@ void crearLogger() {
 	char *logMasterFileName = strdup("masterLogs.log");
 	masterLogger = log_create(pathLogger, logMasterFileName, false, LOG_LEVEL_INFO);
 	free(logMasterFileName);
-
+	free(pathLogger);
 	logMasterFileName = NULL;
 }
 
-void cargarArchivoDeConfiguracion(){
+t_config* cargarArchivoDeConfiguracion(){
 	log_info(masterLogger, "Cargando archivo de configuracion del master.");
 	char* path = "masterConfig.cfg";
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
 	t_config *config = config_create(pathArchConfig);
-
+	free(pathArchConfig);
 
 	if (!config) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
@@ -144,36 +155,32 @@ void cargarArchivoDeConfiguracion(){
 	log_info(masterLogger, "Archivo de configuracion cargado exitosamente");
 	printf("Puerto: %d\n", puertoYama);
 	printf("IP YAMA: %s\n", ipYama);
+
+	return config;
 }
 
-
-//TODO se va a cambiar por hilos mas adelante
 void iniciarMaster(char* rutaTransformador,char* rutaReductor,char* archivoAprocesar,char* direccionDeResultado){
 
-	//int socketYama;
-
 	crearListas();
-
 	crearLogger();
-
-	cargarArchivoDeConfiguracion();
+	t_config* config = cargarArchivoDeConfiguracion();
 
 	socketYama = conectarseAYama(puertoYama,ipYama);
 
 	mandarRutaArchivoAYama(socketYama, archivoAprocesar);
 
-
 	recibirPlanificacionDeYama(socketYama);
 
-	//masterEscuchando(&socketMaster);
-
 	operarEtapas();
-
 
 	destruirListas();
 
 	log_info(masterLogger, "Finaliza la ejecucion del job");
 
+	metricas();
+
+	config_destroy(config);
+	log_destroy(masterLogger);
 }
 
 
@@ -408,6 +415,9 @@ void operarEtapas(){
 	int redLocales = list_size(listaRedLocales);
 	int redGlobales = list_size(listaRedGloblales);
 
+	inicializarMutex();
+
+
 	//t_transformacionesNodo nodosTransformacion[redGlobales];
 	nodosTransformacion = malloc(sizeof(t_transformacionesNodo)*transformaciones);
 
@@ -461,7 +471,7 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
 
 	int i;
 	t_transformacionMaster transformacion;
-
+	transformacionesPendientes = list_size(listaTransformaciones);
 
 	printf("enviar etapa de transformacion: \n");
 	for(i=0;i<list_size(listaTransformaciones);i++){
@@ -482,8 +492,8 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
 
 	}
 
-	/*
-	while(1){
+
+	while(transformacionesPendientes != 0){
 
 		for(i=0;i<list_size(listaRedGloblales);i++){
 			if(nodosTransformacion[i].cantidadTransformaciones == 0){
@@ -493,7 +503,7 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor){
 
 
 	}
-*/
+
 }
 
 void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
@@ -501,6 +511,14 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
 	t_reduccionLocalMaster redLocalMaster;
 	t_redLocalesWorker redLocalWorker;
 	t_temporalesTransformacionWorker* temporales;
+	t_header header;
+
+
+	pthread_mutex_lock(&mutexMaximasTareas);
+	cantidadTareasCorriendo++;
+	if(cantidadTareasCorriendo > maximoTareasCorriendo)
+		maximoTareasCorriendo++;
+	pthread_mutex_unlock(&mutexMaximasTareas);
 
 	redLocalWorker.etapa = 2;
 	redLocalWorker.largoRutaArchivoReductorLocal = strlen(nodoReduccion->archivoRedLocal);
@@ -525,6 +543,9 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
 
 	if(socketWorker == -1){
 			printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
+			header.id = ERRORREDUCCIONLOCAL;
+			header.tamanioPayload = 0;
+			enviarPorSocket(socketYama,&header,sizeof(t_header));
 		}
 
 	else {
@@ -534,10 +555,8 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
 			buffer = serializarReduccionLocalWorker(&redLocalWorker, &largoBuffer);
 			tamanioMensaje = largoBuffer+sizeof(t_header);
 			bufferMensaje = malloc(tamanioMensaje);
-			t_header header;
-			header.id = 31;
+			header.id = REDUCCIONLOCAL;
 			header.tamanioPayload = largoBuffer;
-
 			memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
 			desplazamiento += sizeof(uint32_t);
 			memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload, sizeof(uint32_t));
@@ -559,7 +578,9 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion){
 			list_destroy_and_destroy_elements(redLocalWorker.temporalesTranformacion,free);
 			free(redLocalWorker.archivoReductor);
 	}
-
+	pthread_mutex_lock(&mutexMaximasTareas);
+	cantidadTareasCorriendo--;
+	pthread_mutex_unlock(&mutexMaximasTareas);
 }
 
 void enviarReduccionGlobalAWorkerEncargado(){
@@ -567,6 +588,7 @@ void enviarReduccionGlobalAWorkerEncargado(){
 	t_reduccionGlobalWorker redGlobalWorker;
 	t_reduccionGlobalMaster* redGlobalMaster;
 	t_datosNodoAEncargado* nodoWorker;
+	t_header header;
 
 	redGlobalWorker.etapa = 3;
 	redGlobalWorker.largoArchivoReductor = devolverTamanioArchivo(reductor);
@@ -574,7 +596,6 @@ void enviarReduccionGlobalAWorkerEncargado(){
 	redGlobalWorker.nodosAConectar = list_create();
 
 	for(i=0;i<list_size(listaRedGloblales);i++){
-	//redGlobalMaster = malloc(sizeof(t_reduccionGlobalMaster));
 	redGlobalMaster = list_get(listaRedGloblales,i);
 		if(redGlobalMaster->encargado == 1){
 			redGlobalWorker.largoRutaArchivoTemporal = redGlobalMaster->largoArchivoRedGlobal;
@@ -600,6 +621,11 @@ void enviarReduccionGlobalAWorkerEncargado(){
 
 	if(socketWorkerEncargado == -1){
 		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
+		header.id = ERRORREDUCCIONGLOBAL;
+		header.tamanioPayload = 0;
+		enviarPorSocket(socketYama,&header,sizeof(t_header));
+		fallos++;
+		log_info(masterLogger,"no se pudo conectar al worker encargado de la reduccion global.");
 	}
 	else {
 			int tamanioMensaje, largoBuffer, desplazamiento = 0;
@@ -608,8 +634,7 @@ void enviarReduccionGlobalAWorkerEncargado(){
 			buffer = serializarReduccionGlobalWorker(&redGlobalWorker, &largoBuffer);
 			tamanioMensaje = largoBuffer+sizeof(t_header);
 			bufferMensaje = malloc(tamanioMensaje);
-			t_header header;
-			header.id = 32;
+			header.id = REDUCCIONGLOBAL;
 			header.tamanioPayload = largoBuffer;
 
 			memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
@@ -628,8 +653,6 @@ void enviarReduccionGlobalAWorkerEncargado(){
 
 			avisarAYamaRedGlobal(redGlobalWorker, header);
 
-
-
 			for(i=0;i<list_size(redGlobalWorker.nodosAConectar);i++){
 				free(((t_datosNodoAEncargado*)list_get(redGlobalWorker.nodosAConectar,i))->ip);
 				free(((t_datosNodoAEncargado*)list_get(redGlobalWorker.nodosAConectar,i))->rutaArchivoReduccionLocal);
@@ -643,10 +666,8 @@ void enviarReduccionGlobalAWorkerEncargado(){
 	free(redGlobalWorker.rutaArchivoTemporal);
 }
 
-void avisarAYama(t_transformacionMaster* transformacion) {
+void avisarAYama(t_transformacionMaster* transformacion,t_header headerResp) {
 	int desplazamiento;
-	t_header headerResp;
-	headerResp.id = 20;
 	headerResp.tamanioPayload = transformacion->largoArchivo+1;
 	void* buffer = malloc(sizeof(t_header) + headerResp.tamanioPayload);
 	desplazamiento = 0;
@@ -702,8 +723,9 @@ void avisarAYamaRedGlobal(t_reduccionGlobalWorker redGlobalWorker,t_header heade
 void avisarAlmacenadoFinal(){
 	int i,socketWorker, nodoEncargado;
 	t_reduccionGlobalMaster* redGlobalMaster;
+	t_header header;
+
 	for(i=0;i<list_size(listaRedGloblales);i++){
-	//redGlobalMaster = malloc(sizeof(t_reduccionGlobalMaster));
 	redGlobalMaster = list_get(listaRedGloblales,i);
 		if(redGlobalMaster->encargado == 1){
 			socketWorker = conectarseAWorker(redGlobalMaster->puerto,redGlobalMaster->ip);
@@ -713,10 +735,14 @@ void avisarAlmacenadoFinal(){
 
 	if(socketWorker== -1){
 		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
+		header.id = ERRORALMACENADOFINAL;
+		header.tamanioPayload = 0;
+		enviarPorSocket(socketYama,&header,sizeof(t_header));
+		fallos++;
+		log_info(masterLogger,"no se pudo conectar al worker encargado de la reduccion global.");
 	}
 
-	t_header header;
-	header.id = 35;
+	header.id = ALMACENAFINAL;
 
 	enviarPorSocket(socketWorker, &header,sizeof(t_header));
 
@@ -732,16 +758,19 @@ void hiloConexionWorker(t_transformacionMaster* transformacion){
 	t_transformacionWorker* worker;
 	void* buffer, *bufferMensaje;
 	int largoBuffer, tamanioMensaje, desplazamiento = 0;
+	t_header header;
+	pthread_mutex_lock(&mutexMaximasTareas);
+	cantidadTareasCorriendo++;
+	if(cantidadTareasCorriendo > maximoTareasCorriendo)
+		maximoTareasCorriendo++;
+	pthread_mutex_unlock(&mutexMaximasTareas);
 
 	worker = malloc(sizeof(t_transformacionWorker));
-//	worker->socketWorker = socketWorker;
 	worker->bloqueATransformar = transformacion->nroBloqueNodo;
-	//worker->bytesOcupados = transformacion->bytesOcupados;
 	worker->largoRutaArchivo = transformacion->largoArchivo+1;
 	worker->rutaArchivoTemporal = malloc(worker->largoRutaArchivo);
 	strcpy(worker->rutaArchivoTemporal,transformacion->archivoTransformacion);
 	worker->largoArchivoTransformador = devolverTamanioArchivo(transformador);
-	//worker->archivoTransformador = malloc(worker->largoArchivoTransformador);
 	worker->archivoTransformador = obtenerContenidoArchivo(transformador);
 	worker->etapa = 1; //DEFINIR MACRO TRANSFORMACION
 
@@ -753,13 +782,15 @@ void hiloConexionWorker(t_transformacionMaster* transformacion){
 
 	if(socketWorker == -1){
 		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
+		header.id = ERRORTRANSFORMACION;
+		header.tamanioPayload = 0;
+		enviarPorSocket(socketYama,&header,sizeof(t_header));
 	}
 	else {
 		buffer = serializarTransformacionWorker(worker, &largoBuffer);
 		tamanioMensaje = largoBuffer+sizeof(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
-		t_header header;
-		header.id = 3;
+		header.id = TRANSFORMACION;
 		header.tamanioPayload = largoBuffer;
 
 		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
@@ -780,13 +811,18 @@ void hiloConexionWorker(t_transformacionMaster* transformacion){
 			//entre mutex
 			disminuirTransformacionesDeNodo(transformacion->idNodo);
 
-			avisarAYama(transformacion);
+			avisarAYama(transformacion, header);
 
 		}
 	}
 	free(worker->rutaArchivoTemporal);
 	free(worker->archivoTransformador);
 	free(worker);
+
+
+	pthread_mutex_lock(&mutexMaximasTareas);
+	cantidadTareasCorriendo--;
+	pthread_mutex_unlock(&mutexMaximasTareas);
 }
 
 
@@ -796,6 +832,7 @@ void disminuirTransformacionesDeNodo(int nodo){
 		if(nodosTransformacion[i].idNodo==nodo)
 			nodosTransformacion[i].cantidadTransformaciones--;
 	}
+	transformacionesPendientes--;
 }
 
 int conectarseAWorker(int puerto, char* ip){
@@ -829,8 +866,6 @@ void* serializarTransformacionWorker(t_transformacionWorker* worker, int* largoB
 	buffer = malloc(tamanioBuffer);
 	memcpy(buffer+desplazamiento, &worker->bloqueATransformar, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	//memcpy(buffer+desplazamiento, &worker->bytesOcupados, sizeof(uint32_t));
-	//desplazamiento += sizeof(uint32_t);
 	memcpy(buffer+desplazamiento, &worker->etapa, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer+desplazamiento, &worker->largoRutaArchivo, sizeof(uint32_t));
@@ -858,8 +893,6 @@ void* serializarReduccionLocalWorker(t_redLocalesWorker* redLocalWorker, int* la
 			redLocalWorker->largoRutaArchivoReductorLocal;
 
 	buffer = malloc(tamanioBuffer);
-
-	//llenar el memcpy de redLocal
 
 	memcpy(buffer+desplazamiento, &redLocalWorker->etapa, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -899,7 +932,7 @@ void* serializarReduccionGlobalWorker(t_reduccionGlobalWorker* redGlobalWorker,i
 	tamanioBuffer = 4 * sizeof(uint32_t) + redGlobalWorker->largoArchivoReductor +
 			redGlobalWorker->largoRutaArchivoTemporal;
 	buffer = malloc(tamanioBuffer);
-		//llenar el memcpy de redLocal
+
 	memcpy(buffer+desplazamiento, &redGlobalWorker->etapa, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer+desplazamiento, &redGlobalWorker->largoRutaArchivoTemporal, sizeof(uint32_t));
@@ -945,6 +978,12 @@ int respuestaTransformacion(int socketWorker){
 	//respuesta = atoi(buffer);
 	free(buffer);
 	return respuesta;
+}
+
+void metricas(){
+	printf("--metricas--\n");
+	printf("cantidad maxima de tareas de transformacion y reduccion local en paralelo: %d\n",maximoTareasCorriendo);
+	printf("cantidad de fallos obtenidos: %d\n",fallos);
 }
 
 int devolverTamanioArchivo(char* archivo){
