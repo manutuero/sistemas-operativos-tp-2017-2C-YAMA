@@ -95,7 +95,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	t_infoNodo *infoNodo = malloc(sizeof(t_infoNodo));
 	infoNodo->sdNodo = 0;
 	infoNodo->idNodo = atoi(ID_NODO);
-	infoNodo->cantidadBloques = 300;
+	infoNodo->cantidadBloques = 15;
 	int largoIp = strlen(IP_FILESYSTEM);
 	infoNodo->ip = malloc(largoIp + 1);
 	strcpy(infoNodo->ip, IP_FILESYSTEM);
@@ -146,7 +146,7 @@ void setBloque(int numero, char* datos) {
 		exit(EXIT_FAILURE);
 	}
 
-	strncpy(regionDeMapeo, datos, bytesAEscribir);
+	memcpy(regionDeMapeo, datos, bytesAEscribir);
 	// Libero la region de mapeo solicitada.
 	munmap(regionDeMapeo, bytesAEscribir);
 }
@@ -178,7 +178,7 @@ char* getBloque(int numero) {
 		exit(EXIT_FAILURE);
 	}
 
-	strncpy(data, regionDeMapeo, bytesALeer);
+	memcpy(data, regionDeMapeo, bytesALeer);
 	munmap(regionDeMapeo, bytesALeer); // Libero la region de mapeo solicitada.
 	return data;
 	free(regionDeMapeo);
@@ -225,7 +225,7 @@ void escucharFileSystem(int socketFs) {
 				MSG_WAITALL);
 				bloqueRecibido = malloc(UN_BLOQUE);
 				recibirPorSocket(socketFs, bloqueRecibido, UN_BLOQUE);//Recibo directamente ya que solo es un numero
-				setBloque(*(int*) numeroDeBloqueRecibido,
+setBloque(*(int*) numeroDeBloqueRecibido,
 						(char*) bloqueRecibido);
 				int *respuesta = malloc(sizeof(uint32_t));
 				printf("Bloque guardado Nº: %d",*(int*)numeroDeBloqueRecibido);
