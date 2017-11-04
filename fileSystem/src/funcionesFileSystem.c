@@ -323,17 +323,20 @@ void* esperarConexionesDatanodes() {
 	}
 }
 
-void* serializarSetBloque(void *bloque, uint32_t numBloque) {
-	uint32_t *numeroBloque = malloc(sizeof(uint32_t));
-	*numeroBloque = numBloque;
-	t_header *header = malloc(sizeof(t_header));
-	//header->id=malloc(sizeof(uint32_t));
-	header->id = 4; // solicitud escribir bloque
-	header->tamanioPayload = UN_BLOQUE + sizeof(uint32_t);
-	int desplazamiento = 0;
-	void *paquete = malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
+void* serializarSetBloque(void *contenido, uint32_t nroBloqueDatabin) {
+	void *paquete;
+	int desplazamiento = 0, bytesACopiar = 0;
 
-	int bytesACopiar = sizeof(uint32_t);
+	// Preparo el header del paquete (id + tamanio payload = 8 bytes).
+	t_header *header = malloc(sizeof(t_header));
+	header->id = 4; // solicitud escribir bloque
+	// header->tamanioPayload = nroBloqueDatabin + bloque->contenido
+	header->tamanioPayload = sizeof(uint32_t) + UN_BLOQUE;
+
+	paquete = malloc(sizeof(uint32_t) * 3 + UN_BLOQUE);
+
+	// Serializo.
+	bytesACopiar = sizeof(uint32_t);
 	memcpy(paquete + desplazamiento, &header->id, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
@@ -342,22 +345,34 @@ void* serializarSetBloque(void *bloque, uint32_t numBloque) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(paquete + desplazamiento, numeroBloque, bytesACopiar);
+	memcpy(paquete + desplazamiento, &nroBloqueDatabin, bytesACopiar);
 	desplazamiento += bytesACopiar;
-	//copia el bloque al paquete, el tamanio de payload es la suma del bloque y el numero de bloque
-	memcpy(paquete + desplazamiento, bloque, UN_BLOQUE);
-	free(numeroBloque);
+
+	memcpy(paquete + desplazamiento, contenido, UN_BLOQUE);
+
+	// Libero recursos.
 	free(header);
 	return paquete;
 }
 
-int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
-	int rta;
-	void *paquete = serializarSetBloque(bloque, numeroBloque);
-	send(socketNodo, paquete, UN_BLOQUE + sizeof(uint32_t) * 3, 0);
-	void *respuesta = malloc(sizeof(uint32_t));
+int guardarBloqueEnNodoCopia0(t_bloque *bloque) {
+	int bytesEnviados, bytesAEnviar, rta, socketNodo;
+	void *paquete, *respuesta;
 
-	// No hubo error en el send.
+	bytesAEnviar = sizeof(uint32_t) * 3 + UN_BLOQUE;
+	socketNodo = bloque->nodoCopia0->socketDescriptor;
+	paquete = serializarSetBloque(bloque->contenido,
+			bloque->numeroBloqueCopia0);
+
+	// Envio el paquete.
+	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
+	if (bytesEnviados < bytesAEnviar) {
+		fprintf(stderr, "[ERROR]: no se pudo enviar todo el paquete.\n");
+		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+	}
+
+	// Si se envio bien espero la respuesta.
+	respuesta = malloc(sizeof(uint32_t));
 	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
 		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
 			rta = GUARDO_BLOQUE_OK;
@@ -368,6 +383,41 @@ int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo) {
 	} else {
 		rta = ERROR_AL_RECIBIR_RESPUESTA;
 	}
+
+	free(respuesta);
+	free(paquete);
+	return rta;
+}
+
+int guardarBloqueEnNodoCopia1(t_bloque *bloque) {
+	int bytesEnviados, bytesAEnviar, socketNodo, rta;
+	void *paquete, *respuesta;
+
+	bytesAEnviar = sizeof(uint32_t) * 3 + UN_BLOQUE;
+	socketNodo = bloque->nodoCopia1->socketDescriptor;
+	paquete = serializarSetBloque(bloque->contenido,
+			bloque->numeroBloqueCopia1);
+
+	// Envio el paquete.
+	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
+	if (bytesEnviados < bytesAEnviar) {
+		fprintf(stderr, "[ERROR]: no se pudo enviar todo el paquete.\n");
+		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+	}
+
+	// Si se envio bien espero la respuesta.
+	respuesta = malloc(sizeof(uint32_t));
+	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
+		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
+			rta = GUARDO_BLOQUE_OK;
+		} else {
+			printf("[Error]: no se guardo el bloque.\n");
+			rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+		}
+	} else {
+		rta = ERROR_AL_RECIBIR_RESPUESTA;
+	}
+
 	free(respuesta);
 	free(paquete);
 	return rta;
@@ -420,12 +470,12 @@ int traerBloqueNodo(t_bloque *bloque) {
 	if (socketNodo == NO_DISPONIBLE) {
 		fprintf(stderr,
 				"[ERROR]: el bloque numero '%d' no esta disponible en el sistema.\n",
-				bloque->numeroBloque);
+				nroBloqueDatabin);
 		return NO_DISPONIBLE;
 	}
 
 	void *paquete = malloc(sizeof(uint32_t) * 2);
-	serializarHeaderTraerBloque(3, bloque->numeroBloque, paquete); // Aca puede estar el error, bloque->numeroBloque es del data.bin del datanode ?? si es asi esto esta mal
+	serializarHeaderTraerBloque(3, nroBloqueDatabin, paquete);
 	int bytesEnviados = enviarPorSocket(socketNodo, paquete, 0);
 	if (bytesEnviados <= 0) {
 		fprintf(stderr, "[ERROR]: fallo al enviar peticion al nodo.\n");
@@ -666,8 +716,8 @@ void crearDirectorioMetadata() {
 		system(comando);
 	}
 
-	crearTablaDeDirectorios();
 	crearDirectorioArchivos();
+	crearTablaDeDirectorios();
 	crearTablaDeNodos();
 	crearDirectorioBitmaps();
 
@@ -787,7 +837,6 @@ void restaurarTablaDeDirectorios() {
 		fread(&directorios[i], sizeof(t_directory), 1, filePointer);
 	}
 
-	mostrar(4);
 	fclose(filePointer);
 }
 
@@ -1321,11 +1370,6 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		bloque->nodoCopia0->idNodo = atoi(valores[ID_NODO]);
 		bloque->numeroBloqueCopia0 = atoi(valores[NRO_BLOQUE_DATABIN]);
 
-		// Borrar
-		printf("i: %d\n", i);
-		printf("BLOQUEiCOPIA0: %d\n", bloque->nodoCopia0->idNodo);
-		printf("Nro bloque copia0 databin: %d\n", bloque->numeroBloqueCopia0);
-
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
@@ -1339,9 +1383,6 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		bloque->nodoCopia1->idNodo = atoi(valores[ID_NODO]);
 		bloque->numeroBloqueCopia1 = atoi(valores[NRO_BLOQUE_DATABIN]);
 
-		printf("BLOQUEiCOPIA1: %d\n", bloque->nodoCopia1->idNodo);
-		printf("Nro bloque copia1 databin: %d\n", bloque->numeroBloqueCopia1);
-
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
@@ -1352,8 +1393,6 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		string_append(&clave, "BYTES");
 		bloque->bytesOcupados = config_get_int_value(diccionario, clave);
 		free(clave);
-
-		printf("BLOQUEiBYTES: %d\n", bloque->bytesOcupados);
 
 		list_add(archivo->bloques, bloque);
 	}

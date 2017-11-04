@@ -40,8 +40,8 @@ char* leerArchivo(char *pathArchivo) {
 	}
 	contenido[archivo->tamanio]='\0';
 	// Habria que liberar la lista de bloques, el archivo...para que no hayan leaks en cada llamado.
-	FILE* fp=fopen("/home/utnso/recuperados/archRecuperado.jpeg","w");
-	fwrite(contenido,sizeof(char),archivo->tamanio,fp);
+	FILE* fp=fopen("/home/utnso/thePonchos/prueba-recuperada.txt","w");
+	fwrite(contenido, sizeof(char),archivo->tamanio, fp);
 	fclose(fp);
 	return contenido;
 }
@@ -51,7 +51,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	t_list *bloques, *nodosAux = copiarListaNodos(nodos);
 	t_bloque *bloque;
 	int i, respuesta, tamanio = 0;
-	t_nodo *nodo1, *nodo2;
+	t_nodo *nodoCopia0, *nodoCopia1;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
@@ -67,19 +67,19 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		ordenarListaNodos(nodosAux);
 		bloque = list_get(bloques, i);
 
-		nodo1 = list_get(nodosAux, 0);
-		nodo2 = list_get(nodosAux, 1);
+		nodoCopia0 = list_get(nodosAux, 0);
+		nodoCopia1 = list_get(nodosAux, 1);
 
-		bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(nodo1->bitmap,
-				nodo1->bloquesTotales);
-		bloque->nodoCopia0 = nodo1;
+		bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(nodoCopia0->bitmap,
+				nodoCopia0->bloquesTotales);
+		bloque->nodoCopia0 = nodoCopia0;
 
-		bloque->numeroBloqueCopia1 = obtenerYReservarBloqueBitmap(nodo2->bitmap,
-				nodo2->bloquesTotales);
-		bloque->nodoCopia1 = nodo2;
+		bloque->numeroBloqueCopia1 = obtenerYReservarBloqueBitmap(nodoCopia1->bitmap,
+				nodoCopia1->bloquesTotales);
+		bloque->nodoCopia1 = nodoCopia1;
 
-		nodo1->bloquesLibres--;
-		nodo2->bloquesLibres--;
+		nodoCopia0->bloquesLibres--;
+		nodoCopia1->bloquesLibres--;
 
 		if (bloque->numeroBloqueCopia0 == ESTA_LLENO
 				|| bloque->numeroBloqueCopia1 == ESTA_LLENO) {
@@ -95,15 +95,13 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	for (i = 0; i < bloques->elements_count; i++) {
 		bloque = list_get(bloques, i);
 
-		respuesta = guardarBloqueEnNodo(bloque->numeroBloqueCopia0,
-				bloque->contenido, bloque->nodoCopia0->socketDescriptor);
+		respuesta = guardarBloqueEnNodoCopia0(bloque);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;
 		}
 
-		respuesta = guardarBloqueEnNodo(bloque->numeroBloqueCopia1,
-				bloque->contenido, bloque->nodoCopia1->socketDescriptor);
+		respuesta = guardarBloqueEnNodoCopia1(bloque);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;
@@ -362,9 +360,6 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	int i;
 	t_bloque *bloque;
 	t_list *bloques = archivo->bloques;
-
-	// Agrego la nueva entrada en la lista de archivos en el sistema.
-	list_add(archivos, archivo);
 
 	char *clave, *valor, *path = string_new();
 	string_append(&path, PATH_METADATA);

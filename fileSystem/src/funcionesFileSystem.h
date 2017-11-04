@@ -116,11 +116,15 @@ int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin);
 // Crea un array de tipo t_bitmap y lo carga al archivo.
 char* persistirBitmap(uint32_t idNodo, int tamanioDatabin);
 char* obtenerPathBitmap(int);
+int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 
 /* Firmas de funciones para mensajes */
 void* esperarConexionesDatanodes();
 void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header);
 t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
+int guardarBloqueEnNodoCopia0(t_bloque *bloque);
+int guardarBloqueEnNodoCopia1(t_bloque *bloque);
+int traerBloqueNodo(t_bloque *bloque);
 
 /* Firmas de funciones para directorios */
 void crearTablaDeDirectorios();
@@ -167,9 +171,6 @@ void restaurarTablaDeArchivos();
 /* Auxiliares */
 char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
-int traerBloqueNodo(t_bloque *bloque);
-int guardarBloqueEnNodo(uint32_t numeroBloque, void *bloque, int socketNodo);
-int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 t_list* copiarListaNodos(t_list *lista);
 int lastIndexOf(char *cadena, char caracter);
 

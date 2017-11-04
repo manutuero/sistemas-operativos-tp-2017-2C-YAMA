@@ -16,11 +16,10 @@ int main(int argc, char **argv) {
 			archivos = list_create();
 			nodos = list_create();
 			restaurarEstructurasAdministrativas();
-			puts(
-					"Hay estado anterior.. para las pruebas borrar la carpeta metadata"); // borrar luego :p
+			puts("Hay estado anterior..");
 		} else {
 			crearDirectorioMetadata();
-			puts("No hay estado anterior. Esperando datanodes..."); // borrar luego :p
+			puts("No hay estado anterior. Esperando datanodes...");
 		}
 
 		// Espera que se conecten todos los datanodes para alcanzar un estado "estable", no dejar entrar a YAMA hasta que eso pase.
