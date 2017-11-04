@@ -113,7 +113,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 }
 
 void setBloque(int numero, char* datos) {
-	size_t bytesAEscribir = strlen(datos), tamanioArchivo;
+	size_t bytesAEscribir = UN_BLOQUE, tamanioArchivo;
 	off_t desplazamiento = numero * UN_BLOQUE;
 	char *regionDeMapeo;
 
