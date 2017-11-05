@@ -89,7 +89,7 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "cpfrom")) {
-				invocarFuncionCpfrom(argumentos);
+				ejecutarCpfrom(argumentos);
 				break;
 			}
 

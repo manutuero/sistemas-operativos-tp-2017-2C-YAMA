@@ -395,43 +395,6 @@ int guardarBloqueEnNodo(t_bloque *bloque, int COPIA) {
 	return rta;
 }
 
-/*int guardarBloqueEnNodoCopia1(t_bloque *bloque) {
-	int bytesEnviados, bytesAEnviar, socketNodo, rta;
-	void *paquete, *respuesta;
-
-	bytesAEnviar = sizeof(uint32_t) * 3 + UN_BLOQUE;
-	socketNodo = bloque->nodoCopia1->socketDescriptor;
-	paquete = serializarSetBloque(bloque->contenido,
-			bloque->numeroBloqueCopia1);
-
-	// Envio el paquete.
-	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
-	if (bytesEnviados < bytesAEnviar) {
-		fprintf(stderr, "[ERROR]: no se pudo enviar todo el paquete.\n");
-		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
-	}
-
-	// Si se envio bien espero la respuesta.
-	respuesta = malloc(sizeof(uint32_t));
-	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
-		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
-			rta = GUARDO_BLOQUE_OK;
-		} else {
-			printf("[Error]: no se guardo el bloque.\n");
-			rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
-		}
-	} else {
-		rta = ERROR_AL_RECIBIR_RESPUESTA;
-	}
-
-	free(respuesta);
-	free(paquete);
-	return rta;
-}
-*/
-/* Verifica si alguno de los 2 nodos (copia0/copia1) esta conectado,
- * devolviendo el socketDescriptor del primero que encuentra o un flag si no encontro ninguno.
- */
 int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin) {
 	int i;
 	t_nodo *nodo;
@@ -1409,3 +1372,114 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 
 	return archivo;
 }
+
+/* 0: binario (o shell script, ver si esta bien considerarlo asi).
+ * 1: de texto.
+ * -1: fallo en la busqueda.
+ */
+int obtenerTipo(char *pathArchivo) {
+	/* El pipeline es unidireccional, si quiero que mi proceso
+	 * padre le envie algo al hijo y que tambien reciva del hijo tengo que tener 2 pipes. */
+	int tipo, status, pipe_padreAHijo[2], pipe_hijoAPadre[2];
+	char *buffer, *comando;
+	pid_t pid = 0;
+
+	// Reservo un buffer para guardar el resultado del script.
+	buffer = string_new();
+
+	// Preparo el comando.
+	comando = string_new();
+	string_append(&comando, "/home/utnso/thePonchos/obtenerTipo.sh ");
+	string_append(&comando, pathArchivo);
+
+	// Creo los pipes, pidiendole a la funcion los fileDescriptors que seran los extremos del "tubo" que se habra construido.
+	pipe(pipe_padreAHijo);
+	pipe(pipe_hijoAPadre);
+
+	// Creo un proceso hijo.
+	pid = fork();
+	/* Con esta sentencia ya cree un proceso hijo, devuelve 0 si la operacion salio bien,
+	 *  no es el PID del proceso hijo sino un PID de referencia para el padre. */
+	if (pid == 0) {
+		// Aca estamos ejecutando lo que va a correr el proceso hijo.
+
+		/* Lo que hace dup2() es duplicar un fd, creando una copia del mismo en donde yo le diga.
+		 En este caso, estoy cambiando el fd de la entrada estandar del proceso hijo (STDIN_FILENO)
+		 por el fd de uno de los extremos del pipe padre->hijo, precisamente la salida:
+		 (pipe_padreAHijo[0], aca es donde el hijo debe leer lo que el padre le escribe).
+
+		 Tambien estoy reemplazando el fd de la salida estadar del hijo (STDOUT_FILENO),
+		 por el extremo de entrada del pipe hijo->padre:
+		 (pipe_hijoAPadre[1], aca es donde el padre debe leer lo que el hijo le escribe). */
+		dup2(pipe_padreAHijo[0], STDIN_FILENO);
+		dup2(pipe_hijoAPadre[1], STDOUT_FILENO);
+		/* Regla de oro para los pipes: 0 es lectura, 1 es escritura. */
+
+		// Cierro los extremos del ambos pipes, ya que cuando ejecute el proceso hijo estos se duplicaran lo cual puede traer errores no deseados.
+		close(pipe_padreAHijo[0]);
+		close(pipe_padreAHijo[1]);
+		close(pipe_hijoAPadre[0]);
+		close(pipe_hijoAPadre[1]);
+
+		system(comando);
+		exit(1); // Fin del hijo.
+	} else {
+		// Vamos con el padre..
+		close(pipe_padreAHijo[0]); // Lado de lectura de lo que el padre le pasa al hijo.
+		close(pipe_hijoAPadre[1]); // Lado de escritura de lo que hijo le pasa al padre.
+
+		/* Aca cierro los fds que no me interesan porque son los que esta usando el hijo,
+		 * tambien los cierros por el tema del duplicado explicado mas arriba. Me quedan los otros 2 que son:
+		 *
+		 + pipe_padreAHijo[1] -> Lado de escritura de lo que el padre le pasa al hijo.
+		 + pipe_hijoAPadre[0] -> Lado de lectura de lo que el hijo le pasa al padre. */
+
+		/* Escribo en el proceso hijo. Cuando el este lo reciba, lo va a recibir como entrada estandar.
+		 Le estoy mandando el path del archivo al script. */
+		write(pipe_padreAHijo[1], pathArchivo, strlen(pathArchivo));
+
+		// Como termine de escribir cierro esta parte del pipe.
+		close(pipe_padreAHijo[1]);
+
+		waitpid(pid, &status, 0);
+		/* Esto es el "mata zombies", lo que hace waitpid es esperar a que el proceso hijo termine. Se logra el mismo resultado con wait().
+		 * Espera el cambio de estado del proceso hijo (pid) y guarda el trace en ejecucion
+		 * (lo guarda en status, segun lo que yo quiera consultar puedo, por ejemplo, saber si el hijo recibio una señal,
+		 * cual fue su exitcode, etc... a nosotros no nos interesa nada de eso y no lo vamos a usar,
+		 * entonces ponemos un 0 en el ultimo argumento, que son las opciones de trace, para indicar eso).
+
+		 ----- Mientras tanto el padre se queda bloqueado -----.
+		 Si no se hace esto, cuando el hijo termine la ejecucion por exit() no va a poder irse
+		 ya que la entrada del proceso hijo en la tabla de procesos del sistema operativo
+		 sigue estando para que el padre lea el codigo de salida.
+		 El proceso hijo se encuentra en un estado de terminacion que se lo conoce como "zombie",
+		 tecnicamente esta muerto porque hizo un exit pero sigue vivo en la tabla de procesos.
+
+		 Esto se debe que la llamada de wait() o waitpid() permite al padre leer el exitcode o codigo de salida del hijo.
+		 Si el padre nunca se entero que el hijo esta muerto, el SO no lo puede sacar (salvo a la fuerza).
+
+		 ¿Que problemas trae un proceso zombie? No muchos en cuestion de memoria porque no usan recursos del sistema,
+		 sin embargo tienen un PID asignado por el SO, del cual el sistema operativo tiene un numero finitos de estos.
+		 Un zombie no causa muchos problemas. Varios zombies me limitan la cantidad de procesos que puedo ejecutar,
+		 si estamos debuggeando un programa que cree zombies sin querer nos puede limitar el numero de procesos disponibles.
+		 Por eso es importante matarlos. */
+
+		/* Leo de un proceso hijo, ahora el resultado de mi script se encuentra en "caracter" y tiene un tamaño SIZE.
+		 * Como termine de leer cierro el extremo del pipe. */
+		read(pipe_hijoAPadre[0], buffer, 1);
+		close(pipe_hijoAPadre[0]);
+	}
+
+	// Determino el resultado de la operacion.
+	if (isdigit(buffer[0])) {
+		tipo = buffer[0] - '0'; // Convierto a int restandole la base '0' (48 ascii)
+	} else {
+		tipo = -1;
+	}
+
+	// Libero recursos.
+	free(comando);
+	free(buffer);
+	return tipo;
+}
+

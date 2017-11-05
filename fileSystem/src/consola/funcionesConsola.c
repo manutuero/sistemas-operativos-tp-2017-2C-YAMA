@@ -37,10 +37,7 @@ char** cargarArgumentos(char* linea) {
 
 void ejecutarFormat(char **argumentos) {
 	persistirTablaDeNodos();
-
-	// ---- Borrar luego
-
-	// ----
+	// Hacer format..
 }
 
 char* invocarFuncionRm(char **argumentos) {
@@ -270,26 +267,31 @@ void ejecutarMv(char **argumentos) {
 	free(pathFinal);
 }
 
-char* invocarFuncionCpfrom(char **argumentos) {
-	if (esValido(argumentos[2])) {
-		//printf("funcion cpfrom\n");
-		//printf("Los argumentos son: %s y %s\n", argumentos[1], argumentos[2]);
-		FILE *datos = fopen(argumentos[1], "r");
-		if (!datos) {
-			fprintf(stderr, "\nEl archivo '%s' no existe.\n", argumentos[1]);
-			return"";
-		}
-		//Tener en cuenta si no se guarda bien de devolver un error
-		char *nombreArchivo=obtenerNombreArchivo(argumentos[1]);
-		//agregar funcion que dice si es binario o de texto.
-		almacenarArchivo(argumentos[2], nombreArchivo, BINARIO, datos);
-		//almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
-		fclose(datos);
+void ejecutarCpfrom(char **argumentos) {
+	char tipo;
+	char *pathArchivoOrigen, *pathDirectorioYamaFs;
 
+	pathArchivoOrigen = argumentos[1];
+	pathDirectorioYamaFs = argumentos[2];
+
+	// Validaciones.
+	if (esValido(pathDirectorioYamaFs)) {
+		FILE *datos = fopen(pathArchivoOrigen, "r");
+		if (!datos) {
+			fprintf(stderr, "\nEl archivo '%s' no existe.\n",
+					pathArchivoOrigen);
+			return;
+		}
+
+		// Tener en cuenta si no se guarda bien de devolver un error (si no estan conectados los datanodes ?)
+		char *nombreArchivo = obtenerNombreArchivo(pathArchivoOrigen);
+		tipo = obtenerTipo(pathArchivoOrigen);
+		// CONSIDERAR ENVIAR LAS COPIAS DE CADA BLOQUE EN 2 HILOS DIFERENTES!
+		almacenarArchivo(pathDirectorioYamaFs, nombreArchivo, tipo, datos);
+		fclose(datos);
 	} else
-		printf("Los parametros ingresados: %s,%s no son validos\n",
-				argumentos[1], argumentos[2]);
-	return "<default>";
+		printf("Los parametros ingresados: %s, %s no son validos.\n",
+				pathArchivoOrigen, pathDirectorioYamaFs);
 }
 
 void ejecutarCpto(char **argumentos) {

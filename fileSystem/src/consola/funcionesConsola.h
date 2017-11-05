@@ -28,7 +28,7 @@ void  ejecutarLs(char **argumentos);
 void  ejecutarInfo(char **argumentos);
 void  ejecutarRename(char **argumentos);
 void  ejecutarMv(char **argumentos);
-char* invocarFuncionCpfrom(char**);
+void  ejecutarCpfrom(char **argumentos);
 void  ejecutarCpto(char **argumentos);
 char* invocarFuncionCpblok(char**);
 void* levantarConsola();

@@ -9,6 +9,7 @@
 #include "test/suite.h"
 #include "utils.h"
 #include <semaphore.h> // Para probar...
+#include <sys/wait.h>
 #define BACKLOG 3
 #define CANTIDAD_DIRECTORIOS 100
 
@@ -156,6 +157,7 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal);
 void renombrarDirectorio(char *pathOriginal, char *nombreFinal);
 void moverArchivo(char *pathOriginal, t_directorio pathFinal);
 t_archivo_a_persistir* abrirArchivo(char *path);
+int obtenerTipo(char *pathArchivo);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
