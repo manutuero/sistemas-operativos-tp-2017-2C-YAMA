@@ -40,7 +40,7 @@ char* leerArchivo(char *pathArchivo) {
 	}
 	contenido[archivo->tamanio]='\0';
 	// Habria que liberar la lista de bloques, el archivo...para que no hayan leaks en cada llamado.
-	FILE* fp=fopen("/home/utnso/thePonchos/prueba-recuperada.txt","w");
+	FILE* fp=fopen("/home/utnso/thePonchos/prueba-recuperada.jpg","w");
 	fwrite(contenido, sizeof(char),archivo->tamanio, fp);
 	fclose(fp);
 	return contenido;
@@ -95,13 +95,13 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	for (i = 0; i < bloques->elements_count; i++) {
 		bloque = list_get(bloques, i);
 
-		respuesta = guardarBloqueEnNodoCopia0(bloque);
+		respuesta = guardarBloqueEnNodo(bloque,0);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;
 		}
 
-		respuesta = guardarBloqueEnNodoCopia1(bloque);
+		respuesta = guardarBloqueEnNodo(bloque,1);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;

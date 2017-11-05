@@ -355,15 +355,21 @@ void* serializarSetBloque(void *contenido, uint32_t nroBloqueDatabin) {
 	return paquete;
 }
 
-int guardarBloqueEnNodoCopia0(t_bloque *bloque) {
+int guardarBloqueEnNodo(t_bloque *bloque, int COPIA) {
 	int bytesEnviados, bytesAEnviar, rta, socketNodo;
 	void *paquete, *respuesta;
 
-	bytesAEnviar = sizeof(uint32_t) * 3 + UN_BLOQUE;
-	socketNodo = bloque->nodoCopia0->socketDescriptor;
-	paquete = serializarSetBloque(bloque->contenido,
-			bloque->numeroBloqueCopia0);
+	bytesAEnviar = sizeof(uint32_t) + UN_BLOQUE;
 
+	if (COPIA == 0) { //COPIA 0
+		socketNodo = bloque->nodoCopia0->socketDescriptor;
+		paquete = serializarSetBloque(bloque->contenido,
+				bloque->numeroBloqueCopia0);
+	} else { //COPIA 1
+		socketNodo = bloque->nodoCopia1->socketDescriptor;
+		paquete = serializarSetBloque(bloque->contenido,
+				bloque->numeroBloqueCopia1);
+	}
 	// Envio el paquete.
 	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
 	if (bytesEnviados < bytesAEnviar) {
@@ -389,7 +395,7 @@ int guardarBloqueEnNodoCopia0(t_bloque *bloque) {
 	return rta;
 }
 
-int guardarBloqueEnNodoCopia1(t_bloque *bloque) {
+/*int guardarBloqueEnNodoCopia1(t_bloque *bloque) {
 	int bytesEnviados, bytesAEnviar, socketNodo, rta;
 	void *paquete, *respuesta;
 
@@ -422,7 +428,7 @@ int guardarBloqueEnNodoCopia1(t_bloque *bloque) {
 	free(paquete);
 	return rta;
 }
-
+*/
 /* Verifica si alguno de los 2 nodos (copia0/copia1) esta conectado,
  * devolviendo el socketDescriptor del primero que encuentra o un flag si no encontro ninguno.
  */

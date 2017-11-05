@@ -39,14 +39,14 @@ void ejecutarFormat(char **argumentos) {
 	persistirTablaDeNodos();
 
 	// ---- Borrar luego
-	char *path = "/home/utnso/thePonchos/prueba.txt";
+	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
 	FILE *datos = fopen(path, "r");
 	if (!datos) {
 		fprintf(stderr, "\nEl archivo '%s' no existe.\n", path);
 		return;
 	}
 
-	almacenarArchivo("/root", "prueba.txt", TEXTO, datos);
+	almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
 	//almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
 	fclose(datos);
 	// ----

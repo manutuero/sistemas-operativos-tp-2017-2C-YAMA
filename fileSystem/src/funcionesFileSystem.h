@@ -122,8 +122,7 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 void* esperarConexionesDatanodes();
 void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header);
 t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
-int guardarBloqueEnNodoCopia0(t_bloque *bloque);
-int guardarBloqueEnNodoCopia1(t_bloque *bloque);
+int guardarBloqueEnNodo(t_bloque *bloque,int COPIA);
 int traerBloqueNodo(t_bloque *bloque);
 
 /* Firmas de funciones para directorios */
