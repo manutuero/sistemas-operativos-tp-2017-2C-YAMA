@@ -110,7 +110,7 @@ t_list *listaMasters,*listaTablaEstados;
 /*									Firma de funciones						*/
 
 /* funcion pionera del hilo de preplanificacion */
-void preplanificarJob(t_job*);
+void* preplanificarJob(t_job*);
 
 
 void crearListas();
@@ -134,7 +134,10 @@ bool ordenarPorDisponibilidad(void* nodo0, void* nodo1);
 void cargarVector(int* vectorNodos, t_list *listaNodos);
 
 /* Asignar trabajo de un bloque a un nodo bajo W-clock */
-void planificarTransformaciones(int,int*, t_bloqueRecv*, int*,int*);
+int planificarTransformaciones(int,int*, t_bloqueRecv*, int*,int*);
+
+/* En caso de que falle la planificacion de transformacion restaurar disponibilidad y workload */
+void restaurarWorkload();
 
 /*Verificar que el nodo apuntado por clock contenga el bloque deseado */
 int nodoContieneBloque(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,int* clock);
@@ -188,11 +191,31 @@ void actualizarWorkload(int ,int *);
 int seleccionarNodoMenorCarga(int*, int);
 
 /* Serializacion de estructuras de planificacion */
+
+void enviarPlanificacionAMaster(t_job*);
+
 void* serializarTransformaciones(int, int*, t_list*);
 
 void* serializarRedLocales(int, int* , t_list* );
 
 void* serializarRedGlobales(int , int* , t_list* );
 
+/* destruir listas */
 void destruir_listas(void);
+
+void freeTransformaciones(void*);
+
+void freeRedLocales(void*);
+
+void freeRedGlobal(void *registro);
+
+/* Encontrar el registro en la tabla */
+t_tabla_estados* encontrarRegistro(char *);
+
+/* filtrar lista por trabajo */
+void filtrarLista(t_list*,int);
+
+/* descontar el workload del job finalizado */
+void restarJob(t_list*);
+
 #endif /* SRC_PLANI2_H_ */

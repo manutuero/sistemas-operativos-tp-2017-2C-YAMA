@@ -23,12 +23,12 @@ void mostrarTablaDeEstados(int i) {
 }
 
 //esta funcion va a recibir por parametro una estructura que tenga el job, el idMaster y el socket de ese master.
-void preplanificarJob(t_job* jobMaster){
+void *preplanificarJob(t_job* jobMaster){
 	//t_list listaBloquesRecibidos, listaNodosInvolucrados, listaPlanificacionMaster;
 	t_header header;
 	t_bloqueRecv* bloqueRecibido;
 	//t_planificacion* planificacion;
-	int i,socketFS,socketMaster,cantNodosInvolucrados,*clock,*clockAux;
+	int i,socketFS,socketMaster,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
 	void* buffer;
 
 
@@ -48,9 +48,9 @@ void preplanificarJob(t_job* jobMaster){
 
 	/* carga local de bloques de prueba */
 	t_bloqueRecv bloques[4] = {{0, 1, 0, 3, 4},
-										{1, 2, 4, 3, 9},
-										{2, 4, 7, 1, 3},
-									{3, 1, 9, 3, 11}};
+								{1, 2, 4, 3, 9},
+								{2, 4, 7, 1, 3},
+								{3, 1, 9, 3, 11}};
 	header.tamanioPayload = 4;
 
 
@@ -106,23 +106,33 @@ void preplanificarJob(t_job* jobMaster){
 	for(i=0;i<list_size(listaBloquesRecibidos);i++)
 	{
 		bloqueRecibido = list_get(listaBloquesRecibidos,i);
-		planificarTransformaciones(cantNodosInvolucrados,nodosInvolucrados,bloqueRecibido,clock,clockAux);
+		transformacionesOk = planificarTransformaciones(cantNodosInvolucrados,nodosInvolucrados,bloqueRecibido,clock,clockAux);
+		if (transformacionesOk == 1)
+			break;
 	}
 
-	/* pre-planificacion de reducciones locales */
-	planificacionReduccionLocal();
+	if (transformacionesOk == 0)
+	{
+		/* pre-planificacion de reducciones locales */
+		planificacionReduccionLocal();
 
-	/* pre-planificacion de reducion global */
-	planificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
+		/* pre-planificacion de reducion global */
+		planificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
 
-	printf("planifico. \n");
-	mostrarTablaDeEstados(i);
+		printf("planifico. \n");
+		mostrarTablaDeEstados(i);
 
-	/* Actualizar workload aplicando estupiad ecuacion*/
-	actualizarWorkload(cantNodosInvolucrados,nodosInvolucrados);
+		/* Actualizar workload aplicando estupiad ecuacion*/
+		actualizarWorkload(cantNodosInvolucrados,nodosInvolucrados);
 
-	/* Enviar toda la planificacion a master */
-	enviarPlanificacionAMaster(jobMaster);
+		/* Enviar toda la planificacion a master */
+		enviarPlanificacionAMaster(jobMaster);
+	}
+	else
+	{
+		printf("Fallo en la planificacion abortar job\n");
+		restaurarWorkload();
+	}
 
 	/* liberar listas para la siguiente planificacion */
 	destruir_listas();
@@ -132,10 +142,116 @@ void preplanificarJob(t_job* jobMaster){
 	free(clock);
 	free(clockAux);
 
+	return((void*)0);
+}
+
+
+/*						Descargar workload al finalizar un trabajo             */
+//Esta Funcion recibira el nombreTMP del archivo que produjo el fin del trabajo
+void *descargarWorkload(void *nombreTMP)
+{
+	t_tabla_estados *registro;
+	char *nombre = (char*)nombreTMP;
+
+	t_list *listaFiltrada;
+
+	listaFiltrada = list_create();
+
+	registro = encontrarRegistro(nombre);
+
+	if(registro->job!=-1)
+	{
+		filtrarLista(listaFiltrada,registro->job);
+
+		restarJob(listaFiltrada);
+
+		list_destroy(listaFiltrada);
+	}else{
+		printf("No se encontro el registro\n");
+		free(registro);
+	}
+	return((void*)0);
+}
+
+
+t_tabla_estados* encontrarRegistro(char *nombreTMP)
+{
+	int i;
+	t_tabla_estados *registro;
+
+	for(i=0;i<list_size(listaTablaEstados);i++)
+	{
+		registro = list_get(listaTablaEstados,i);
+		if (sonIguales(nombreTMP,registro->archivoTemp))
+			return registro;
+	}
+	registro = malloc(sizeof(t_tabla_estados));
+	registro->job=-1;
+	return registro;
+}
+
+void filtrarLista(t_list *listaFiltrada,int job)
+{
+	t_tabla_estados *registro;
+	int i;
+
+	for (i=0; i<list_size(listaTablaEstados);i++)
+	{
+		registro = list_get(listaTablaEstados,i);
+		if (registro->job == job)
+		{
+			list_add(listaFiltrada,registro);
+		}
+	}
+	return;
+}
+
+void restarJob(t_list *listaFiltrada)
+{
+	int i,nodoRedGlobal,cantRedLocales=0;
+	t_tabla_estados *registro;
+
+	for(i=0;i<list_size(listaFiltrada);i++)
+	{
+		registro = list_get(listaFiltrada,i);
+
+		switch(registro->etapa){
+		case 1:
+			workers[registro->nodo].workLoad -=1;
+			break;
+		case 2:
+			cantRedLocales ++;
+			break;
+		case 3:		//planificacion guardada ordenada solo entra en la ultima vuelta
+			nodoRedGlobal = registro->nodo;
+			break;
+		}
+	}
+
+	if ((cantRedLocales % 2)==0)
+	{
+		cantRedLocales = cantRedLocales / 2;
+	}
+	else
+	{
+		cantRedLocales = ((cantRedLocales / 2)+1);
+	}
+
+	workers[nodoRedGlobal].workLoad-= cantRedLocales;
+
+	return;
 
 }
 
 
+/* 						Cambiar Estado segun informe master						*/
+void *cambiarEstado(char* nombreTMP, int estado)
+{
+	t_tabla_estados *registro;
+	registro = encontrarRegistro(nombreTMP);
+	registro->estado = estado;
+	return (void*)0;
+}
 
 /* 						all this will go in funcionesYama.c						*/
 
@@ -231,10 +347,10 @@ void cargarVector(int* vectorNodos, t_list* listaNodos){
 //ahi deberia funcionar
 
 //verificar el funcionamiento del clock
-void planificarTransformaciones(int cantNodos,int* nodosInvolucrados, t_bloqueRecv* bloqueRecibido,int* clock,int* clockAux){
-	int asignado=0;
+int planificarTransformaciones(int cantNodos,int* nodosInvolucrados, t_bloqueRecv* bloqueRecibido,int* clock,int* clockAux){
+	int asignado=0,nodosRecorridos=0;
 
-	while(asignado==0)
+	while((asignado==0)&&(nodosRecorridos<cantNodos))
 	{
 		if (nodoContieneBloque(*bloqueRecibido,nodosInvolucrados,clock))
 		{
@@ -267,10 +383,14 @@ void planificarTransformaciones(int cantNodos,int* nodosInvolucrados, t_bloqueRe
 			}else
 			{
 				desplazarClock(clockAux,cantNodos);
+				nodosRecorridos++;
 				//falta ver cuando no esta habilitado en ningun lado
 			}
 	}
-	return;
+	if (nodosRecorridos == cantNodos)
+		return 1;
+	else
+		return 0;
 }
 
 int nodoContieneBloque(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,int* clock)
@@ -297,13 +417,13 @@ void actualizarPlanificacion(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,
 	bloquePlanificado->bytesOcupados=bloqueRecibido.bytesOcupados;
 	bloquePlanificado->nroBloqueNodo=cargarNroBloque(bloqueRecibido,nodosInvolucrados,clock);
 	bloquePlanificado->puerto=workers[nodosInvolucrados[*clock]].puerto;
-	bloquePlanificado->largoIp = strlen(workers[nodosInvolucrados[*clock]].ip);
-	bloquePlanificado->ip=malloc(strlen(workers[nodosInvolucrados[*clock]].ip));
+	bloquePlanificado->largoIp = strlen(workers[nodosInvolucrados[*clock]].ip)+1;
+	bloquePlanificado->ip=malloc(bloquePlanificado->largoIp);
 	strcpy(bloquePlanificado->ip,workers[nodosInvolucrados[*clock]].ip);
 
 	nombreTMP=string_duplicate(generarNombreArchivoTemporal(job,bloquePlanificado->idNodo,bloquePlanificado->nroBloqueNodo));
-	bloquePlanificado->largoArchivo = strlen(nombreTMP);
-	bloquePlanificado->archivoTransformacion = malloc(strlen(nombreTMP));
+	bloquePlanificado->largoArchivo = strlen(nombreTMP)+1;
+	bloquePlanificado->archivoTransformacion = malloc(bloquePlanificado->largoArchivo);
 	strcpy(bloquePlanificado->archivoTransformacion,nombreTMP);
 
 	list_add(listaPlanTransformaciones,bloquePlanificado);
@@ -335,7 +455,20 @@ void actualizarWorker(int* nodosInvolucrados,int* clock)
 	workers[idNodo].workLoad++;
 	workers[idNodo].disponibilidad--;
 }
+void restaurarWorkload()
+{
+	int i=0;
+	t_transformacionMaster *registro;
 
+	for(i=0;list_size(listaPlanTransformaciones);i++)
+	{
+		registro = list_get(listaPlanTransformaciones,i);
+		workers[registro->idNodo].cant_transformaciones++;
+		workers[registro->idNodo].workLoad--;
+		workers[registro->idNodo].disponibilidad++;
+	}
+
+}
 void actualizarTablaEstados(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,int* clock){
 	t_tabla_estados* registroEstado;
 	registroEstado = malloc(sizeof(t_tabla_estados));
@@ -348,7 +481,7 @@ void actualizarTablaEstados(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,i
 	char* temp = string_new();
 	temp = string_duplicate(generarNombreArchivoTemporal(job, registroEstado->nodo, registroEstado->bloque));
 
-	registroEstado->archivoTemp = malloc(strlen(temp));
+	registroEstado->archivoTemp = malloc(strlen(temp)+1);
 	strcpy(registroEstado->archivoTemp,temp);
 	list_add(listaTablaEstados, registroEstado);
 }
@@ -437,16 +570,16 @@ void cargarInfoReduccionLocal(t_transformacionMaster *transformacion, t_reduccio
 	reduccion->idNodo = transformacion->idNodo;
 	reduccion->puerto = transformacion->puerto;
 
-	reduccion->largoArchivoRedLocal = strlen(nombreTMP);
-	reduccion->archivoRedLocal = malloc(strlen(nombreTMP));
+	reduccion->largoArchivoRedLocal = strlen(nombreTMP)+1;
+	reduccion->archivoRedLocal = malloc(reduccion->largoArchivoRedLocal);
 	strcpy(reduccion->archivoRedLocal,nombreTMP);
 
-	reduccion->largoIp = strlen(transformacion->ip);
-	reduccion->ip = malloc(strlen(transformacion->ip));
+	reduccion->largoIp = strlen(transformacion->ip)+1;
+	reduccion->ip = malloc(reduccion->largoIp);
 	strcpy(reduccion->ip,transformacion->ip);
 
-	reduccion->largoArchivoTransformacion = strlen(transformacion->archivoTransformacion);
-	reduccion->archivoTransformacion = malloc(strlen(transformacion->archivoTransformacion));
+	reduccion->largoArchivoTransformacion = strlen(transformacion->archivoTransformacion)+1;
+	reduccion->archivoTransformacion = malloc(reduccion->largoArchivoTransformacion);
 	strcpy(reduccion->archivoTransformacion,transformacion->archivoTransformacion);
 
 	return;
@@ -456,7 +589,7 @@ void cargarReduccionLocalTablaEstado(char* nombreTMP,int idNodo)
 {
 	t_tabla_estados *registro;
 	registro = malloc(sizeof(t_tabla_estados));
-	registro->archivoTemp = malloc(strlen(nombreTMP));
+	registro->archivoTemp = malloc(strlen(nombreTMP)+1);
 	strcpy(registro->archivoTemp,nombreTMP);
 	registro->estado=1;// 1 en progreso
 	registro->etapa=2;// 2 para reduccion local
@@ -569,9 +702,9 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	registro = malloc(sizeof(t_reduccionLocalMaster));
 	registro=list_get(lista,posicion);
 
-	infoReduccionGlobal->largoArchivoRedLocal = strlen(registro->archivoRedLocal);
-	reduccionLocal = malloc(strlen(registro->archivoRedLocal));
-	infoReduccionGlobal->archivoRedLocal = malloc(strlen(registro->archivoRedLocal));
+	infoReduccionGlobal->largoArchivoRedLocal = strlen(registro->archivoRedLocal)+1;
+	reduccionLocal = malloc(infoReduccionGlobal->largoArchivoRedLocal);
+	infoReduccionGlobal->archivoRedLocal = malloc(infoReduccionGlobal->largoArchivoRedLocal);
 
 	strcpy(reduccionLocal,registro->archivoRedLocal);
 	strcpy(infoReduccionGlobal->archivoRedLocal,registro->archivoRedLocal);
@@ -580,8 +713,8 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	infoReduccionGlobal->idNodo = registro->idNodo;
 	infoReduccionGlobal->puerto=workers[nodoReduccionGlobal].puerto;
 
-	infoReduccionGlobal->largoIp = strlen(workers[nodoReduccionGlobal].ip);
-	infoReduccionGlobal->ip=malloc(strlen(workers[nodoReduccionGlobal].ip));
+	infoReduccionGlobal->largoIp = strlen(workers[nodoReduccionGlobal].ip)+1;
+	infoReduccionGlobal->ip=malloc(infoReduccionGlobal->largoIp);
 	strcpy(infoReduccionGlobal->ip,workers[nodoReduccionGlobal].ip);
 	nombreTMP=generarNombreArchivoTemporal(job,nodoReduccionGlobal,9000);
 
@@ -589,8 +722,8 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	if (registro->idNodo == nodoReduccionGlobal)
 	{
 		infoReduccionGlobal->encargado = 1;
-		infoReduccionGlobal->largoArchivoRedGlobal=strlen(nombreTMP);
-		infoReduccionGlobal->archivoRedGlobal=malloc(strlen(nombreTMP));
+		infoReduccionGlobal->largoArchivoRedGlobal=strlen(nombreTMP)+1;
+		infoReduccionGlobal->archivoRedGlobal=malloc(infoReduccionGlobal->largoArchivoRedGlobal);
 		strcpy(infoReduccionGlobal->archivoRedGlobal,nombreTMP);
 	}
 	else
@@ -611,7 +744,7 @@ void cargarReduccionGlobalTablaEstados(int nodoReduccion,t_reduccionGlobalMaster
 	t_tabla_estados *registro;
 	registro = malloc(sizeof(t_tabla_estados));
 
-	registro->archivoTemp = malloc(strlen(infoRedGlobal->archivoRedGlobal));
+	registro->archivoTemp = malloc(strlen(infoRedGlobal->archivoRedGlobal)+1);
 	strcpy(registro->archivoTemp,infoRedGlobal->archivoRedGlobal);
 	registro->bloque = 9000;
 	registro->estado = 1;
@@ -659,11 +792,49 @@ void actualizarWorkload(int cantNodosInvolucrados,int* nodosInvolucrados)
 
 void destruir_listas()
 {
-	list_destroy_and_destroy_elements(listaPlanTransformaciones,free);
-	list_destroy_and_destroy_elements(listaPlanRedLocal,free);
-	list_destroy_and_destroy_elements(listaPlanRedGlobal,free);
+	list_destroy_and_destroy_elements(listaPlanTransformaciones,freeTransformaciones);
+	list_destroy_and_destroy_elements(listaPlanRedLocal,freeRedLocales);
+	list_destroy_and_destroy_elements(listaPlanRedGlobal,freeRedGlobal);
 	return;
 }
+
+void freeTransformaciones(void *registro)
+{
+	t_transformacionMaster *reg;
+
+	reg = (t_transformacionMaster*) registro;
+
+	free(reg->archivoTransformacion);
+	free(reg->ip);
+	free(reg);
+
+}
+
+void freeRedLocales(void *registro)
+{
+	t_reduccionLocalMaster *reg;
+
+	reg = (t_reduccionLocalMaster*) registro;
+
+	free(reg->archivoRedLocal);
+	free(reg->archivoTransformacion);
+	free(reg->ip);
+	free(reg);
+}
+
+void freeRedGlobal(void *registro)
+{
+	t_reduccionGlobalMaster *reg;
+
+	reg = (t_reduccionGlobalMaster*) registro;
+
+	free(reg->archivoRedGlobal);
+	free(reg->archivoRedLocal);
+	free(reg->ip);
+
+	free(reg);
+}
+
 void enviarPlanificacionAMaster(t_job* jobMaster){
 
 	uint32_t cantTransformaciones = list_size(listaPlanTransformaciones);
@@ -844,3 +1015,5 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 	free(redGlobal);
 	return buffer;
 }
+
+
