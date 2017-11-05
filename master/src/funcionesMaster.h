@@ -11,6 +11,7 @@
 
 #include <utils.h>
 #include <commons/collections/list.h>
+#include <time.h>
 
 //MACROS
 #define TRANSFORMACION 1
@@ -95,6 +96,12 @@
 		t_list* temporalesTranformacion;
 	}t_redLocalesWorker;
 
+	typedef struct{
+		uint32_t largoRutaTemporal;
+		char* rutaTemporalTransformacion;
+		uint32_t largoRutaArchivoAProcesar;
+		char* rutaArchivoAProcesar;
+	}t_falloTransformacion;
 
 	typedef struct{
 		uint32_t etapa;
@@ -133,6 +140,9 @@ pthread_mutex_t mutexTotalFallos;
 pthread_mutex_t mutexTotalTransformaciones;
 pthread_mutex_t mutexTotalReduccionesLocales;
 pthread_mutex_t mutexTotalReduccionesGlobales;
+pthread_mutex_t mutexConexionWorker;
+pthread_mutex_t mutexTiempoTransformaciones;
+pthread_mutex_t mutexTiempoReducciones;
 
 //rutas de archivos por parametros
 char* transformador;
@@ -142,10 +152,13 @@ char* direccionDeResultado;
 //variables
 t_transformacionesNodo* nodosTransformacion;
 t_log* masterLogger;
+time_t tiempo;
 char* ipYama;
 int puertoYama, socketYama;
-int transformacionesPendientes, fallos;
+int transformacionesPendientes, reduccionesLocalesPendientes, fallos;
 int cantidadTareasCorriendo, maximoTareasCorriendo;
+double tiempoTotalTransformaciones, tiempoTotalRedLocales, tiempoTotalRedGlobal;
+int reduccionGlobalRealizada, cantidadTransformacionesRealizadas, cantidadReduccionesLocalesRealizadas;
 /* FIRMAS DE FUNCIONES  */
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);
@@ -179,6 +192,8 @@ void enviarReduccionGlobalAWorkerEncargado();
 
 void hiloConexionWorker(t_transformacionMaster*);
 
+void enviarFalloTransformacionAYama(t_transformacionMaster*,t_header*);
+
 void* serializarTransformacionWorker(t_transformacionWorker* , int* );
 
 void* serializarReduccionLocalWorker(t_redLocalesWorker* , int*);
@@ -197,6 +212,6 @@ void avisarAYamaRedLocal(t_redLocalesWorker,t_header);
 void avisarAYamaRedGlobal(t_reduccionGlobalWorker,t_header);
 void avisarAlmacenadoFinal();
 
-void metricas();
+void metricas(double);
 
 #endif /* FUNCIONESMASTER_H_ */
