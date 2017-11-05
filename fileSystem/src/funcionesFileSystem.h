@@ -46,6 +46,7 @@ enum respuestasDatanode {
 /* Variables globales */
 char *ARCHCONFIG;
 int PUERTO;
+char* PUERTO_YAMA;
 int CANTIDAD_NODOS_ESPERADOS;
 char *PATH_METADATA;
 int socketNodoConectado;

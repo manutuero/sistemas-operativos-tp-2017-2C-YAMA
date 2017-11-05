@@ -41,6 +41,12 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 		perror(
 				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
 	}
+	if (config_has_property(config, "PUERTO_YAMA")) {
+		PUERTO_YAMA = config_get_string_value(config, "PUERTO_YAMA");
+	} else {
+		perror(
+				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.");
+	}
 }
 
 /* Implementacion de funciones para bitmaps */
@@ -513,7 +519,7 @@ bool existePathDirectorio(char *path) {
 	int i, padre = -1, cantidadPartesPath;
 	char **pathSeparado;
 
-	if (sonIguales(path,"/root"))
+	if (sonIguales(path, "/root"))
 		return true; // El directorio root siempre existe en el sistema.
 
 	pathSeparado = string_split(path, "/");
@@ -1083,7 +1089,7 @@ t_archivo_a_persistir* obtenerArchivo(char *path) {
 
 // Si no es un directorio sintacticamente valido devuelve NULL.
 t_directorio obtenerPathDirectorio(char *path) {
-	if(sonIguales(path, "/root")) {
+	if (sonIguales(path, "/root")) {
 		return path;
 	} else if (string_starts_with(path, "/root/")) {
 		return string_substring_until(path, lastIndexOf(path, '/'));
@@ -1520,4 +1526,36 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 		return true;
 	else
 		return false;
+}
+void escucharPeticionesYama() {
+
+	struct addrinfo hints;
+	struct addrinfo *serverInfo;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_socktype = SOCK_STREAM;
+	getaddrinfo(NULL, PUERTO_YAMA, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost en AI_PASSIVE
+	int listenningSocket;
+	listenningSocket = socket(serverInfo->ai_family, serverInfo->ai_socktype,
+			serverInfo->ai_protocol);
+	bind(listenningSocket, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
+	listen(listenningSocket, BACKLOG); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+	int socketCliente = accept(listenningSocket, (struct sockaddr *) &addr,
+			&addrlen);
+	/*
+	 Cuando el cliente cierra la conexion, recv() devolvera 0.
+	 */
+	char package[8];
+	int status = 1;		// Estructura que manjea el status de los recieve.
+	while (status != 0) {
+		status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
+		if (status != 0)
+			printf("%s", package);
+	}
+	close(socketCliente);
+	close(listenningSocket);
 }
