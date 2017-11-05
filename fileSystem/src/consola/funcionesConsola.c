@@ -269,7 +269,7 @@ void ejecutarMv(char **argumentos) {
 
 void ejecutarCpfrom(char **argumentos) {
 	char tipo;
-	char *pathArchivoOrigen, *pathDirectorioYamaFs;
+	char *pathArchivoOrigen, *pathDirectorioYamaFs, *nombreArchivo;
 
 	pathArchivoOrigen = argumentos[1];
 	pathDirectorioYamaFs = argumentos[2];
@@ -278,13 +278,17 @@ void ejecutarCpfrom(char **argumentos) {
 	if (esValido(pathDirectorioYamaFs)) {
 		FILE *datos = fopen(pathArchivoOrigen, "r");
 		if (!datos) {
-			fprintf(stderr, "\nEl archivo '%s' no existe.\n",
-					pathArchivoOrigen);
+			printf("El archivo '%s' no existe.\n", pathArchivoOrigen);
+			return;
+		}
+
+		if (!existePathDirectorio(pathDirectorioYamaFs)) {
+			printf("El directorio '%s' no existe.\n", pathDirectorioYamaFs);
 			return;
 		}
 
 		// Tener en cuenta si no se guarda bien de devolver un error (si no estan conectados los datanodes ?)
-		char *nombreArchivo = obtenerNombreArchivo(pathArchivoOrigen);
+		nombreArchivo = obtenerNombreArchivo(pathArchivoOrigen);
 		tipo = obtenerTipo(pathArchivoOrigen);
 		// CONSIDERAR ENVIAR LAS COPIAS DE CADA BLOQUE EN 2 HILOS DIFERENTES!
 		almacenarArchivo(pathDirectorioYamaFs, nombreArchivo, tipo, datos);
@@ -295,15 +299,67 @@ void ejecutarCpfrom(char **argumentos) {
 }
 
 void ejecutarCpto(char **argumentos) {
-	char *pathArchivo = argumentos[1], *contenido;
-	if (esValido(pathArchivo)) {
-		contenido = leerArchivo(pathArchivo);
-		if (!contenido) {
-			fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n",
-					pathArchivo);
-			return;
-		}
+	int i;
+	char *pathArchivoYamaFs, *pathDirectorioLocalFs, *pathNuevoArchivo;
+	FILE *nuevoArchivo;
+	DIR *dir;
+	t_bloque *bloque;
+	t_archivo_a_persistir *archivo;
+
+	// Validaciones.
+	pathArchivoYamaFs = argumentos[1];
+	if (!esValido(pathArchivoYamaFs)) {
+		printf("La ruta '%s' no es valida.\n", pathArchivoYamaFs);
+		return;
 	}
+
+	// Si el directorio no existe en el fs local.
+	pathDirectorioLocalFs = argumentos[2];
+	dir = opendir(pathDirectorioLocalFs);
+	if (dir) {
+		closedir(dir);
+	} else if (ENOENT == errno) {
+		printf("El directorio '%s' no existe.\n", pathDirectorioLocalFs);
+		return;
+	}
+
+	// Si el archivo no existe en ese directorio de yamafs.
+	if (!existeArchivoEnYamaFs(pathArchivoYamaFs)) {
+		printf("El archivo '%s' no existe.\n", pathArchivoYamaFs);
+		return;
+	}
+
+	// Lee el archivo en el YamaFs.
+	archivo = leerArchivo(pathArchivoYamaFs);
+	if (!archivo) {
+		fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n",
+				pathArchivoYamaFs);
+		return;
+	}
+
+	// Si lo pudo leer bien escribo su contenido en un nuevo archivo en el filesystem local.
+	pathNuevoArchivo = string_new();
+	string_append(&pathNuevoArchivo, pathDirectorioLocalFs);
+	string_append(&pathNuevoArchivo, "/");
+	string_append(&pathNuevoArchivo, obtenerNombreArchivo(pathArchivoYamaFs));
+	nuevoArchivo = fopen(pathNuevoArchivo, "w");
+	if (!nuevoArchivo) {
+		fprintf(stderr, "[ERROR]: no se pudo importar el archivo '%s'.\n",
+				pathArchivoYamaFs);
+		return;
+	}
+
+	for (i = 0; i < archivo->bloques->elements_count; i++) {
+		bloque = list_get(archivo->bloques, i);
+		fwrite(bloque->contenido, sizeof(char), bloque->bytesOcupados,
+				nuevoArchivo);
+	}
+
+	// Libero recursos.
+	fclose(nuevoArchivo);
+	free(pathArchivoYamaFs);
+	free(pathDirectorioLocalFs);
+	free(pathNuevoArchivo);
 }
 
 char* invocarFuncionCpblok(char **argumentos) {

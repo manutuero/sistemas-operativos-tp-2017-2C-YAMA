@@ -511,7 +511,12 @@ int obtenerIndice(t_directorio path) {
 bool existePathDirectorio(char *path) {
 	int coincidencias = 0;
 	int i, padre = -1, cantidadPartesPath;
-	char **pathSeparado = string_split(path, "/");
+	char **pathSeparado;
+
+	if (sonIguales(path,"/root"))
+		return true; // El directorio root siempre existe en el sistema.
+
+	pathSeparado = string_split(path, "/");
 	cantidadPartesPath = cantidadArgumentos(pathSeparado);
 
 	if (!sonIguales(pathSeparado[0], "root")) {
@@ -1076,8 +1081,15 @@ t_archivo_a_persistir* obtenerArchivo(char *path) {
 	return archivo;
 }
 
+// Si no es un directorio sintacticamente valido devuelve NULL.
 t_directorio obtenerPathDirectorio(char *path) {
-	return string_substring_until(path, lastIndexOf(path, '/'));
+	if(sonIguales(path, "/root")) {
+		return path;
+	} else if (string_starts_with(path, "/root/")) {
+		return string_substring_until(path, lastIndexOf(path, '/'));
+	} else {
+		return NULL;
+	}
 }
 
 char* obtenerNombreArchivo(char *path) {
@@ -1111,7 +1123,6 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 	filePointer = fopen(path, "r+");
 	if (!filePointer) {
 		printf("El archivo %s no existe.\n", pathOriginal);
-		fclose(filePointer);
 		return;
 	}
 
@@ -1464,7 +1475,7 @@ int obtenerTipo(char *pathArchivo) {
 		 si estamos debuggeando un programa que cree zombies sin querer nos puede limitar el numero de procesos disponibles.
 		 Por eso es importante matarlos. */
 
-		/* Leo de un proceso hijo, ahora el resultado de mi script se encuentra en "caracter" y tiene un tamaño SIZE.
+		/* Leo de un proceso hijo, ahora el resultado de mi script se encuentra en "buffer" y tiene un tamaño 1.
 		 * Como termine de leer cierro el extremo del pipe. */
 		read(pipe_hijoAPadre[0], buffer, 1);
 		close(pipe_hijoAPadre[0]);
@@ -1483,3 +1494,30 @@ int obtenerTipo(char *pathArchivo) {
 	return tipo;
 }
 
+bool existeArchivoEnYamaFs(char *pathArchivo) {
+	int indice;
+	char *nombreArchivo, *pathMetadataArchivo;
+	t_directorio directorio;
+
+	// Verifico que exista el directorio en yamafs.
+	directorio = obtenerPathDirectorio(pathArchivo);
+	if (!directorio || !existePathDirectorio(directorio))
+		return false;
+
+	indice = obtenerIndice(directorio);
+	nombreArchivo = obtenerNombreArchivo(pathArchivo);
+
+	// Verifico que exista el archivo 'nombreArchivo' en el 'directorio'.
+	pathMetadataArchivo = string_new();
+	string_append(&pathMetadataArchivo, PATH_METADATA);
+	string_append(&pathMetadataArchivo, "/archivos/");
+	string_append(&pathMetadataArchivo, string_itoa(indice));
+	string_append(&pathMetadataArchivo, "/");
+	string_append(&pathMetadataArchivo, nombreArchivo);
+
+	// Si lo encuentra retorna 'true' sino 'false'.
+	if (access(pathMetadataArchivo, F_OK) != -1)
+		return true;
+	else
+		return false;
+}

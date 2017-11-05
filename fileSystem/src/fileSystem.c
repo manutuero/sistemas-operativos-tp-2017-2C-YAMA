@@ -1,12 +1,8 @@
 #include "funcionesFileSystem.h"
 
-sem_t sem;
-
 int main(int argc, char **argv) {
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
-
-	sem_init(&sem, 0, 0);
 
 	if (argc > 1 && sonIguales(argv[1], "--tests")) {
 		return correrTests(); // Cuidado que borra el estado anterior jeje.

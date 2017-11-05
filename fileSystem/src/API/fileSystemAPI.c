@@ -3,7 +3,7 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-char* leerArchivo(char *pathArchivo) {
+t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	int i;
 	char *contenido;
 	t_list *bloques;
@@ -38,12 +38,11 @@ char* leerArchivo(char *pathArchivo) {
 		memcpy(contenido + offset, bloque->contenido, bloque->bytesOcupados);
 		offset += bloque->bytesOcupados;
 	}
-	contenido[archivo->tamanio]='\0';
-	// Habria que liberar la lista de bloques, el archivo...para que no hayan leaks en cada llamado.
-	FILE* fp=fopen("/home/utnso/thePonchos/prueba-recuperada.jpg","w");
-	fwrite(contenido, sizeof(char),archivo->tamanio, fp);
-	fclose(fp);
-	return contenido;
+
+	contenido[archivo->tamanio] = '\0';
+
+	// LIBERAR ARCHIVO CUANDO LA FUNCION QUE LLAMA TERMINA!...para que no hayan leaks despues de cada llamado.
+	return archivo;
 }
 
 int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
@@ -70,12 +69,12 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		nodoCopia0 = list_get(nodosAux, 0);
 		nodoCopia1 = list_get(nodosAux, 1);
 
-		bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(nodoCopia0->bitmap,
-				nodoCopia0->bloquesTotales);
+		bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(
+				nodoCopia0->bitmap, nodoCopia0->bloquesTotales);
 		bloque->nodoCopia0 = nodoCopia0;
 
-		bloque->numeroBloqueCopia1 = obtenerYReservarBloqueBitmap(nodoCopia1->bitmap,
-				nodoCopia1->bloquesTotales);
+		bloque->numeroBloqueCopia1 = obtenerYReservarBloqueBitmap(
+				nodoCopia1->bitmap, nodoCopia1->bloquesTotales);
 		bloque->nodoCopia1 = nodoCopia1;
 
 		nodoCopia0->bloquesLibres--;
@@ -95,13 +94,13 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	for (i = 0; i < bloques->elements_count; i++) {
 		bloque = list_get(bloques, i);
 
-		respuesta = guardarBloqueEnNodo(bloque,0);
+		respuesta = guardarBloqueEnNodo(bloque, 0);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;
 		}
 
-		respuesta = guardarBloqueEnNodo(bloque,1);
+		respuesta = guardarBloqueEnNodo(bloque, 1);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;

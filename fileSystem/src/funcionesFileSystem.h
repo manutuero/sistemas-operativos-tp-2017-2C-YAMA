@@ -91,8 +91,6 @@ extern t_directory directorios[100];
 extern t_list *nodos;
 extern t_list *archivos;
 
-
-extern sem_t sem;
 /*********************** Firmas de funciones ************************/
 
 /* Firmas de funciones para archivo de configuracion */
@@ -162,6 +160,7 @@ int obtenerTipo(char *pathArchivo);
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
 void validarMetadata(char* path);
+bool existeArchivoEnYamaFs(char *pathArchivo);
 
 /* Firmas de funciones para restaurar un estado anterior */
 void restaurarEstructurasAdministrativas();

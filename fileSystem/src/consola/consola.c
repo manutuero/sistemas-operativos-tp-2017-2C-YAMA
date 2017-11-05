@@ -5,16 +5,14 @@ void * levantarConsola() {
 	char **argumentos;
 	int cantidadElementos;
 
-	while (1) {
+	while (TRUE) {
 		linea = (char*) readline("> ");
 		if (!linea)
 			break;
 
 		add_history(linea);
-
 		argumentos = cargarArgumentos(linea);
 		cantidadElementos = cantidadArgumentos(argumentos);
-
 		switch (cantidadElementos) {
 		case 1:
 			if (sonIguales(argumentos[0], "format")) {
