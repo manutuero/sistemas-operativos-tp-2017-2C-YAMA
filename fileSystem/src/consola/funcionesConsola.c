@@ -39,16 +39,7 @@ void ejecutarFormat(char **argumentos) {
 	persistirTablaDeNodos();
 
 	// ---- Borrar luego
-	char *path = "/home/utnso/thePonchos/tux-con-poncho.jpg";
-	FILE *datos = fopen(path, "r");
-	if (!datos) {
-		fprintf(stderr, "\nEl archivo '%s' no existe.\n", path);
-		return;
-	}
 
-	almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
-	//almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
-	fclose(datos);
 	// ----
 }
 
@@ -280,9 +271,21 @@ void ejecutarMv(char **argumentos) {
 }
 
 char* invocarFuncionCpfrom(char **argumentos) {
-	if (esValido(argumentos[1]) && esValido(argumentos[2])) {
-		printf("funcion cpfrom\n");
-		printf("Los argumentos son: %s y %s\n", argumentos[1], argumentos[2]);
+	if (esValido(argumentos[2])) {
+		//printf("funcion cpfrom\n");
+		//printf("Los argumentos son: %s y %s\n", argumentos[1], argumentos[2]);
+		FILE *datos = fopen(argumentos[1], "r");
+		if (!datos) {
+			fprintf(stderr, "\nEl archivo '%s' no existe.\n", argumentos[1]);
+			return"";
+		}
+		//Tener en cuenta si no se guarda bien de devolver un error
+		char *nombreArchivo=obtenerNombreArchivo(argumentos[1]);
+		//agregar funcion que dice si es binario o de texto.
+		almacenarArchivo(argumentos[2], nombreArchivo, BINARIO, datos);
+		//almacenarArchivo("/root", "tux-con-poncho.jpg", BINARIO, datos);
+		fclose(datos);
+
 	} else
 		printf("Los parametros ingresados: %s,%s no son validos\n",
 				argumentos[1], argumentos[2]);
@@ -293,8 +296,9 @@ void ejecutarCpto(char **argumentos) {
 	char *pathArchivo = argumentos[1], *contenido;
 	if (esValido(pathArchivo)) {
 		contenido = leerArchivo(pathArchivo);
-		if(!contenido) {
-			fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n", pathArchivo);
+		if (!contenido) {
+			fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n",
+					pathArchivo);
 			return;
 		}
 	}
