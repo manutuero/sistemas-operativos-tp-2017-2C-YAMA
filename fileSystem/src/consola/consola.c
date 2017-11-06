@@ -42,7 +42,7 @@ void * levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "cat")) {
-				invocarFuncionCat(argumentos);
+				ejecutarCat(argumentos);
 				break;
 			}
 

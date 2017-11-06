@@ -83,13 +83,45 @@ char* invocarFuncionRmBloque(char **argumentos) {
 	return "<default>";
 }
 
-char* invocarFuncionCat(char **argumentos) {
-	if (esValido(argumentos[1])) {
-		printf("Funcion de concatenar texto plano.\n");
-		printf("el archivo es: %s.\n", argumentos[1]);
-	} else
-		printf("El parametro ingresado: %s no es valido.\n", argumentos[1]);
-	return "<default>";
+void ejecutarCat(char **argumentos) {
+	int i, indice;
+	char *pathArchivo, *contenido;
+	t_directorio directorio;
+	t_list *bloques;
+	off_t offset = 0;
+	t_bloque *bloque;
+	t_archivo_a_persistir *archivo;
+
+	// Validaciones.
+	pathArchivo = argumentos[1];
+	if (!esValido(pathArchivo)) {
+		printf("La ruta '%s' no es valida.\n", pathArchivo);
+		return;
+	}
+
+	directorio = obtenerPathDirectorio(pathArchivo);
+	indice = obtenerIndice(directorio);
+	if (!existePathDirectorio(directorio) || indice == DIR_NO_EXISTE) {
+		printf("El directorio '%s' no existe.\n", directorio);
+		return;
+	}
+
+	// Me traigo el archivo a memoria y muestro su contenido por STDOUT.
+	archivo = leerArchivo(pathArchivo);
+	bloques = archivo->bloques;
+	contenido = malloc(sizeof(char) * archivo->tamanio);
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		memcpy(contenido + offset, bloque->contenido, bloque->bytesOcupados);
+		offset += bloque->bytesOcupados;
+	}
+
+	// Imprimo el contenido del archivo como texto plano (cat).
+	printf("%s", contenido);
+
+	// Libero recursos.
+	free(pathArchivo);
+	free(contenido);
 }
 
 void ejecutarMkdir(char **argumentos) {
@@ -282,7 +314,7 @@ void ejecutarCpfrom(char **argumentos) {
 			return;
 		}
 
-		if(!esArchivoRegular(pathArchivoOrigen)) {
+		if (!esArchivoRegular(pathArchivoOrigen)) {
 			printf("'%s' es un directorio.\n", pathArchivoOrigen);
 			return;
 		}

@@ -21,7 +21,7 @@ void  ejecutarFormat(char**);
 char* invocarFuncionRm(char**);
 char* invocarFuncionRmDirectory(char**);
 char* invocarFuncionRmBloque(char**);
-char* invocarFuncionCat(char**);
+void  ejecutarCat(char **argumentos);
 void  ejecutarMkdir(char **argumentos);
 char* invocarFuncionMd5(char**);
 void  ejecutarLs(char **argumentos);

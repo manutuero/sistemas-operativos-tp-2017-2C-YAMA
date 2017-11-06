@@ -3,6 +3,7 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// Lee la metadata del archivo que se encuentra en pathArchivo y lo recupera del yamafs.
 t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	int i;
 	char *contenido;
