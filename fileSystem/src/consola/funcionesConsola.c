@@ -282,6 +282,11 @@ void ejecutarCpfrom(char **argumentos) {
 			return;
 		}
 
+		if(!esArchivoRegular(pathArchivoOrigen)) {
+			printf("'%s' es un directorio.\n", pathArchivoOrigen);
+			return;
+		}
+
 		if (!existePathDirectorio(pathDirectorioYamaFs)) {
 			printf("El directorio '%s' no existe.\n", pathDirectorioYamaFs);
 			return;

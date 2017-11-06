@@ -41,6 +41,7 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 		perror(
 				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
 	}
+	
 	if (config_has_property(config, "PUERTO_YAMA")) {
 		PUERTO_YAMA = config_get_string_value(config, "PUERTO_YAMA");
 	} else {
@@ -1527,8 +1528,8 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 	else
 		return false;
 }
-void escucharPeticionesYama() {
 
+void escucharPeticionesYama() {
 	struct addrinfo hints;
 	struct addrinfo *serverInfo;
 	memset(&hints, 0, sizeof(hints));
@@ -1558,4 +1559,14 @@ void escucharPeticionesYama() {
 	}
 	close(socketCliente);
 	close(listenningSocket);
+}
+
+// Retorna 1 si el archivo es regular, 0 si no , y -1 si se produjo un error.
+int esArchivoRegular(char *path) {
+    struct stat st;
+
+    if (stat(path, &st) < 0)
+        return -1;
+
+    return S_ISREG(st.st_mode);
 }

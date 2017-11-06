@@ -162,6 +162,7 @@ int obtenerTipo(char *pathArchivo);
 bool hayEstadoAnterior();
 void validarMetadata(char* path);
 bool existeArchivoEnYamaFs(char *pathArchivo);
+int esArchivoRegular(char *path);
 
 /* Firmas de funciones para restaurar un estado anterior */
 void restaurarEstructurasAdministrativas();
