@@ -41,7 +41,7 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 		perror(
 				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
 	}
-	
+
 	if (config_has_property(config, "PUERTO_YAMA")) {
 		PUERTO_YAMA = config_get_string_value(config, "PUERTO_YAMA");
 	} else {
@@ -1529,7 +1529,11 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 		return false;
 }
 
+//crea un socket. Lo conecta a yama y se queda esperando peticiones de informacion de archivos.
 void escucharPeticionesYama() {
+	t_header *header;
+	header = malloc(sizeof(t_header));
+
 	struct addrinfo hints;
 	struct addrinfo *serverInfo;
 	memset(&hints, 0, sizeof(hints));
@@ -1537,36 +1541,103 @@ void escucharPeticionesYama() {
 	hints.ai_flags = AI_PASSIVE;
 	hints.ai_socktype = SOCK_STREAM;
 	getaddrinfo(NULL, PUERTO_YAMA, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost en AI_PASSIVE
-	int listenningSocket;
-	listenningSocket = socket(serverInfo->ai_family, serverInfo->ai_socktype,
+	int socketYama;
+	socketYama = socket(serverInfo->ai_family, serverInfo->ai_socktype,
 			serverInfo->ai_protocol);
-	bind(listenningSocket, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	bind(socketYama, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
-	listen(listenningSocket, BACKLOG); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
+	listen(socketYama, BACKLOG); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
-	int socketCliente = accept(listenningSocket, (struct sockaddr *) &addr,
-			&addrlen);
+	int socketCliente = accept(socketYama, (struct sockaddr *) &addr, &addrlen);
 	/*
 	 Cuando el cliente cierra la conexion, recv() devolvera 0.
 	 */
-	char package[8];
+
 	int status = 1;		// Estructura que manjea el status de los recieve.
 	while (status != 0) {
-		status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
-		if (status != 0)
-			printf("%s", package);
+		status = recibirHeader(socketYama, header);
+
+		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
+		if (status != 0) {
+			char pathArchivo[header->tamanioPayload];
+			status = recv(socketCliente, (void*) pathArchivo,
+					header->tamanioPayload, 0);	//Recibo el path del archivo que yama me pide informacion
+			t_archivo_a_persistir* archivo =abrirArchivo(pathArchivo);
+			if (archivo != NULL) {
+				void * paqueteRespuesta=NULL;//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
+				t_header* headerRta;
+				headerRta = malloc(sizeof(t_header));
+				serializarInfoArchivo(archivo,paqueteRespuesta,headerRta);
+
+
+
+
+
+
+			} else{
+				//Enviar respuesta con error al yama. Solo con el header alcanza.
+
+			}
+
+		}
 	}
 	close(socketCliente);
-	close(listenningSocket);
+	close(socketYama);
 }
+
 
 // Retorna 1 si el archivo es regular, 0 si no , y -1 si se produjo un error.
 int esArchivoRegular(char *path) {
-    struct stat st;
+	struct stat st;
 
-    if (stat(path, &st) < 0)
-        return -1;
+	if (stat(path, &st) < 0)
+		return -1;
 
-    return S_ISREG(st.st_mode);
+	return S_ISREG(st.st_mode);
+}
+
+
+void serializarInfoArchivo(t_archivo_a_persistir *archivo,void* paqueteRespuesta,t_header *header){
+	paqueteRespuesta=malloc(((archivo->bloques->elements_count*6)*sizeof(uint32_t)));//Falta agregar la cantidad de bloques.6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
+
+	/*Estructura del paquete:
+	 * header + tamanioPayload
+	 * cantidad de bloques
+	 * bloques:
+	 * 			numBloque
+ 	 	 	 	idNodoCopia0
+ 	 	 	 	numBloqueCopia0
+ 	 	 	 	idNodoCopia1
+ 	 	 	 	numBloqueCopia1
+ 	 	 	 	tamanioBloque
+	 *
+	 *
+	 *
+	 * */
+	int cantidadDebloques=archivo->bloques->elements_count;
+	int desplazamiento=sizeof(int);
+	memcpy(paqueteRespuesta,&cantidadDebloques,sizeof(int));
+	int i;
+	for (i = 0; i < archivo->bloques->elements_count; i++){
+		t_bloque *bloque=list_get(archivo->bloques,i);
+		//ir agregando la informacion de cada bloque al paquete respuesta(payload).
+		memcpy(paqueteRespuesta+desplazamiento,&bloque->numeroBloque,sizeof(uint32_t));//numero de bloque
+		desplazamiento+=sizeof(uint32_t);
+		memcpy(paqueteRespuesta+desplazamiento,&bloque->nodoCopia0->idNodo,sizeof(uint32_t));//idNodoCopia0
+		desplazamiento+=sizeof(uint32_t);
+		memcpy(paqueteRespuesta+desplazamiento,&bloque->numeroBloqueCopia0,sizeof(int)); //numero bloque copia 0
+		desplazamiento+=sizeof(int);
+
+		memcpy(paqueteRespuesta+desplazamiento,&bloque->nodoCopia0->idNodo,sizeof(uint32_t));//idNodoCopia1
+		desplazamiento+=sizeof(uint32_t);
+		memcpy(paqueteRespuesta+desplazamiento,&bloque->numeroBloqueCopia0,sizeof(int));//numero bloque copia 1
+		desplazamiento+=sizeof(int);
+
+		memcpy(paqueteRespuesta+desplazamiento,&bloque->bytesOcupados,sizeof(size_t));
+		desplazamiento+=sizeof(size_t);
+	}
+
+
+
 }

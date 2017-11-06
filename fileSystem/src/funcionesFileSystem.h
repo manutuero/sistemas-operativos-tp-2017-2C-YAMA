@@ -176,4 +176,9 @@ void stringAppend(char** original, char* stringToAdd);
 t_list* copiarListaNodos(t_list *lista);
 int lastIndexOf(char *cadena, char caracter);
 
+
+/*Para yama*/
+void escucharPeticionesYama();
+void serializarInfoArchivo(t_archivo_a_persistir* archivo,void* paqueteRespuesta,t_header *header);
+
 #endif
