@@ -23,7 +23,7 @@ char* invocarFuncionRmDirectory(char**);
 char* invocarFuncionRmBloque(char**);
 void  ejecutarCat(char **argumentos);
 void  ejecutarMkdir(char **argumentos);
-char* invocarFuncionMd5(char**);
+void  ejecutarMd5(char **argumentos);
 void  ejecutarLs(char **argumentos);
 void  ejecutarInfo(char **argumentos);
 void  ejecutarRename(char **argumentos);

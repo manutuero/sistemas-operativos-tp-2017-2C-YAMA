@@ -1,6 +1,6 @@
 #include "funcionesConsola.h"
 
-void * levantarConsola() {
+void* levantarConsola() {
 	char *linea;
 	char **argumentos;
 	int cantidadElementos;
@@ -51,8 +51,8 @@ void * levantarConsola() {
 				break;
 			}
 
-			if (sonIguales(argumentos[0], "MD5")) {
-				invocarFuncionMd5(argumentos);
+			if (sonIguales(argumentos[0], "md5")) {
+				ejecutarMd5(argumentos);
 				break;
 			}
 

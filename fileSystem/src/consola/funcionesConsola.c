@@ -134,14 +134,47 @@ void ejecutarMkdir(char **argumentos) {
 				path);
 }
 
-char* invocarFuncionMd5(char **argumentos) {
+void ejecutarMd5(char **argumentos) {
+	char *pathArchivoYamaFs, *nombreArchivo, *pathArchivoTemporal, *comando;
+	t_directorio directorio;
 
-	if (esValido(argumentos[1])) {
-		printf("funcion de md5.\n");
-		printf("El archivo es: %s.\n", argumentos[1]);
-	} else
-		printf("El parametro ingresado: %s no es valido.\n", argumentos[1]);
-	return "<default>";
+	// Validaciones.
+	pathArchivoYamaFs = argumentos[1];
+	if (!esValido(pathArchivoYamaFs)) {
+		printf("La ruta '%s' no es valida.\n", pathArchivoYamaFs);
+		return;
+	}
+
+	if (!existeArchivoEnYamaFs(pathArchivoYamaFs)) {
+		printf("El archivo '%s' no existe.\n", pathArchivoYamaFs);
+		return;
+	}
+
+	nombreArchivo = obtenerNombreArchivo(pathArchivoYamaFs);
+	// Creo un archivo temporal en el fs local, reutilizando cpto.
+	directorio = string_new();
+	string_append(&directorio, PATH_METADATA);
+	char *args[] = { "cpto", pathArchivoYamaFs, directorio };
+	ejecutarCpto(args);
+
+	pathArchivoTemporal = string_new();
+	string_append(&pathArchivoTemporal, PATH_METADATA);
+	string_append(&pathArchivoTemporal, "/");
+	string_append(&pathArchivoTemporal, nombreArchivo);
+
+	// Preparo el comando.
+	comando = string_new();
+	string_append(&comando, "md5sum ");
+	string_append(&comando, pathArchivoTemporal);
+	string_append(&comando, " | awk '{ print $1 }'");
+
+	// Ejecuto la llamada a sistema.
+	system(comando);
+
+	// Libero recursos.
+	remove(pathArchivoTemporal); // Borra el archivo temporal.
+	free(nombreArchivo);
+	free(comando);
 }
 
 void ejecutarLs(char **argumentos) {
