@@ -314,13 +314,20 @@ void* esperarConexionesDatanodes() {
 						nodo->puertoWorker = 0;
 						nodo->bitmap = persistirBitmap(nodo->idNodo,
 								nodo->bloquesTotales);
-						nodo->ip = infoNodo.ip;
+						//nodo->ip = infoNodo.ip; no sirve porque en nodo manda el ip del fs. se cambia y se saca el ip del socket
+						getpeername(sd, (struct sockaddr*) &address,
+								(socklen_t*) &addrlen);
+						nodo->ip = inet_ntoa(address.sin_addr);
 
+						//Aca hay que ver. Si el nodo ya existia cargar su info sino revisar en que estado estamos para ver si se agrega o no
 						agregarNodo(nodos, nodo);
+
 						// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
 						// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
 						// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 						// BLOQUES DE ESE NODO
+
+
 					}
 
 					free(buffer);
@@ -1591,10 +1598,34 @@ int esArchivoRegular(char *path) {
 	return S_ISREG(st.st_mode);
 }
 
+void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
+		char ** rutaGuardadoFinal) {
+	int desplazamiento = 0;
+	uint32_t * largoALeer = malloc(sizeof(uint32_t));
+
+	memcpy(largoALeer, paquete, sizeof(uint32_t));	//largo de la ruta archivo
+	desplazamiento += sizeof(uint32_t);
+
+	*rutaArchivo = malloc(sizeof(char) * (*largoALeer));
+
+	memcpy(*rutaArchivo, paquete + desplazamiento, *largoALeer); //ruta del archivo que se va a procesar en el sistema
+	desplazamiento += *largoALeer;
+
+	memcpy(largoALeer, paquete + desplazamiento, sizeof(uint32_t)); //largo de la ruta archivo
+	desplazamiento += sizeof(uint32_t);
+
+	*rutaGuardadoFinal = malloc(*largoALeer);
+
+	memcpy(*rutaGuardadoFinal, paquete + desplazamiento, *largoALeer); //ruta donde se va a guardar el resultado del proceso
+
+	free(largoALeer);
+
+}
+
 void serializarInfoArchivo(t_archivo_a_persistir *archivo,
 		void* paqueteRespuesta, t_header *header) {
 	paqueteRespuesta = malloc(
-			((archivo->bloques->elements_count * 6) * sizeof(uint32_t)));//Falta agregar la cantidad de bloques.6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
+			((archivo->bloques->elements_count * 6) * sizeof(uint32_t))); //Falta agregar la cantidad de bloques.6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
 
 	/*Estructura del paquete:
 	 * header + tamanioPayload
