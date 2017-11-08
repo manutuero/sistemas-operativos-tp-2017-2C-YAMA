@@ -1537,7 +1537,7 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 }
 
 //crea un socket. Lo conecta a yama y se queda esperando peticiones de informacion de archivos.
-void escucharPeticionesYama() {
+void *escucharPeticionesYama() {
 	t_header *header;
 	header = malloc(sizeof(t_header));
 
@@ -1567,9 +1567,16 @@ void escucharPeticionesYama() {
 
 		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
 		if (status != 0) {
-			char pathArchivo[header->tamanioPayload];
-			status = recv(socketCliente, (void*) pathArchivo,
+			void * peticionRecibida=malloc(header->tamanioPayload);
+			char* pathArchivo;
+			char* pathGuardadoFinal;
+
+			status = recv(socketCliente, (void*) peticionRecibida,
 					header->tamanioPayload, 0);	//Recibo el path del archivo que yama me pide informacion
+
+			deserializarPeticionInfoArchivo(&peticionRecibida,&pathArchivo,&pathGuardadoFinal);
+			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . Y EXISTENCIA DEL ARCHIVO. SI ALGUNO FALLA DEVUELVE ERROR.
+
 			t_archivo_a_persistir* archivo = abrirArchivo(pathArchivo);
 			if (archivo != NULL) {
 				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
@@ -1581,11 +1588,14 @@ void escucharPeticionesYama() {
 				//Enviar respuesta con error al yama. Solo con el header alcanza.
 
 			}
-
+			free(peticionRecibida);
+			free(pathArchivo);
+			free(pathGuardadoFinal);
 		}
 	}
 	close(socketCliente);
 	close(socketYama);
+	return 0;
 }
 
 // Retorna 1 si el archivo es regular, 0 si no , y -1 si se produjo un error.

@@ -28,6 +28,9 @@ int main(int argc, char **argv) {
 		pthread_t hiloConsola;
 		pthread_create(&hiloConsola, NULL, levantarConsola, NULL);
 
+		pthread_t hiloYama;
+		pthread_create(&hiloYama, NULL, escucharPeticionesYama, NULL);
+
 		pthread_join(hiloConexiones, NULL);
 		pthread_join(hiloConsola, NULL);
 		// Liberar la estructura de config pasandola como puntero...

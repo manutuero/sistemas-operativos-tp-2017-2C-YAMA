@@ -179,7 +179,7 @@ int lastIndexOf(char *cadena, char caracter);
 
 
 /*Para yama*/
-void escucharPeticionesYama();
+void *escucharPeticionesYama();
 void serializarInfoArchivo(t_archivo_a_persistir* archivo,void* paqueteRespuesta,t_header *header);
-
+void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,char ** rutaGuardadoFinal);
 #endif
