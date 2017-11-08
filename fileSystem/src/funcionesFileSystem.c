@@ -1563,19 +1563,14 @@ void escucharPeticionesYama() {
 			char pathArchivo[header->tamanioPayload];
 			status = recv(socketCliente, (void*) pathArchivo,
 					header->tamanioPayload, 0);	//Recibo el path del archivo que yama me pide informacion
-			t_archivo_a_persistir* archivo =abrirArchivo(pathArchivo);
+			t_archivo_a_persistir* archivo = abrirArchivo(pathArchivo);
 			if (archivo != NULL) {
-				void * paqueteRespuesta=NULL;//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
+				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
-				serializarInfoArchivo(archivo,paqueteRespuesta,headerRta);
+				serializarInfoArchivo(archivo, paqueteRespuesta, headerRta);
 
-
-
-
-
-
-			} else{
+			} else {
 				//Enviar respuesta con error al yama. Solo con el header alcanza.
 
 			}
@@ -1585,7 +1580,6 @@ void escucharPeticionesYama() {
 	close(socketCliente);
 	close(socketYama);
 }
-
 
 // Retorna 1 si el archivo es regular, 0 si no , y -1 si se produjo un error.
 int esArchivoRegular(char *path) {
@@ -1597,47 +1591,127 @@ int esArchivoRegular(char *path) {
 	return S_ISREG(st.st_mode);
 }
 
-
-void serializarInfoArchivo(t_archivo_a_persistir *archivo,void* paqueteRespuesta,t_header *header){
-	paqueteRespuesta=malloc(((archivo->bloques->elements_count*6)*sizeof(uint32_t)));//Falta agregar la cantidad de bloques.6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
+void serializarInfoArchivo(t_archivo_a_persistir *archivo,
+		void* paqueteRespuesta, t_header *header) {
+	paqueteRespuesta = malloc(
+			((archivo->bloques->elements_count * 6) * sizeof(uint32_t)));//Falta agregar la cantidad de bloques.6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
 
 	/*Estructura del paquete:
 	 * header + tamanioPayload
 	 * cantidad de bloques
 	 * bloques:
 	 * 			numBloque
- 	 	 	 	idNodoCopia0
- 	 	 	 	numBloqueCopia0
- 	 	 	 	idNodoCopia1
- 	 	 	 	numBloqueCopia1
- 	 	 	 	tamanioBloque
+	 idNodoCopia0
+	 numBloqueCopia0
+	 idNodoCopia1
+	 numBloqueCopia1
+	 tamanioBloque
 	 *
 	 *
 	 *
 	 * */
-	int cantidadDebloques=archivo->bloques->elements_count;
-	int desplazamiento=sizeof(int);
-	memcpy(paqueteRespuesta,&cantidadDebloques,sizeof(int));
+	int cantidadDebloques = archivo->bloques->elements_count;
+	int desplazamiento = sizeof(int);
+	memcpy(paqueteRespuesta, &cantidadDebloques, sizeof(int));
 	int i;
-	for (i = 0; i < archivo->bloques->elements_count; i++){
-		t_bloque *bloque=list_get(archivo->bloques,i);
+	for (i = 0; i < archivo->bloques->elements_count; i++) {
+		t_bloque *bloque = list_get(archivo->bloques, i);
 		//ir agregando la informacion de cada bloque al paquete respuesta(payload).
-		memcpy(paqueteRespuesta+desplazamiento,&bloque->numeroBloque,sizeof(uint32_t));//numero de bloque
-		desplazamiento+=sizeof(uint32_t);
-		memcpy(paqueteRespuesta+desplazamiento,&bloque->nodoCopia0->idNodo,sizeof(uint32_t));//idNodoCopia0
-		desplazamiento+=sizeof(uint32_t);
-		memcpy(paqueteRespuesta+desplazamiento,&bloque->numeroBloqueCopia0,sizeof(int)); //numero bloque copia 0
-		desplazamiento+=sizeof(int);
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->numeroBloque,
+				sizeof(uint32_t));	//numero de bloque
+		desplazamiento += sizeof(uint32_t);
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->nodoCopia0->idNodo,
+				sizeof(uint32_t));	//idNodoCopia0
+		desplazamiento += sizeof(uint32_t);
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->numeroBloqueCopia0,
+				sizeof(int)); //numero bloque copia 0
+		desplazamiento += sizeof(int);
 
-		memcpy(paqueteRespuesta+desplazamiento,&bloque->nodoCopia0->idNodo,sizeof(uint32_t));//idNodoCopia1
-		desplazamiento+=sizeof(uint32_t);
-		memcpy(paqueteRespuesta+desplazamiento,&bloque->numeroBloqueCopia0,sizeof(int));//numero bloque copia 1
-		desplazamiento+=sizeof(int);
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->nodoCopia0->idNodo,
+				sizeof(uint32_t)); //idNodoCopia1
+		desplazamiento += sizeof(uint32_t);
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->numeroBloqueCopia0,
+				sizeof(int)); //numero bloque copia 1
+		desplazamiento += sizeof(int);
 
-		memcpy(paqueteRespuesta+desplazamiento,&bloque->bytesOcupados,sizeof(size_t));
-		desplazamiento+=sizeof(size_t);
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->bytesOcupados,
+				sizeof(size_t));
+		desplazamiento += sizeof(size_t);
+	}
+}
+
+// Devuelve un bloque del archivo que se encuentra en 'pathArchivo' o NULL si algo fallo.
+t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
+	int indice, ID_NODO = 0, NRO_BLOQUE_DATABIN = 1, resultado;
+	t_bloque *bloque;
+	t_nodo *nodoCopia0, *nodoCopia1;
+	char *pathMetadataArchivo, *nombreArchivo, *clave, **valores;
+	t_config *diccionario;
+
+	// Verifica que exista el archivo.
+	if (!existeArchivoEnYamaFs(pathArchivo)) {
+		printf("El archivo '%s' no existe.\n", pathArchivo);
+		return NULL;
 	}
 
+	// Busca la informacion del nodo en donde se encuentra ese numero de bloque.
+	indice = obtenerIndice(pathArchivo);
+	nombreArchivo = obtenerNombreArchivo(pathArchivo);
+	pathMetadataArchivo = string_new();
+	string_append(&pathMetadataArchivo, PATH_METADATA);
+	string_append(&pathMetadataArchivo, "/archivos/");
+	string_append(&pathMetadataArchivo, string_itoa(indice));
+	string_append(&pathMetadataArchivo, "/");
+	string_append(&pathMetadataArchivo, nombreArchivo);
 
+	diccionario = config_create(pathMetadataArchivo);
+	if (!diccionario)
+		return NULL;
 
+	// Reservo un bloque.
+	bloque = malloc(sizeof(t_bloque));
+	nodoCopia0 = malloc(sizeof(t_nodo));
+	nodoCopia1 = malloc(sizeof(t_nodo));
+
+	bloque->numeroBloque = numeroBloque;
+
+	bloque->nodoCopia0 = nodoCopia0;
+	clave = string_new();
+	string_append(&clave, "BLOQUE");
+	string_append(&clave, string_itoa(numeroBloque));
+	string_append(&clave, "COPIA0");
+	valores = config_get_array_value(diccionario, clave);
+	bloque->nodoCopia0->idNodo = atoi(valores[ID_NODO]);
+	bloque->numeroBloqueCopia0 = atoi(valores[NRO_BLOQUE_DATABIN]);
+
+	free(clave);
+	free(valores[ID_NODO]);
+	free(valores[NRO_BLOQUE_DATABIN]);
+
+	bloque->nodoCopia1 = nodoCopia1;
+	clave = string_new();
+	string_append(&clave, "BLOQUE");
+	string_append(&clave, string_itoa(numeroBloque));
+	string_append(&clave, "COPIA1");
+	valores = config_get_array_value(diccionario, clave);
+	bloque->nodoCopia1->idNodo = atoi(valores[ID_NODO]);
+	bloque->numeroBloqueCopia1 = atoi(valores[NRO_BLOQUE_DATABIN]);
+
+	free(clave);
+	free(valores[ID_NODO]);
+	free(valores[NRO_BLOQUE_DATABIN]);
+
+	resultado = traerBloqueNodo(bloque);
+	if (resultado == ERROR_AL_TRAER_BLOQUE) {
+		fprintf(stderr,
+				"[ERROR]: no se pudo traer el bloque n° '%d' del archivo '%s'.\n",
+				numeroBloque, pathArchivo);
+		return NULL;
+	}
+
+	// Libero recursos.
+	free(valores);
+	config_destroy(diccionario);
+
+	return bloque;
 }

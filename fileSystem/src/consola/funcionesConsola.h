@@ -30,6 +30,6 @@ void  ejecutarRename(char **argumentos);
 void  ejecutarMv(char **argumentos);
 void  ejecutarCpfrom(char **argumentos);
 void  ejecutarCpto(char **argumentos);
-char* invocarFuncionCpblok(char**);
+void  ejecutarCpblock(char **argumentos);
 void* levantarConsola();
 #endif

@@ -179,6 +179,7 @@ void ejecutarMd5(char **argumentos) {
 
 void ejecutarLs(char **argumentos) {
 	int i;
+	bool hayDirectorios = false;
 	char *path;
 
 	path = argumentos[1];
@@ -201,14 +202,16 @@ void ejecutarLs(char **argumentos) {
 		free(comando);
 
 		// Muestro todos los directorios que estan en este directorio.
-		for (i = 0; i < CANTIDAD_DIRECTORIOS && directorios[i].nombre != NULL;
-				i++) {
-			if (directorios[i].padre == indice) {
+		for (i = 0; i < CANTIDAD_DIRECTORIOS; i++) {
+			if (directorios[i].padre == indice && !sonIguales(directorios[i].nombre, "")) {
 				printf(ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET,
 						directorios[i].nombre);
+				hayDirectorios = true;
 			}
 		}
-		puts("");
+
+		if(hayDirectorios) // Un chiche :p
+			puts("");
 
 	} else {
 		printf("La ruta '%s' no es valida.\n", path);
@@ -432,16 +435,37 @@ void ejecutarCpto(char **argumentos) {
 	free(pathNuevoArchivo);
 }
 
-char* invocarFuncionCpblok(char **argumentos) {
-	if ((esNumero(argumentos[2])) && (esNumero(argumentos[3]))
-			&& (esValido(argumentos[1]))) {
-		printf("funcion cpblock\n");
-		printf("El archivo al que pertenece el bloque: %s\n", argumentos[1]);
-		printf("El numero de bloque es: %s\n", argumentos[2]);
-		printf("El nodo en el que copiar es: %s\n", argumentos[3]);
-	} else
-		printf("Los parametros ingresados: %s,%s,%s no son validos\n",
-				argumentos[1], argumentos[2], argumentos[3]);
+void ejecutarCpblock(char **argumentos) {
+	char *pathArchivo;
+	int numeroBloque, idNodo;
+	t_bloque *bloque;
 
-	return "<default>";
+	// Validaciones
+	pathArchivo = argumentos[1];
+	if (!esValido(pathArchivo)) {
+		printf("La ruta '%s' no es valida.\n", pathArchivo);
+		return;
+	}
+
+	if (!esNumero(argumentos[2])) {
+		printf("El numero de bloque '%s' no es valido.\n", argumentos[2]);
+		return;
+	}
+	numeroBloque = atoi(argumentos[2]);
+
+	if (!esNumero(argumentos[3])) {
+		printf("El id de nodo '%s' no es valido.\n", argumentos[3]);
+		return;
+	}
+	idNodo = atoi(argumentos[3]);
+
+	// Obtengo su contenido.
+	bloque = obtenerBloque(pathArchivo, numeroBloque);
+	if (!bloque)
+		return;
+
+	// Preparo el bloque a guardar...(ver si en el nodo donde va a copiarse el bloque debe existir el mismo archivo).
+
+	// Libero recursos.
+	free(pathArchivo);
 }

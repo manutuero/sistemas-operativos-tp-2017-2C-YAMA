@@ -101,7 +101,7 @@ void* levantarConsola() {
 
 		case 4:
 			if (sonIguales(argumentos[0], "cpblock")) {
-				invocarFuncionCpblok(argumentos);
+				ejecutarCpblock(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);

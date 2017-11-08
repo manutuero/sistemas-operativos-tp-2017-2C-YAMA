@@ -157,6 +157,7 @@ void renombrarDirectorio(char *pathOriginal, char *nombreFinal);
 void moverArchivo(char *pathOriginal, t_directorio pathFinal);
 t_archivo_a_persistir* abrirArchivo(char *path);
 int obtenerTipo(char *pathArchivo);
+t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
