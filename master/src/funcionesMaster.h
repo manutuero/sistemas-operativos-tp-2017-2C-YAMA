@@ -14,20 +14,45 @@
 #include <time.h>
 
 //MACROS
-#define TRANSFORMACION 1
-#define REDUCCIONLOCAL 2
-#define REDUCCIONGLOBAL 3
-#define ERRORTRANSFORMACION -1
-#define ERRORREDUCCIONLOCAL -2
-#define ERRORREDUCCIONGLOBAL -3
-#define ALMACENAFINAL 9
+
+#define TRANSFORMACIONOKYAMA 12
+#define REDUCCIONLOCALOKYAMA 16
+#define REDUCCIONGLOBALOKYAMA 20
+#define ERRORTRANSFORMACION -103
+#define ERRORREDUCCION -104
+#define ERRORREDUCCIONGLOBAL -106
 #define ERRORALMACENADOFINAL -4
 
 //MACROS YAMA
-#define PLANIFICACION 5
+#define PEDIDOTRANSFORMACION 6
+#define ENVIOPLANIFICACION 9
+#define INICIOREDUCCIONLOCAL 13
+#define INICIOREDUCCIONGLOBAL 17
+#define ALMACENAFINALYAMA 21
+#define REPLANIFICACION 24
+#define ABORTARJOB 101
+
+//MACROS WORKER
+#define PEDIDOTRANSFORMACIONWORKER 10 //11
+#define PEDIDOREDLOCALWORKER 14
+#define PEDIDOREDGLOBALWORKER 18
+
+#define TRANSFORMACIONOKWORKER 11 //11
+#define REDUCCIONLOCALOKWORKER 15
+#define REDUCCIONGLOBALOKWORKER 19
+#define ORDENALMACENADOFINAL 22
+#define TRANSFORMACIONOK
+
 //define RUTAARCHIVO 4
 //serializarRutaArchivo de utils crea un header con id = 5. Habria que sacarlo
 
+
+	typedef struct{
+		uint32_t largoArchivo;
+		char* nombreArchivo;
+		uint32_t largoArchivo2;
+		char* nombreArchivoGuardadoFinal;
+	}t_pedidoTransformacion;
 
 /* Utilizada para enviar la etapa de transformacion */
 	typedef struct{
@@ -68,13 +93,13 @@
 
 /* Estructuras de conexion con Worker */
 	typedef struct{
+		uint32_t bytesOcupados; //agregar
 		uint32_t bloqueATransformar;
-		uint32_t etapa;
 		uint32_t largoRutaArchivo;
 		char* rutaArchivoTemporal;
 		uint32_t largoArchivoTransformador;
 		char* archivoTransformador;
-	}t_transformacionWorker;
+	}t_infoTransformacion;
 
 	typedef struct{
 		int largoRutaTemporal;
@@ -94,7 +119,7 @@
 		char* archivoReductor;
 		uint32_t cantidadTransformaciones;
 		t_list* temporalesTranformacion;
-	}t_redLocalesWorker;
+	}t_infoReduccionesLocales;
 
 	typedef struct{
 		uint32_t largoRutaTemporal;
@@ -111,7 +136,7 @@
 		char* archivoReductor;
 		uint32_t cantidadNodos;
 		t_list* nodosAConectar;
-	}t_reduccionGlobalWorker;
+	}t_infoReduccionGlobal;
 
 	typedef struct{
 		uint32_t largoRutaTemporalTransformacion;
@@ -133,6 +158,7 @@
 t_list* listaTransformaciones;
 t_list* listaRedLocales;
 t_list* listaRedGloblales;
+t_list* archivosTranformacionOk;
 
 //semaforos
 pthread_mutex_t mutexMaximasTareas;
@@ -156,7 +182,8 @@ time_t tiempo;
 char* ipYama;
 int puertoYama, socketYama;
 int transformacionesPendientes, reduccionesLocalesPendientes, fallos;
-int cantidadTareasCorriendo, maximoTareasCorriendo;
+int cantidadTareasCorriendoTransformacion, maximoTareasCorriendoTransformacion;
+int cantidadTareasCorriendoRedLocal, maximoTareasCorriendoRedLocal;
 double tiempoTotalTransformaciones, tiempoTotalRedLocales, tiempoTotalRedGlobal;
 int reduccionGlobalRealizada, cantidadTransformacionesRealizadas, cantidadReduccionesLocalesRealizadas;
 /* FIRMAS DE FUNCIONES  */
@@ -165,6 +192,10 @@ int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar
 int file_exists (char * fileName);
 void crearListas();
 void destruirListas();
+void limpiarListas();
+void liberarTransformaciones(void*);
+void liberarReduccionesLocales(void*);
+void liberarReduccionesGlobales(void*);
 void inicializarMutex();
 void crearLogger();
 t_config* cargarArchivoDeConfiguracion();
@@ -172,7 +203,9 @@ t_config* cargarArchivoDeConfiguracion();
 void iniciarMaster(char* transformador,char* reductor,char* archivoAprocesar,char* direccionDeResultado);
 int conectarseAYama(int puerto,char* ip);
 int conectarseAWorker(int, char*);
-void mandarRutaArchivoAYama(int socketYama, char* archivoAprocesar);
+void mandarArchivosAYama(int socketYama, char* archivoAprocesar);
+
+void* serializarArchivos(int*);
 
 void recibirPlanificacionDeYama(int socketYama);
 void deserializarPlanificacion(void*);
@@ -181,6 +214,8 @@ void deserializarReduccionesLocales(int , void* , int* );
 void deserializarReduccionesGlobales(int , void* , int*);
 
 void operarEtapas();
+
+void replanificarTransformaciones();
 
 void enviarAWorkers(char*,char*);
 
@@ -194,22 +229,26 @@ void hiloConexionWorker(t_transformacionMaster*);
 
 void enviarFalloTransformacionAYama(t_transformacionMaster*,t_header*);
 
-void* serializarTransformacionWorker(t_transformacionWorker* , int* );
+void* serializarTransformacionWorker(t_infoTransformacion* , int* );
 
-void* serializarReduccionLocalWorker(t_redLocalesWorker* , int*);
+void* serializarReduccionLocalWorker(t_infoReduccionesLocales* , int*);
 
-void* serializarReduccionGlobalWorker(t_reduccionGlobalWorker* redGlobalWorker,int* largoBuffer);
+void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,int* largoBuffer);
 
 int respuestaTransformacion(int);
 
 void disminuirTransformacionesDeNodo(int);
 
+int transformacionExistente(char*);
+
+void borrarTemporalesDeNodo(int);
+
 int devolverTamanioArchivo(char*);
 char* obtenerContenidoArchivo(char*);
 
 void avisarAYama(t_transformacionMaster*,t_header);
-void avisarAYamaRedLocal(t_redLocalesWorker,t_header);
-void avisarAYamaRedGlobal(t_reduccionGlobalWorker,t_header);
+void avisarAYamaRedLocal(t_infoReduccionesLocales,t_header);
+void avisarAYamaRedGlobal(t_infoReduccionGlobal,t_header);
 void avisarAlmacenadoFinal();
 
 void metricas(double);
