@@ -80,14 +80,12 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap) {
 	int i;
 	for (i = 0; i < tamanioBitmap; i++) {
 		if (bitmap[i] == 'L') {
-			//Cambiar bloque a ocupado
+			// Cambiar bloque a ocupado
 			bitmap[i] = 'O';
 			return i;
-			//Cortar For
-			break;
 		}
 	}
-	//Si no encontro nada devuelve -1 indicando que esta completo el bitmap;Hay que ver que hacemos ahi del otro lado
+	// Si no encontro nada devuelve -1 indicando que esta completo el bitmap.
 	return -1;
 }
 
@@ -326,7 +324,6 @@ void* esperarConexionesDatanodes() {
 						// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
 						// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 						// BLOQUES DE ESE NODO
-
 
 					}
 
@@ -1567,14 +1564,15 @@ void *escucharPeticionesYama() {
 
 		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
 		if (status != 0) {
-			void * peticionRecibida=malloc(header->tamanioPayload);
+			void * peticionRecibida = malloc(header->tamanioPayload);
 			char* pathArchivo;
 			char* pathGuardadoFinal;
 
 			status = recv(socketCliente, (void*) peticionRecibida,
 					header->tamanioPayload, 0);	//Recibo el path del archivo que yama me pide informacion
 
-			deserializarPeticionInfoArchivo(&peticionRecibida,&pathArchivo,&pathGuardadoFinal);
+			deserializarPeticionInfoArchivo(&peticionRecibida, &pathArchivo,
+					&pathGuardadoFinal);
 			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . Y EXISTENCIA DEL ARCHIVO. SI ALGUNO FALLA DEVUELVE ERROR.
 
 			t_archivo_a_persistir* archivo = abrirArchivo(pathArchivo);
@@ -1684,10 +1682,11 @@ void serializarInfoArchivo(t_archivo_a_persistir *archivo,
 // Devuelve un bloque del archivo que se encuentra en 'pathArchivo' o NULL si algo fallo.
 t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	int indice, ID_NODO = 0, NRO_BLOQUE_DATABIN = 1, resultado;
-	t_bloque *bloque;
-	t_nodo *nodoCopia0, *nodoCopia1;
 	char *pathMetadataArchivo, *nombreArchivo, *clave, **valores;
+	t_directorio directorio;
 	t_config *diccionario;
+	t_nodo *nodoCopia0, *nodoCopia1;
+	t_bloque *bloque;
 
 	// Verifica que exista el archivo.
 	if (!existeArchivoEnYamaFs(pathArchivo)) {
@@ -1695,9 +1694,11 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 		return NULL;
 	}
 
-	// Busca la informacion del nodo en donde se encuentra ese numero de bloque.
-	indice = obtenerIndice(pathArchivo);
+	// Busca en la metadata del archivo, necesita el id del nodo en donde se encuentra el contenido del bloque que quiero replicar.
 	nombreArchivo = obtenerNombreArchivo(pathArchivo);
+	directorio = obtenerPathDirectorio(pathArchivo);
+	indice = obtenerIndice(directorio);
+
 	pathMetadataArchivo = string_new();
 	string_append(&pathMetadataArchivo, PATH_METADATA);
 	string_append(&pathMetadataArchivo, "/archivos/");
@@ -1706,21 +1707,33 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	string_append(&pathMetadataArchivo, nombreArchivo);
 
 	diccionario = config_create(pathMetadataArchivo);
-	if (!diccionario)
+	if (!diccionario) {
+		fprintf(stderr, "[ERROR]: no se pudo abrir la metadata del archivo.\n");
 		return NULL;
+	}
 
-	// Reservo un bloque.
+	// Reservo memoria para un bloque.
 	bloque = malloc(sizeof(t_bloque));
+	bloque->contenido = malloc(UN_BLOQUE);
 	nodoCopia0 = malloc(sizeof(t_nodo));
 	nodoCopia1 = malloc(sizeof(t_nodo));
 
 	bloque->numeroBloque = numeroBloque;
 
+	// Cargo el objeto bloque, para luego traer el contenido del bloque de alguna de las dos copias.
 	bloque->nodoCopia0 = nodoCopia0;
 	clave = string_new();
 	string_append(&clave, "BLOQUE");
 	string_append(&clave, string_itoa(numeroBloque));
 	string_append(&clave, "COPIA0");
+
+	// Verifico que el numeroBloque del archivo exista. Antes de que falle cuando trata de recuperarlo.
+	if (!config_has_property(diccionario, clave)) {
+		printf("No existe el numero de bloque '%d' en el archivo '%s'.\n",
+				numeroBloque, pathArchivo);
+		return NULL;
+	}
+
 	valores = config_get_array_value(diccionario, clave);
 	bloque->nodoCopia0->idNodo = atoi(valores[ID_NODO]);
 	bloque->numeroBloqueCopia0 = atoi(valores[NRO_BLOQUE_DATABIN]);
@@ -1734,6 +1747,13 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	string_append(&clave, "BLOQUE");
 	string_append(&clave, string_itoa(numeroBloque));
 	string_append(&clave, "COPIA1");
+
+	if (!config_has_property(diccionario, clave)) {
+		printf("No existe el numero de bloque '%d' en el archivo '%s'.\n",
+				numeroBloque, pathArchivo);
+		return NULL;
+	}
+
 	valores = config_get_array_value(diccionario, clave);
 	bloque->nodoCopia1->idNodo = atoi(valores[ID_NODO]);
 	bloque->numeroBloqueCopia1 = atoi(valores[NRO_BLOQUE_DATABIN]);
@@ -1742,6 +1762,7 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	free(valores[ID_NODO]);
 	free(valores[NRO_BLOQUE_DATABIN]);
 
+	// Si pasa las validaciones, nos queda traer el contenido del bloque de alguno de los dos nodos que este conectado.
 	resultado = traerBloqueNodo(bloque);
 	if (resultado == ERROR_AL_TRAER_BLOQUE) {
 		fprintf(stderr,
@@ -1753,6 +1774,19 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	// Libero recursos.
 	free(valores);
 	config_destroy(diccionario);
-
 	return bloque;
+}
+
+int guardarBloque(t_bloque *bloque, int idNodo) {
+	int respuesta;
+
+	respuesta = guardarBloqueEnNodo(bloque, 0);
+	// Si salio mal.
+	if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
+		printf("Se produjo un error al recibir la respuesta.\n");
+		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+	}
+
+	// Si guardo ok. :)
+	return GUARDO_BLOQUE_OK;
 }

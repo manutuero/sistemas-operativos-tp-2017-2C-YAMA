@@ -203,14 +203,15 @@ void ejecutarLs(char **argumentos) {
 
 		// Muestro todos los directorios que estan en este directorio.
 		for (i = 0; i < CANTIDAD_DIRECTORIOS; i++) {
-			if (directorios[i].padre == indice && !sonIguales(directorios[i].nombre, "")) {
+			if (directorios[i].padre == indice
+					&& !sonIguales(directorios[i].nombre, "")) {
 				printf(ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET,
 						directorios[i].nombre);
 				hayDirectorios = true;
 			}
 		}
 
-		if(hayDirectorios) // Un chiche :p
+		if (hayDirectorios) // Un chiche :p
 			puts("");
 
 	} else {
@@ -436,8 +437,14 @@ void ejecutarCpto(char **argumentos) {
 }
 
 void ejecutarCpblock(char **argumentos) {
-	char *pathArchivo;
-	int numeroBloque, idNodo;
+	int i, numeroBloque, idNodo, resultado, tamanioBitmap, indice, cantidadClaves,
+			cantidadCopias = 0;
+	char *pathArchivo, *nombreArchivo, *pathMetadataArchivo, *clave, *valor, *comando;
+	t_directorio directorio;
+	t_config *diccionario;
+	bool nodoConectado = false;
+	t_bitmap bitmap;
+	t_nodo *nodo;
 	t_bloque *bloque;
 
 	// Validaciones
@@ -459,13 +466,100 @@ void ejecutarCpblock(char **argumentos) {
 	}
 	idNodo = atoi(argumentos[3]);
 
-	// Obtengo su contenido.
+	// Busca el nodo con 'idNodo' en la lista de nodos conectados.
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		if (nodo->idNodo == idNodo) {
+			nodoConectado = true;
+			bitmap = nodo->bitmap;
+			break;
+		}
+	}
+
+	// Sino lo encuentra conectado devuelve un flag de error.
+	if (!nodoConectado) {
+		printf("El nodo id '%d' no se encuentra conectado.\n", idNodo);
+		return;
+	}
+
+	// Si esta conectado obtengo el bloque.
 	bloque = obtenerBloque(pathArchivo, numeroBloque);
 	if (!bloque)
 		return;
 
-	// Preparo el bloque a guardar...(ver si en el nodo donde va a copiarse el bloque debe existir el mismo archivo).
+	// Reutilizo el campo nodoCopia0 (por como esta hecha la funcion guardarBloqueEnNodo).
+	// Solicito al bitmap del nodo un bloque libre.
+	bloque->nodoCopia0 = nodo;
+	tamanioBitmap = strlen(bitmap);
+	bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(bitmap, tamanioBitmap);
+
+	// Escribo el bloque en el nodo solicitado.
+	resultado = guardarBloque(bloque, idNodo);
+	if (resultado != GUARDO_BLOQUE_OK)
+		return;
+
+	actualizarBitmaps();
+
+	// Si salio ok, actualiza la metadata del archivo agregando la metadata del bloque copiado.
+	nombreArchivo = obtenerNombreArchivo(pathArchivo);
+	directorio = obtenerPathDirectorio(pathArchivo);
+	indice = obtenerIndice(directorio);
+
+	pathMetadataArchivo = string_new();
+	string_append(&pathMetadataArchivo, PATH_METADATA);
+	string_append(&pathMetadataArchivo, "/archivos/");
+	string_append(&pathMetadataArchivo, string_itoa(indice));
+	string_append(&pathMetadataArchivo, "/");
+	string_append(&pathMetadataArchivo, nombreArchivo);
+
+	diccionario = config_create(pathMetadataArchivo);
+	if (!diccionario) {
+		fprintf(stderr, "[ERROR]: no se pudo abrir la metadata del archivo.\n");
+		return;
+	}
+
+	// Averiguo cuantas copias de 'numeroBloque' de este archivo hay en el sistema, para agregar la siguiente al archivo.
+	cantidadClaves = config_keys_amount(diccionario);
+	for (i = 0; i < cantidadClaves; i++) {
+		clave = string_new();
+		string_append(&clave, "BLOQUE");
+		string_append(&clave, string_itoa(numeroBloque));
+		string_append(&clave, "COPIA");
+		string_append(&clave, string_itoa(i));
+
+		if (config_has_property(diccionario, clave)) {
+			cantidadCopias++;
+		} else {
+			break;
+		}
+
+		free(clave);
+	}
+
+	// Escribo la nueva copia en el archivo.
+	valor = string_new();
+	string_append(&valor, "[");
+	string_append(&valor, string_itoa(bloque->nodoCopia0->idNodo));
+	string_append(&valor, ",");
+	string_append(&valor, string_itoa(bloque->numeroBloqueCopia0));
+	string_append(&valor, "]");
+
+	config_set_value(diccionario, clave, valor);
+	config_save(diccionario);
+
+	// Reordeno el diccionario llamando a un script de la carpeta thePonchos.
+	comando = string_new();
+	string_append(&comando, "/home/utnso/thePonchos/ordenarArchivo.sh ");
+	string_append(&comando, pathMetadataArchivo);
+	system(comando);
 
 	// Libero recursos.
+	config_destroy(diccionario);
+	free(clave);
+	free(valor);
 	free(pathArchivo);
+	free(nombreArchivo);
+	free(directorio);
+	free(comando);
+	free(pathMetadataArchivo);
 }

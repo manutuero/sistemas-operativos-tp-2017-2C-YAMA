@@ -158,6 +158,7 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal);
 t_archivo_a_persistir* abrirArchivo(char *path);
 int obtenerTipo(char *pathArchivo);
 t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque);
+int guardarBloque(t_bloque *bloque, int idNodo);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();

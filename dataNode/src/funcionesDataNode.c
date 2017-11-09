@@ -95,7 +95,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	t_infoNodo *infoNodo = malloc(sizeof(t_infoNodo));
 	infoNodo->sdNodo = 0;
 	infoNodo->idNodo = atoi(ID_NODO);
-	infoNodo->cantidadBloques = 15;
+	infoNodo->cantidadBloques = 300;
 	int largoIp = strlen(IP_FILESYSTEM);
 	infoNodo->ip = malloc(largoIp + 1);
 	strcpy(infoNodo->ip, IP_FILESYSTEM);
