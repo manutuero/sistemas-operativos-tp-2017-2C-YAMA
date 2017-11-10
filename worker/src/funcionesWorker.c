@@ -15,9 +15,14 @@ void crearLogger() {
 void cargarArchivoConfiguracion(char*nombreArchivo) {
 	log_info(workerLogger, "Cargando archivo de configuracion del FileSystem.");
 	char cwd[1024]; // Variable donde voy a guardar el path absoluto
-	char * pathArchConfig = string_from_format("%s/%s",
-			getcwd(cwd, sizeof(cwd)), nombreArchivo); // String que va a tener el path absoluto para pasarle al config_create
+	char * pathArchConfig = string_from_format("%s/%s",getcwd(cwd, sizeof(cwd)), nombreArchivo); // String que va a tener el path absoluto para pasarle al config_create
 	t_config *config = config_create(pathArchConfig);
+
+	if(!config) {
+	  perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+	  exit(EXIT_FAILURE);
+	 }
+
 	log_info(workerLogger,
 			"El directorio sobre el que se esta trabajando es %s.",
 			pathArchConfig);
@@ -33,6 +38,9 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 	if (config_has_property(config, "PUERTO_WORKER")) {
 		PUERTO_WORKER = config_get_int_value(config, "PUERTO_WORKER");
 	}
+	if (config_has_property(config, "PUERTO_DATANODE")) {
+		PUERTO_DATANODE = config_get_int_value(config, "PUERTO_DATANODE");
+		}
 	if (config_has_property(config, "RUTA_DATABIN")) {
 		RUTA_DATABIN = config_get_string_value(config, "RUTA_DATABIN");
 	}
@@ -41,11 +49,13 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 	printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
 	printf("\nID Nodo %s\n", ID_NODO);
 	printf("\nPuerto Worker %d\n", PUERTO_WORKER);
+	printf("\nPuerto Datanode %d\n",PUERTO_DATANODE);
 	printf("\nRuta Data.bin %s\n", RUTA_DATABIN);
 	log_info(workerLogger, "Archivo de configuracion cargado exitosamente");
 
 	//config_destroy(config);  //si se descomenta esta linea, se reduce la cantidad de memory leaks
 }
+
 
 int recibirArchivo(int cliente) {
 
