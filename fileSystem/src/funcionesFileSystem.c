@@ -2,6 +2,7 @@
 
 /* Inicializacion de variables globales */
 int estadoFs = NO_ESTABLE; // Por defecto siempre inicia no estable.
+int estadoNodos = -1; //Depende de que estado venga el fs como se va a iniciar
 int cantidad_nodos_esperados = 99;
 sem_t semNodosRequeridos;
 sem_t semEstadoEstable;
@@ -248,14 +249,18 @@ void* esperarConexionesDatanodes() {
 					perror("accept");
 					exit(EXIT_FAILURE);
 				}
-
-				// Agrego el nuevo socket al array
-				for (i = 0; i < numeroClientes; i++) {
-					//Busco una pos vacia en la lista de clientes para guardar el socket entrante
-					if (socketsClientes[i] == 0) {
-						socketsClientes[i] = socketEntrante;
-						break;
+				//Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
+				if (nodos->elements_count < cantidad_nodos_esperados) {
+					// Agrego el nuevo socket al array
+					for (i = 0; i < numeroClientes; i++) {
+						//Busco una pos vacia en la lista de clientes para guardar el socket entrante
+						if (socketsClientes[i] == 0) {
+							socketsClientes[i] = socketEntrante;
+							break;
+						}
 					}
+				} else { //Rechazo el socket ya que el sistema no permite mas conexiones.
+					cerrarSocket(sd);
 				}
 			}
 
@@ -304,14 +309,16 @@ void* esperarConexionesDatanodes() {
 						nodo->ip = inet_ntoa(address.sin_addr);
 
 						// Aca hay que ver. Si el nodo ya existia cargar su info sino revisar en que estado estamos para ver si se agrega o no
-						agregarNodo(nodos, nodo);
+						if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
+							//Probablemente tambien habria que agregar a la otra lista de nodos esperados
+							agregarNodo(nodos, nodo);
+						} else {
 
-						// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
-						// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
-						// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
-						// BLOQUES DE ESE NODO
+							//Buscar nodo conectado en la lista de nodos esperados, si esta agregarlo con esa info.
+							//Sino cerrar el socket ya que no se aceptan nodos nuevos
+							agregarNodo(nodos, nodo);//Para probar se hace directo
+						}
 					}
-
 					free(buffer);
 				}
 			}
@@ -810,6 +817,8 @@ void restaurarTablaDeDirectorios() {
 }
 
 void restaurarTablaDeNodos() {
+	estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS; //YA que se restaura la lista de nodos, solo se aceptan nodos ya conectados previamente
+
 	int i, largo = 0;
 	uint32_t tamanioLibreNodo;
 	t_nodo *nodo;

@@ -22,6 +22,10 @@ enum estados {
 	NO_ESTABLE, ESTABLE
 };
 
+enum estadosNodos{
+	ACEPTANDO_NODOS_NUEVOS,ACEPTANDO_NODOS_YA_CONECTADOS
+};
+
 enum directorios {
 	DIR_NO_EXISTE = 100
 };
@@ -53,8 +57,8 @@ int PUERTO;
 char* PUERTO_YAMA;
 int cantidad_nodos_esperados;
 char *PATH_METADATA;
-int socketNodoConectado;
 extern int estadoFs;
+extern int estadoNodos;
 
 /*********************** Estructuras ************************/
 
