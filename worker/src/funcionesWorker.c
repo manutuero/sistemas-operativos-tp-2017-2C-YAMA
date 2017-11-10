@@ -230,37 +230,7 @@ t_infoTransformacion deserializarInfoTransformacion(void* buffer) {
 
 	bytesACopiar=sizeof(uint32_t);
 	memcpy(&infoTransformacion.largoArchTransformador,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiart_infoTransformacion deserializarInfoTransformacion(void* buffer) {
-	t_infoTransformacion infoTransformacion;
-	uint32_t desplazamiento=0,bytesACopiar;
-
-	bytesACopiar=sizeof(uint32_t);
-	memcpy(&infoTransformacion.numBloque,buffer+desplazamiento,bytesACopiar);
 	desplazamiento+=bytesACopiar;
-
-	bytesACopiar=sizeof(uint32_t);
-	memcpy(&infoTransformacion.bytesOcupados,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
-
-	bytesACopiar=sizeof(uint32_t);
-	memcpy(&infoTransformacion.largoNombreArchTemp,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
-
-	bytesACopiar=infoTransformacion.largoNombreArchTemp;
-	memcpy(&infoTransformacion.nombreArchTemp,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
-
-	bytesACopiar=sizeof(uint32_t);
-	memcpy(&infoTransformacion.largoArchTransformador,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
-
-	bytesACopiar=infoTransformacion.largoArchTransformador;
-	memcpy(&infoTransformacion.archTransformador,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
-
-	return infoTransformacion;
-}
-;
 
 	bytesACopiar=infoTransformacion.largoArchTransformador;
 	memcpy(&infoTransformacion.archTransformador,buffer+desplazamiento,bytesACopiar);
