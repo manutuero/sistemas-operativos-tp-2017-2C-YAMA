@@ -19,7 +19,7 @@ enum resultadosDeOperacion {
 };
 
 enum estados {
-	ESTABLE, NO_ESTABLE
+	NO_ESTABLE, ESTABLE
 };
 
 enum directorios {
@@ -43,11 +43,15 @@ enum respuestasDatanode {
 	TRAJO_BLOQUE_OK
 };
 
+/* Semaforos */
+extern sem_t semNodosRequeridos;
+extern sem_t semEstadoEstable;
+
 /* Variables globales */
 char *ARCHCONFIG;
 int PUERTO;
 char* PUERTO_YAMA;
-int CANTIDAD_NODOS_ESPERADOS;
+int cantidad_nodos_esperados;
 char *PATH_METADATA;
 int socketNodoConectado;
 extern int estadoFs;
@@ -89,7 +93,7 @@ typedef struct {
 } composicionArchivo;
 
 extern t_directory directorios[100];
-extern t_list *nodos;
+t_list *nodos;
 extern t_list *archivos;
 
 /*********************** Firmas de funciones ************************/
@@ -103,6 +107,7 @@ void crearTablaDeDirectorios();
 void crearDirectorioArchivos();
 void crearTablaDeNodos();
 void crearDirectorioBitmaps();
+void persistirBitmaps();
 
 /* Firmas de funciones para nodos */
 void agregarNodo(t_list *lista, t_nodo *nodo);

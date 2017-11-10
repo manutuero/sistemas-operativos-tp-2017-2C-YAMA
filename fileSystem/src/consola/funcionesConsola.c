@@ -36,8 +36,13 @@ char** cargarArgumentos(char* linea) {
 }
 
 void ejecutarFormat(char **argumentos) {
-	persistirTablaDeNodos();
-	// Hacer format..
+	if(nodos->elements_count >= 2) {
+		crearDirectorioMetadata();
+		persistirTablaDeNodos();
+		persistirBitmaps();
+		estadoFs = ESTABLE;
+		sem_post(&semEstadoEstable);
+	}
 }
 
 char* invocarFuncionRm(char **argumentos) {

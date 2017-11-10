@@ -1,7 +1,10 @@
 #include "funcionesFileSystem.h"
 
 /* Inicializacion de variables globales */
-int estadoFs = ESTABLE;
+int estadoFs = NO_ESTABLE; // Por defecto siempre inicia no estable.
+int cantidad_nodos_esperados = 99;
+sem_t semNodosRequeridos;
+sem_t semEstadoEstable;
 
 /* Inicializacion de estructuras administrativas */
 t_directory directorios[100];
@@ -25,14 +28,6 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 		PUERTO = config_get_int_value(config, "PUERTO");
 	} else {
 		perror("No existe la clave 'PUERTO' en el archivo de configuracion.");
-	}
-
-	if (config_has_property(config, "CANTIDAD_NODOS_ESPERADOS")) {
-		CANTIDAD_NODOS_ESPERADOS = config_get_int_value(config,
-				"CANTIDAD_NODOS_ESPERADOS");
-	} else {
-		perror(
-				"No existe la clave 'CANTIDAD_NODOS_ESPERADOS' en el archivo de configuracion.");
 	}
 
 	if (config_has_property(config, "PATH_METADATA")) {
@@ -241,8 +236,6 @@ void* esperarConexionesDatanodes() {
 
 			// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
 			actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
-
-			//&& (errno!=EINTR))
 			if (actividad < 0) {
 				fprintf(stderr, "[ERROR]: Fallo la funcion select().");
 			}
@@ -256,21 +249,17 @@ void* esperarConexionesDatanodes() {
 					exit(EXIT_FAILURE);
 				}
 
-				//printf("Nueva conexion, socket descriptor es: %d , ip es: %s, puerto: %d\n",
-				//socketEntrante, inet_ntoa(address.sin_addr), PUERTO);
-
 				// Agrego el nuevo socket al array
 				for (i = 0; i < numeroClientes; i++) {
 					//Busco una pos vacia en la lista de clientes para guardar el socket entrante
 					if (socketsClientes[i] == 0) {
 						socketsClientes[i] = socketEntrante;
-						//printf("Se agrego el nuevo socket en la posicion: %d.\n",
-						//	i);
 						break;
 					}
 				}
 			}
-			//else  es un cambio en los sockets que estaba escuchando.
+
+			// else  es un cambio en los sockets que estaba escuchando.
 			for (i = 0; i < numeroClientes; i++) {
 				sd = socketsClientes[i];
 
@@ -310,21 +299,17 @@ void* esperarConexionesDatanodes() {
 						nodo->bloquesTotales = infoNodo.cantidadBloques;
 						nodo->bloquesLibres = nodo->bloquesTotales;
 						nodo->puertoWorker = 0;
-						nodo->bitmap = persistirBitmap(nodo->idNodo,
-								nodo->bloquesTotales);
-						//nodo->ip = infoNodo.ip; no sirve porque en nodo manda el ip del fs. se cambia y se saca el ip del socket
 						getpeername(sd, (struct sockaddr*) &address,
 								(socklen_t*) &addrlen);
 						nodo->ip = inet_ntoa(address.sin_addr);
 
-						//Aca hay que ver. Si el nodo ya existia cargar su info sino revisar en que estado estamos para ver si se agrega o no
+						// Aca hay que ver. Si el nodo ya existia cargar su info sino revisar en que estado estamos para ver si se agrega o no
 						agregarNodo(nodos, nodo);
 
 						// Tenemos que ver si el hilo de yama entra por aca o ponemos a escuchar en otro hilo aparte
 						// SON SOLO PARA DEBUG. COMENTAR Y AGREGAR AL LOGGER.
 						// ACTUALIZAR TABLA DE ARCHIVOS Y PASAR A DISPONIBLES LOS
 						// BLOQUES DE ESE NODO
-
 					}
 
 					free(buffer);
@@ -778,7 +763,6 @@ void crearTablaDeNodos() {
 	}
 
 	// Inicializo la lista de nodos, ahora a esperar que se conecten...
-	nodos = list_create();
 	fclose(filePointer);
 }
 
@@ -802,7 +786,7 @@ void crearDirectorioBitmaps() {
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
 	restaurarTablaDeArchivos();
-	//restaurarTablaDeNodos();
+	restaurarTablaDeNodos();
 }
 
 void restaurarTablaDeDirectorios() {
@@ -833,7 +817,6 @@ void restaurarTablaDeNodos() {
 	path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/nodos.bin");
-	// Uso las commons para leer el archivo como un diccionario (key-value).
 	t_config* diccionario = config_create(path);
 
 	if (!diccionario) {
@@ -846,7 +829,7 @@ void restaurarTablaDeNodos() {
 	sNodos = config_get_string_value(diccionario, "NODOS");
 	if (!sNodos) {
 		fprintf(stderr,
-				"[Error]: la tabla de nodos de un estado anterior esta vacia.\n");
+				"[Error]: la tabla de nodos de un estado anterior esta vacia.\n"); // Esta situacion nunca se deberia dar ...
 		return;
 	}
 
@@ -909,6 +892,10 @@ void agregarNodo(t_list *lista, t_nodo *nodo) {
 	} else {
 		list_add(lista, nodo);
 	}
+
+	// Se conectaron al menos
+	if (lista->elements_count >= 2)
+		sem_post(&semNodosRequeridos);
 }
 
 t_list* copiarListaNodos(t_list *lista) {
@@ -957,7 +944,6 @@ int bloquesLibresFileSystem() {
 
 void persistirTablaDeNodos() {
 	int i;
-	t_list *nodosAux = list_create(); // Uso una lista auxiliar para cambiar el orden en que persisto en el archivo.
 	t_nodo *nodo;
 	char *clave, *valor, *path;
 
@@ -971,8 +957,8 @@ void persistirTablaDeNodos() {
 		exit(EXIT_FAILURE);
 	}
 
-	list_add_all(nodosAux, nodos);
-	list_sort(nodosAux, (void*) compararPorIdDesc);
+	// Ordeno la lista de nodos para que me quede en orden creciente (descendente).
+	list_sort(nodos, (void*) compararPorIdDesc);
 
 	// TAMANIO.
 	clave = "TAMANIO=";
@@ -990,10 +976,10 @@ void persistirTablaDeNodos() {
 	clave = "\nNODOS=";
 	valor = string_new();
 	string_append(&valor, "[");
-	nodo = list_get(nodosAux, 0);
+	nodo = list_get(nodos, 0);
 	string_append(&valor, string_itoa(nodo->idNodo));
-	for (i = 1; i < nodosAux->elements_count; i++) {
-		nodo = list_get(nodosAux, i);
+	for (i = 1; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
 		string_append(&valor, ",");
 		string_append(&valor, string_itoa(nodo->idNodo));
 	}
@@ -1002,8 +988,8 @@ void persistirTablaDeNodos() {
 	fputs(valor, filePointer);
 	free(valor);
 
-	for (i = 0; i < nodosAux->elements_count; i++) {
-		nodo = list_get(nodosAux, i);
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
 
 		// NodoxTotal
 		clave = string_new();
@@ -1028,7 +1014,6 @@ void persistirTablaDeNodos() {
 
 	// Libero recursos.
 	fclose(filePointer);
-	list_destroy(nodosAux);
 }
 
 void actualizarTablaDeNodos() {
@@ -1789,4 +1774,13 @@ int guardarBloque(t_bloque *bloque, int idNodo) {
 
 	// Si guardo ok. :)
 	return GUARDO_BLOQUE_OK;
+}
+
+void persistirBitmaps() {
+	int i;
+	t_nodo *nodo;
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
+	}
 }

@@ -16,9 +16,8 @@ void* levantarConsola() {
 		switch (cantidadElementos) {
 		case 1:
 			if (sonIguales(argumentos[0], "format")) {
-				printf("Funcion format \n");
 				ejecutarFormat(argumentos);
-				puts("vuelve al hilo consola");
+				printf("Formateando sistema... hecho.\n");
 				break;
 			}
 			if (sonIguales(argumentos[0], "exit")) {
