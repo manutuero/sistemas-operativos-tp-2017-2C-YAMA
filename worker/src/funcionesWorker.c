@@ -122,3 +122,150 @@ t_archivo* deserializarArchivo(void *buffer) {
 
 	return miArchivo;
 }
+
+void abrirDatabin() {
+	filePointer = fopen(RUTA_DATABIN, "r+");
+	// Valida que el archivo exista. Caso contrario lanza error.
+	if (!filePointer) {
+		perror("El archivo 'data.bin' no existe en la ruta especificada.");
+		exit(EXIT_FAILURE);
+	}
+	fileDescriptor = fileno(filePointer);
+}
+void cerrarDatabin() {
+	fclose(filePointer);
+}
+
+
+char* getBloque(int numero) {
+	size_t bytesALeer = UN_BLOQUE, tamanioArchivo;
+	off_t desplazamiento = numero * UN_BLOQUE;
+	char *regionDeMapeo, *data = malloc(bytesALeer+1);
+
+	// Estructura que contiene informacion del estado de archivos y dispositivos.
+	struct stat st;
+	stat(RUTA_DATABIN, &st);
+	tamanioArchivo = st.st_size;
+
+	if (desplazamiento >= tamanioArchivo) {
+		perror("El desplazamiento sobrepaso el fin de archivo (EOF).");
+		exit(EXIT_FAILURE);
+	}
+
+	if (desplazamiento + bytesALeer > tamanioArchivo)
+		bytesALeer = tamanioArchivo - desplazamiento;
+	/* No puedo mostrar bytes pasando el EOF */
+
+	regionDeMapeo = mmap(NULL, bytesALeer,
+	PROT_READ, MAP_SHARED, fileDescriptor, desplazamiento);
+
+	if (regionDeMapeo == MAP_FAILED) {
+		perror("No se pudo reservar la region de mapeo.");
+		exit(EXIT_FAILURE);
+	}
+
+	strncpy(data, regionDeMapeo, bytesALeer);
+	munmap(regionDeMapeo, bytesALeer); // Libero la region de mapeo solicitada.
+	return data;
+	free(regionDeMapeo);
+}
+
+
+void realizarTransformacion(t_infoTransformacion infoTransformacion){
+	int respuesta;
+	char* rutaArchTransformador;
+	FILE*archivoTemp;
+	rutaArchTransformador=guardarArchScript(infoTransformacion.archTransformador);
+	archivoTemp=fopen(infoTransformacion.nombreArchTemp,"r+");
+	char* bloque;
+	char*data;
+	bloque=getBloque(infoTransformacion.numBloque);
+	data=memcpy(data,bloque,infoTransformacion.bytesOcupados);
+	char* lineaAEjecutar=string_new();
+	string_append(&data,"\0");
+	string_append_with_format(&lineaAEjecutar,"echo -e %s | ./%s | sort > %s",data,rutaArchTransformador,infoTransformacion.nombreArchTemp);
+
+	respuesta =system(lineaAEjecutar);
+
+	//guardarArchTempEnDestino(archivoTemp,destinoArchTemp);
+	//registrarOperacionEnLogs(repuesta)
+	fclose(archivoTemp);
+}
+
+char *guardarArchScript(char*contenidoArchivoScript) {
+	char*rutaArchScritp=string_new();
+	string_append(&rutaArchScritp,"home/utnso/scriptsGuardados/archTransformador");
+	FILE*arch=fopen(rutaArchScritp,"w");
+	txt_write_in_file(arch,contenidoArchivoScript);
+	fclose(arch);
+	return rutaArchScritp;
+}
+
+char* armarNombreConPathTemp(char* nombreTemp){
+	char * nombreArchTemp= string_new();
+	string_append(&nombreArchTemp,pathTemporales);
+	string_append(&nombreArchTemp,nombreTemp);
+	return nombreArchTemp;
+}
+
+t_infoTransformacion deserializarInfoTransformacion(void* buffer) {
+	t_infoTransformacion infoTransformacion;
+	uint32_t desplazamiento=0,bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.numBloque,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.bytesOcupados,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.largoNombreArchTemp,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=infoTransformacion.largoNombreArchTemp;
+	memcpy(&infoTransformacion.nombreArchTemp,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.largoArchTransformador,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiart_infoTransformacion deserializarInfoTransformacion(void* buffer) {
+	t_infoTransformacion infoTransformacion;
+	uint32_t desplazamiento=0,bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.numBloque,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.bytesOcupados,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.largoNombreArchTemp,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=infoTransformacion.largoNombreArchTemp;
+	memcpy(&infoTransformacion.nombreArchTemp,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoTransformacion.largoArchTransformador,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=infoTransformacion.largoArchTransformador;
+	memcpy(&infoTransformacion.archTransformador,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	return infoTransformacion;
+}
+;
+
+	bytesACopiar=infoTransformacion.largoArchTransformador;
+	memcpy(&infoTransformacion.archTransformador,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	return infoTransformacion;
+}
+
