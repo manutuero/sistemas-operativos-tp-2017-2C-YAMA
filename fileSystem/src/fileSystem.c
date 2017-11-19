@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
 	sem_init(&semNodosRequeridos, 0, 0);
 	sem_init(&semEstadoEstable, 0, 0);
 	nodos = list_create();
+	nodosEsperados = list_create();
 
 	// Agregar un logger (cuando estemos por terminar).
 	pthread_create(&hiloConexiones, NULL, esperarConexionesDatanodes, NULL);
@@ -32,9 +33,12 @@ int main(int argc, char **argv) {
 		sem_wait(&semEstadoEstable);
 		pthread_create(&hiloYama, NULL, escucharPeticionesYama, NULL);
 	} else if (hayEstadoAnterior()) {
-		//archivos = list_create();
 		puts("Hay estado anterior..");
 		restaurarEstructurasAdministrativas();
+
+		//sem_wait(&semNodosRequeridos); No voy a tener la consola disponible hasta que no tenga al menos 2 nodos (de los nodos esperados)
+		// Por lo que entiendo, el no estar en un "estado estable" implica que no dejo que se conecten ni YAMA ni WORKER.
+		pthread_create(&hiloConsola, NULL, levantarConsola, NULL);
 	}
 
 	/* Tambien agregar conexion con worker para recibir el archivo resultante a la reduccion global. */

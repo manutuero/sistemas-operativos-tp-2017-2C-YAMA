@@ -21,28 +21,33 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 	t_config *config = config_create(pathArchConfig);
 
 	if (!config) {
-		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		fprintf(stderr,
+				"[ERROR]: No se pudo cargar el archivo de configuracion.\n");
 		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO")) {
 		PUERTO = config_get_int_value(config, "PUERTO");
 	} else {
-		perror("No existe la clave 'PUERTO' en el archivo de configuracion.");
+		fprintf(stderr,
+				"No existe la clave 'PUERTO' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PATH_METADATA")) {
 		PATH_METADATA = config_get_string_value(config, "PATH_METADATA");
 	} else {
-		perror(
-				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
+		fprintf(stderr,
+				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO_YAMA")) {
 		PUERTO_YAMA = config_get_string_value(config, "PUERTO_YAMA");
 	} else {
-		perror(
-				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.");
+		fprintf(stderr,
+				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -264,32 +269,31 @@ void* esperarConexionesDatanodes() {
 				}
 			}
 
-			// else  es un cambio en los sockets que estaba escuchando.
+			// else es un cambio en los sockets que estaba escuchando.
 			for (i = 0; i < numeroClientes; i++) {
 				sd = socketsClientes[i];
 
 				if (FD_ISSET(sd, &readfds)) {
-					//Chequea si fue para cerrarse y sino lee el mensaje;
-					// desconexion
+					// Desconexion de un nodo.
 					if (recibirHeader(sd, &header) == 0) {
-						//getpeername(sd, (struct sockaddr*) &address, (socklen_t*) &addrlen);
-						//printf("Cliente desconectado sd: %d \n", sd);
-						close(sd);
-						socketsClientes[i] = 0;
-						//SI SE DESCONECTO UN NODO BUSCARLO EN LA LISTA DE NODOS
-						//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
-						//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
-						//DESCONECTADO A NO DISPONIBLES
+						cerrarSocket(sd);
+						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
+						estadoFs = NO_ESTABLE;
+						// Actualizo la lista de nodos conectados.
+						int j;
+						t_nodo *nodoDesconectado;
+						for (j = 0; j < nodos->elements_count; j++) {
+							nodoDesconectado = list_get(nodos, i);
+							if(nodoDesconectado->socketDescriptor == sd)
+								list_remove(nodos, i);
+						}
+						// PASAR LOS BLOQUES DEL NODO DESCONECTADO A NO DISPONIBLES
 						break;
-					}
-					//Si entra aca recibi un header que va a tener la info de quien se conecto.
-					else {
-						//printf("Header : %d.\n", header.tamanioPayload);
 					}
 
 					buffer = malloc(header.tamanioPayload);
 
-					//Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
+					// Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
 					if (recibirPorSocket(sd, buffer, header.tamanioPayload)
 							<= 0) {
 						perror(
@@ -310,25 +314,18 @@ void* esperarConexionesDatanodes() {
 
 						if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 							agregarNodo(nodos, nodo);
+							agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
 						}
 
-						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS) {
-							if (nodos->elements_count
-									== nodosEsperados->elements_count)
-								cerrarSocket(sd);
-
+						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS && estadoFs == NO_ESTABLE) {
 							if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
 								agregarNodo(nodos, nodo);
 							} else {
 								cerrarSocket(sd);
 							}
-
-							puts("Nodos restaurados:\n");
-							for (i = 0; i < nodos->elements_count; i++) {
-								nodo = list_get(nodos, i);
-								printf("Id nodo: %d\n Bloques libres: %d\n",
-										nodo->idNodo, nodo->bloquesLibres);
-							}
+						} else if (estadoFs == ESTABLE) {
+							socketsClientes[i] = 0;
+							cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
 						}
 					}
 					free(buffer);
@@ -722,9 +719,9 @@ void borrarDirectorioMetadata() {
 		string_append(&comando, "rm -rf ");
 		string_append(&comando, PATH_METADATA);
 		system(comando);
+		free(comando);
 	}
 
-	free(comando);
 	closedir(directorio);
 }
 
@@ -1041,6 +1038,8 @@ void persistirTablaDeNodos() {
 		fputs(valor, filePointer);
 		free(clave);
 	}
+
+	fputs("\n", filePointer);
 
 	// Libero recursos.
 	fclose(filePointer);
