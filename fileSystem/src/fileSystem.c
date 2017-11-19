@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 		restaurarEstructurasAdministrativas();
 	} else {
 		puts("No hay estado anterior. Esperando datanodes...");
-		estadoNodos=ACEPTANDO_NODOS_NUEVOS;
+		estadoNodos = ACEPTANDO_NODOS_NUEVOS;
 		sem_wait(&semNodosRequeridos);
 		pthread_create(&hiloConsola, NULL, levantarConsola, NULL);
 		sem_destroy(&semNodosRequeridos);

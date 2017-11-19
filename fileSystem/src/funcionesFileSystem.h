@@ -97,7 +97,7 @@ typedef struct {
 } composicionArchivo;
 
 extern t_directory directorios[100];
-t_list *nodos;
+t_list *nodos, *nodosEsperados;
 extern t_list *archivos;
 
 /*********************** Firmas de funciones ************************/
@@ -180,6 +180,7 @@ void restaurarEstructurasAdministrativas();
 void restaurarTablaDeDirectorios();
 void restaurarTablaDeNodos();
 void restaurarTablaDeArchivos();
+bool esNodoAnterior(t_list *nodosEsperados, int idNodo);
 
 /* Auxiliares */
 char* getResultado(int);

@@ -9,7 +9,7 @@ sem_t semEstadoEstable;
 
 /* Inicializacion de estructuras administrativas */
 t_directory directorios[100];
-t_list *nodos;
+t_list *nodos, *nodosEsperados;
 t_list *archivos;
 
 /*********************** Implementacion de funciones ************************/
@@ -308,16 +308,29 @@ void* esperarConexionesDatanodes() {
 								(socklen_t*) &addrlen);
 						nodo->ip = inet_ntoa(address.sin_addr);
 
-						// Aca hay que ver. Si el nodo ya existia cargar su info sino revisar en que estado estamos para ver si se agrega o no
 						if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
-							//Probablemente tambien habria que agregar a la otra lista de nodos esperados
 							agregarNodo(nodos, nodo);
-						} else {
-
-							//Buscar nodo conectado en la lista de nodos esperados, si esta agregarlo con esa info.
-							//Sino cerrar el socket ya que no se aceptan nodos nuevos
-							agregarNodo(nodos, nodo);//Para probar se hace directo
 						}
+
+						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS) {
+							if (nodos->elements_count
+									== nodosEsperados->elements_count)
+								cerrarSocket(sd);
+
+							if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
+								agregarNodo(nodos, nodo);
+							} else {
+								cerrarSocket(sd);
+							}
+						}
+
+						puts("Nodos restaurados:\n");
+						for (i = 0; i < nodos->elements_count; i++) {
+							nodo = list_get(nodos, i);
+							printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
+									nodo->bloquesLibres);
+						}
+
 					}
 					free(buffer);
 				}
@@ -817,7 +830,7 @@ void restaurarTablaDeDirectorios() {
 }
 
 void restaurarTablaDeNodos() {
-	estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS; //YA que se restaura la lista de nodos, solo se aceptan nodos ya conectados previamente
+	estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS; // Ya que se restaura la lista de nodos, solo se aceptan nodos ya conectados previamente
 
 	int i, largo = 0;
 	uint32_t tamanioLibreNodo;
@@ -828,13 +841,15 @@ void restaurarTablaDeNodos() {
 	string_append(&path, "/nodos.bin");
 	t_config* diccionario = config_create(path);
 
+	// Validaciones
 	if (!diccionario) {
 		fprintf(stderr, "[Error]: no se encontro la tabla de nodos.\n");
-		exit(EXIT_FAILURE); // Abortar el filesystem.
+		exit(EXIT_FAILURE);
 	}
 
 	nodos = list_create();
-	// El tamaño se mide en bloques de 1 MiB
+	nodosEsperados = list_create();
+
 	sNodos = config_get_string_value(diccionario, "NODOS");
 	if (!sNodos) {
 		fprintf(stderr,
@@ -856,13 +871,13 @@ void restaurarTablaDeNodos() {
 		tamanioLibreNodo = config_get_int_value(diccionario, keyNodoLibre);
 		nodo->bloquesLibres = tamanioLibreNodo;
 
-		list_add(nodos, nodo);
+		list_add(nodosEsperados, nodo);
 	}
 
 	puts("Mostrando lista de nodos cargada en memoria...\n");
 	printf("NODOS = %s \n", sNodos);
-	for (i = 0; i < nodos->elements_count; i++) {
-		nodo = list_get(nodos, i);
+	for (i = 0; i < nodosEsperados->elements_count; i++) {
+		nodo = list_get(nodosEsperados, i);
 		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
 				nodo->bloquesLibres);
 	}
@@ -1792,4 +1807,16 @@ void persistirBitmaps() {
 		nodo = list_get(nodos, i);
 		nodo->bitmap = persistirBitmap(nodo->idNodo, nodo->bloquesTotales);
 	}
+}
+
+bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
+	int i;
+	t_nodo *nodo;
+
+	for (i = 0; i < nodosEsperados->elements_count; i++) {
+		nodo = list_get(nodosEsperados, i);
+		if(nodo->idNodo == idNodo)
+			return true;
+	}
+	return false;
 }
