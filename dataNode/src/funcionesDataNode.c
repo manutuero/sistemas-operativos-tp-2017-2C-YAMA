@@ -7,24 +7,57 @@ void cargarArchivoConfiguracionDatanode(char *nombreArchivo) {
 	t_config *config = config_create(pathArchConfig);
 
 	if (!config) {
-		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		fprintf(stderr,
+				"[ERROR]: No se pudo cargar el archivo de configuracion.\n");
 		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO_FILESYSTEM")) {
 		PUERTO_FILESYSTEM = config_get_int_value(config, "PUERTO_FILESYSTEM");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'PUERTO_FILESYSTEM' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
+
 	if (config_has_property(config, "IP_FILESYSTEM")) {
 		IP_FILESYSTEM = config_get_string_value(config, "IP_FILESYSTEM");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'IP_FILESYSTEM' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
+
 	if (config_has_property(config, "ID_NODO")) {
 		ID_NODO = config_get_string_value(config, "ID_NODO");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'ID_NODO' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
+
 	if (config_has_property(config, "PUERTO_WORKER")) {
 		PUERTO_WORKER = config_get_int_value(config, "PUERTO_WORKER");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'PUERTO_WORKER' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
+
 	if (config_has_property(config, "RUTA_DATABIN")) {
 		RUTA_DATABIN = config_get_string_value(config, "RUTA_DATABIN");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'RUTA_DATABIN' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (config_has_property(config, "BLOQUES_TOTALES")) {
+		BLOQUES_TOTALES = config_get_int_value(config, "BLOQUES_TOTALES");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'BLOQUES_TOTALES' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -84,7 +117,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	header->id = 1;
 	if (socketPrograma <= 0) {
 		//perror(
-			//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+		//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
 		//return (ERROR);
 	}
 	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) != FAIL) {
@@ -95,7 +128,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	t_infoNodo *infoNodo = malloc(sizeof(t_infoNodo));
 	infoNodo->sdNodo = 0;
 	infoNodo->idNodo = atoi(ID_NODO);
-	infoNodo->cantidadBloques = 300;
+	infoNodo->cantidadBloques = BLOQUES_TOTALES;
 	int largoIp = strlen(IP_FILESYSTEM);
 	infoNodo->ip = malloc(largoIp + 1);
 	strcpy(infoNodo->ip, IP_FILESYSTEM);
@@ -207,15 +240,15 @@ void escucharFileSystem(int socketFs) {
 		//status = recibirPorSocket(socketFs, buffer, 3);
 		if ((status > 0) && headerFs.id > 0) {
 			//printf("Recibido header : %d  payload: %d \n", headerFs.id,
-				//	headerFs.tamanioPayload);
+			//	headerFs.tamanioPayload);
 			void *numeroDeBloqueRecibido = malloc(sizeof(uint32_t));
 			void* bloqueRecibido;
 			char *bloque;
 			switch (headerFs.id) {
 			case 3: //Peticion de lectura de bloque
-
 				bloque = getBloque(headerFs.tamanioPayload);
-				printf("Peticion de lectura bloque Nº: %d \n",headerFs.tamanioPayload);
+				printf("Peticion de lectura bloque Nº: %d \n",
+						headerFs.tamanioPayload);
 				send(socketFs, (void*) bloque, UN_BLOQUE, 0);
 				free(bloque);
 				break;
@@ -225,10 +258,11 @@ void escucharFileSystem(int socketFs) {
 				MSG_WAITALL);
 				bloqueRecibido = malloc(UN_BLOQUE);
 				recibirPorSocket(socketFs, bloqueRecibido, UN_BLOQUE);//Recibo directamente ya que solo es un numero
-setBloque(*(int*) numeroDeBloqueRecibido,
+				setBloque(*(int*) numeroDeBloqueRecibido,
 						(char*) bloqueRecibido);
 				int *respuesta = malloc(sizeof(uint32_t));
-				printf("Bloque guardado Nº: %d",*(int*)numeroDeBloqueRecibido);
+				printf("Bloque guardado Nº: %d",
+						*(int*) numeroDeBloqueRecibido);
 				puts("");
 				*respuesta = 1;	//set bloque deberia devolver un valor si estuvo todo ok
 				send(socketFs, (void*) respuesta, sizeof(uint32_t), 0);

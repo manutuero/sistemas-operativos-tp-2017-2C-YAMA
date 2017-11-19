@@ -8,11 +8,13 @@
 #define ERROR 0
 #define UN_MEGABYTE 1048576
 #define UN_BLOQUE sizeof(char)*UN_MEGABYTE
+
 /* Variables globales */
 char* NODOARCHCONFIG;
 char* IP_FILESYSTEM;
 int PUERTO_FILESYSTEM;
 char* ID_NODO;
+int BLOQUES_TOTALES;
 int PUERTO_WORKER;
 char* RUTA_DATABIN;
 FILE *filePointer;
