@@ -181,6 +181,7 @@ void restaurarTablaDeDirectorios();
 void restaurarTablaDeNodos();
 void restaurarTablaDeArchivos();
 bool esNodoAnterior(t_list *nodosEsperados, int idNodo);
+void borrarDirectorioMetadata();
 
 /* Auxiliares */
 char* getResultado(int);

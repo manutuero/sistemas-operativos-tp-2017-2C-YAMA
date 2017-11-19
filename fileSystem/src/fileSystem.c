@@ -16,21 +16,25 @@ int main(int argc, char **argv) {
 	nodos = list_create();
 
 	// Agregar un logger (cuando estemos por terminar).
-
 	pthread_create(&hiloConexiones, NULL, esperarConexionesDatanodes, NULL);
-	if (hayEstadoAnterior()) {
-		//archivos = list_create();
-		puts("Hay estado anterior..");
-		restaurarEstructurasAdministrativas();
-	} else {
+
+	if(!hayEstadoAnterior() || (argc > 1 && sonIguales(argv[1], "--clean"))) {
 		puts("No hay estado anterior. Esperando datanodes...");
 		estadoNodos = ACEPTANDO_NODOS_NUEVOS;
+
+		if(argc > 1 && sonIguales(argv[1], "--clean"))
+			borrarDirectorioMetadata();
+
 		sem_wait(&semNodosRequeridos);
 		pthread_create(&hiloConsola, NULL, levantarConsola, NULL);
 		sem_destroy(&semNodosRequeridos);
 
 		sem_wait(&semEstadoEstable);
 		pthread_create(&hiloYama, NULL, escucharPeticionesYama, NULL);
+	} else if (hayEstadoAnterior()) {
+		//archivos = list_create();
+		puts("Hay estado anterior..");
+		restaurarEstructurasAdministrativas();
 	}
 
 	/* Tambien agregar conexion con worker para recibir el archivo resultante a la reduccion global. */

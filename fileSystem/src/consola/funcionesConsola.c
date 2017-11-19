@@ -35,7 +35,7 @@ char** cargarArgumentos(char* linea) {
 	return (string_split(linea, ESPACIO));
 }
 
-void ejecutarFormat(char **argumentos) {
+void ejecutarFormat() {
 	if(nodos->elements_count >= 2) {
 		crearDirectorioMetadata();
 		persistirTablaDeNodos();

@@ -322,15 +322,14 @@ void* esperarConexionesDatanodes() {
 							} else {
 								cerrarSocket(sd);
 							}
-						}
 
-						puts("Nodos restaurados:\n");
-						for (i = 0; i < nodos->elements_count; i++) {
-							nodo = list_get(nodos, i);
-							printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
-									nodo->bloquesLibres);
+							puts("Nodos restaurados:\n");
+							for (i = 0; i < nodos->elements_count; i++) {
+								nodo = list_get(nodos, i);
+								printf("Id nodo: %d\n Bloques libres: %d\n",
+										nodo->idNodo, nodo->bloquesLibres);
+							}
 						}
-
 					}
 					free(buffer);
 				}
@@ -714,6 +713,21 @@ void crearDirectorioMetadata() {
 	closedir(directorio);
 }
 
+void borrarDirectorioMetadata() {
+	char *comando;
+	DIR *directorio = opendir(PATH_METADATA);
+
+	if (directorio) {
+		comando = string_new();
+		string_append(&comando, "rm -rf ");
+		string_append(&comando, PATH_METADATA);
+		system(comando);
+	}
+
+	free(comando);
+	closedir(directorio);
+}
+
 void crearTablaDeDirectorios() {
 	char *path = string_new();
 	string_append(&path, PATH_METADATA);
@@ -805,8 +819,8 @@ void crearDirectorioBitmaps() {
 
 void restaurarEstructurasAdministrativas() {
 	restaurarTablaDeDirectorios();
-	restaurarTablaDeArchivos();
 	restaurarTablaDeNodos();
+	restaurarTablaDeArchivos();
 }
 
 void restaurarTablaDeDirectorios() {
@@ -872,14 +886,6 @@ void restaurarTablaDeNodos() {
 		nodo->bloquesLibres = tamanioLibreNodo;
 
 		list_add(nodosEsperados, nodo);
-	}
-
-	puts("Mostrando lista de nodos cargada en memoria...\n");
-	printf("NODOS = %s \n", sNodos);
-	for (i = 0; i < nodosEsperados->elements_count; i++) {
-		nodo = list_get(nodosEsperados, i);
-		printf("Id nodo: %d\n Bloques libres: %d\n", nodo->idNodo,
-				nodo->bloquesLibres);
 	}
 }
 
@@ -1815,7 +1821,7 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 
 	for (i = 0; i < nodosEsperados->elements_count; i++) {
 		nodo = list_get(nodosEsperados, i);
-		if(nodo->idNodo == idNodo)
+		if (nodo->idNodo == idNodo)
 			return true;
 	}
 	return false;
