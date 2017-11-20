@@ -4,13 +4,13 @@
 int estadoFs = NO_ESTABLE; // Por defecto siempre inicia no estable.
 int estadoNodos = -1; //Depende de que estado venga el fs como se va a iniciar
 int cantidad_nodos_esperados = 99;
+bool estadoAnterior;
 sem_t semNodosRequeridos;
 sem_t semEstadoEstable;
 
 /* Inicializacion de estructuras administrativas */
 t_directory directorios[100];
-t_list *nodos, *nodosEsperados;
-t_list *archivos;
+t_list *nodos, *nodosEsperados, *archivos;
 
 /*********************** Implementacion de funciones ************************/
 /* Implementacion de funciones para archivo de configuracion */
@@ -275,69 +275,78 @@ void* esperarConexionesDatanodes() {
 				} else { //Rechazo el socket ya que el sistema no permite mas conexiones.
 					cerrarSocket(sd);
 				}
-			}
 
-			// else es un cambio en los sockets que estaba escuchando.
-			for (i = 0; i < numeroClientes; i++) {
-				sd = socketsClientes[i];
+			} else {
+				// else es un cambio en los sockets que estaba escuchando.
+				for (i = 0; i < numeroClientes; i++) {
+					sd = socketsClientes[i];
 
-				if (FD_ISSET(sd, &readfds)) {
-					// Desconexion de un nodo.
-					if (recibirHeader(sd, &header) == 0) {
-						cerrarSocket(sd);
-						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
-						estadoFs = NO_ESTABLE;
-						// Actualizo la lista de nodos conectados.
-						int j;
-						t_nodo *nodoDesconectado;
-						for (j = 0; j < nodos->elements_count; j++) {
-							nodoDesconectado = list_get(nodos, i);
-							if (nodoDesconectado->socketDescriptor == sd)
-								list_remove(nodos, i);
-						}
-						// PASAR LOS BLOQUES DEL NODO DESCONECTADO A NO DISPONIBLES
-						break;
-					}
-
-					buffer = malloc(header.tamanioPayload);
-
-					// Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
-					if (recibirPorSocket(sd, buffer, header.tamanioPayload)
-							<= 0) {
-						perror(
-								"Error. El payload no se pudo recibir correctamente.");
-					} else {
-						t_infoNodo infoNodo = deserializarInfoNodo(buffer,
-								header.tamanioPayload);
-
-						t_nodo *nodo = malloc(sizeof(t_nodo));
-						nodo->socketDescriptor = sd;
-						nodo->idNodo = infoNodo.idNodo;
-						nodo->bloquesTotales = infoNodo.cantidadBloques;
-						nodo->bloquesLibres = nodo->bloquesTotales;
-						nodo->puertoWorker = 0;
-						getpeername(sd, (struct sockaddr*) &address,
-								(socklen_t*) &addrlen);
-						nodo->ip = inet_ntoa(address.sin_addr);
-
-						if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
-							agregarNodo(nodos, nodo);
-							agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
-						}
-
-						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
-								&& estadoFs == NO_ESTABLE) {
-							if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
-								agregarNodo(nodos, nodo);
-							} else {
-								cerrarSocket(sd);
+					if (FD_ISSET(sd, &readfds)) {
+						// Desconexion de un nodo.
+						if (recibirHeader(sd, &header) == 0) {
+							cerrarSocket(sd);
+							socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
+							estadoFs = NO_ESTABLE;
+							// Actualizo la lista de nodos conectados.
+							int j;
+							t_nodo *nodoDesconectado;
+							for (j = 0; j < nodos->elements_count; j++) {
+								nodoDesconectado = list_get(nodos, i);
+								if (nodoDesconectado) {
+									if (nodoDesconectado->socketDescriptor
+											== sd)
+										list_remove(nodos, i);
+								}
 							}
-						} else if (estadoFs == ESTABLE) {
-							socketsClientes[i] = 0;
-							cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+							// PASAR LOS BLOQUES DEL NODO DESCONECTADO A NO DISPONIBLES
+							break;
 						}
+
+						buffer = malloc(header.tamanioPayload);
+
+						// Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
+						if (recibirPorSocket(sd, buffer, header.tamanioPayload)
+								<= 0) {
+							perror(
+									"Error. El payload no se pudo recibir correctamente.");
+						} else {
+							t_infoNodo infoNodo = deserializarInfoNodo(buffer,
+									header.tamanioPayload);
+
+							t_nodo *nodo = malloc(sizeof(t_nodo));
+							nodo->socketDescriptor = sd;
+							nodo->idNodo = infoNodo.idNodo;
+							nodo->bloquesTotales = infoNodo.cantidadBloques;
+							nodo->bloquesLibres = nodo->bloquesTotales;
+							nodo->puertoWorker = 0;
+							getpeername(sd, (struct sockaddr*) &address,
+									(socklen_t*) &addrlen);
+							nodo->ip = inet_ntoa(address.sin_addr);
+
+							if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
+								agregarNodo(nodos, nodo);
+								agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
+							}
+
+							if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+									&& estadoFs == NO_ESTABLE) {
+								if (esNodoAnterior(nodosEsperados,
+										nodo->idNodo)) {
+									if (estadoAnterior) {
+										nodo->bitmap = recuperarBitmapAnterior(
+												nodo->idNodo);
+									}
+									agregarNodo(nodos, nodo);
+								} else {
+									cerrarSocket(sd);
+								}
+							} else if (estadoFs == ESTABLE) {
+								socketsClientes[i] = 0;
+								cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+							}
+						}
+						free(buffer);
 					}
-					free(buffer);
 				}
 			}
 		}
@@ -852,7 +861,7 @@ void restaurarTablaDeDirectorios() {
 void restaurarTablaDeNodos() {
 	estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS; // Ya que se restaura la lista de nodos, solo se aceptan nodos ya conectados previamente
 
-	int i, largo = 0;
+	int i, largo = 0, fileDescriptor;
 	uint32_t tamanioLibreNodo;
 	t_nodo *nodo;
 	char *sNodos, **idNodos, *path, *keyNodoLibre;
@@ -860,6 +869,10 @@ void restaurarTablaDeNodos() {
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/nodos.bin");
 	t_config* diccionario = config_create(path);
+	struct stat st;
+	size_t bytesALeer;
+	char *pathArchivoBitmap;
+	t_bitmap bitmap;
 
 	// Validaciones
 	if (!diccionario) {
@@ -891,35 +904,64 @@ void restaurarTablaDeNodos() {
 		tamanioLibreNodo = config_get_int_value(diccionario, keyNodoLibre);
 		nodo->bloquesLibres = tamanioLibreNodo;
 
+		pathArchivoBitmap = string_new();
+		string_append(&pathArchivoBitmap, PATH_METADATA);
+		string_append(&pathArchivoBitmap, "/bitmaps/");
+		string_append(&pathArchivoBitmap, idNodos[i]);
+		string_append(&pathArchivoBitmap, ".dat");
+
+		stat(pathArchivoBitmap, &st);
+		bytesALeer = st.st_size;
+		fileDescriptor = open(pathArchivoBitmap, O_RDWR);
+
+		bitmap = mmap(NULL, bytesALeer,
+		PROT_READ, MAP_SHARED, fileDescriptor, 0);
+		nodo->bitmap = bitmap;
+
 		list_add(nodosEsperados, nodo);
 	}
 }
 
-// Ver si tiene sentido tener todas las referencias a archivos del FS en memoria...PREGUNTAR!!
 void restaurarTablaDeArchivos() {
-	/*int i;
-	 char *path;
-	 FILE *archivo;
-	 t_list *nombres = list_create();
+	int i, j;
+	t_directorio directorio;
+	struct dirent **resultados = NULL;
+	char *pathArchivo;
+	int cantidadResultados;
+	t_archivo_a_persistir *archivo;
 
-	 for (i = 0; i < CANTIDAD_DIRECTORIOS; i++) {
-	 path = string_new();
-	 string_append(&path, PATH_METADATA);
-	 string_append(&path, "/");
-	 string_append(&path, string_itoa(i));
-	 archivo = fopen(path, "r");
+	archivos = list_create();
+	// Recorro cada directorio obteniendo los nombres de los archivos que estan en ellos.
+	for (i = 0;
+			i < CANTIDAD_DIRECTORIOS && !sonIguales(directorios[i].nombre, "");
+			i++) {
+		directorio = string_new();
+		string_append(&directorio, PATH_METADATA);
+		string_append(&directorio, "/archivos/");
+		string_append(&directorio, string_itoa(i));
 
-	 if(!archivo) {
-	 fprintf(stderr, "[Error]: no se encontro la metadata del archivo.\n");
-	 exit(EXIT_FAILURE);
-	 }
+		cantidadResultados = scandir(directorio, &resultados, NULL, alphasort);
+		// Cargo cada archivo a memoria, obviando los archivos . y ..
+		for (j = 2; j < cantidadResultados; j++) {
+			pathArchivo = string_new();
+			string_append(&pathArchivo, directorio);
+			string_append(&pathArchivo, "/");
+			string_append(&pathArchivo, resultados[j]->d_name);
 
+			archivo = abrirArchivo(pathArchivo);
+			list_add(archivos, archivo);
+		}
 
-	 list_clean(nombres);
-	 free(path);
-	 }
+		// Libero recursos.
+		free(directorio);
+	}
 
-	 list_destroy_and_destroy_elements(nombres, free);*/
+	printf("Cantidad de archivos: %d\n", archivos->elements_count);
+	printf("Directorio: %s\n", directorios[i].nombre);
+	for (i = 0; i < archivos->elements_count; i++) {
+		archivo = list_get(archivos, i);
+		printf("Archivo: %s\n", archivo->nombreArchivo);
+	}
 }
 
 void agregarNodo(t_list *lista, t_nodo *nodo) {
@@ -929,7 +971,7 @@ void agregarNodo(t_list *lista, t_nodo *nodo) {
 		list_add(lista, nodo);
 	}
 
-	// Se conectaron al menos
+// Se conectaron al menos
 	if (lista->elements_count >= 2)
 		sem_post(&semNodosRequeridos);
 }
@@ -993,22 +1035,22 @@ void persistirTablaDeNodos() {
 		exit(EXIT_FAILURE);
 	}
 
-	// Ordeno la lista de nodos para que me quede en orden creciente (descendente).
+// Ordeno la lista de nodos para que me quede en orden creciente (descendente).
 	list_sort(nodos, (void*) compararPorIdDesc);
 
-	// TAMANIO.
+// TAMANIO.
 	clave = "TAMANIO=";
 	valor = string_itoa(totalBloquesFileSystem());
 	fputs(clave, filePointer);
 	fputs(valor, filePointer);
 
-	// LIBRE.
+// LIBRE.
 	clave = "\nLIBRE=";
 	valor = string_itoa(bloquesLibresFileSystem());
 	fputs(clave, filePointer);
 	fputs(valor, filePointer);
 
-	// NODOS
+// NODOS
 	clave = "\nNODOS=";
 	valor = string_new();
 	string_append(&valor, "[");
@@ -1050,7 +1092,7 @@ void persistirTablaDeNodos() {
 
 	fputs("\n", filePointer);
 
-	// Libero recursos.
+// Libero recursos.
 	fclose(filePointer);
 }
 
@@ -1136,7 +1178,7 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 	int indice;
 	FILE *filePointer;
 
-	// Valido que exista el directorio original.
+// Valido que exista el directorio original.
 	directorio = obtenerPathDirectorio(pathOriginal);
 	indice = obtenerIndice(directorio);
 	if (indice == DIR_NO_EXISTE) {
@@ -1146,7 +1188,7 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 
 	nombreInicial = obtenerNombreArchivo(pathOriginal);
 
-	// Me genero el path donde esta el archivo con la metadata del archivo :p.
+// Me genero el path donde esta el archivo con la metadata del archivo :p.
 	path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/archivos/");
@@ -1160,7 +1202,7 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 		return;
 	}
 
-	// Actualizo el nombre del archivo usando el comando 'mv' de linux.
+// Actualizo el nombre del archivo usando el comando 'mv' de linux.
 	comando = string_new();
 	string_append(&comando, "mv ");
 	string_append(&comando, PATH_METADATA);
@@ -1176,10 +1218,10 @@ void renombrarArchivo(char *pathOriginal, char *nombreFinal) {
 	string_append(&comando, "/");
 	string_append(&comando, nombreFinal);
 
-	// Ejecuto.
+// Ejecuto.
 	system(comando);
 
-	// Libero recursos.
+// Libero recursos.
 	free(comando);
 	free(path);
 	free(nombreInicial);
@@ -1208,14 +1250,14 @@ void renombrarDirectorio(char *pathOriginal, char *nombreFinal) {
 		exit(EXIT_FAILURE);
 	}
 
-	// Actualizo la tabla de directorios en memoria.
+// Actualizo la tabla de directorios en memoria.
 	strcpy(directorios[indice].nombre, nombreFinal);
 
-	// Actualizo la tabla de directorios en disco.
+// Actualizo la tabla de directorios en disco.
 	for (i = 0; i < 100; i++)
 		fwrite(&directorios[i], sizeof(t_directory), 1, archivo);
 
-	// Libero recursos.
+// Libero recursos.
 	fclose(archivo);
 	free(pathDirectorios);
 }
@@ -1225,12 +1267,12 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	char *nombreArchivo, *metadataOriginal, *metadataFinal, *comando;
 	t_directorio directorio;
 
-	// Validaciones.
+// Validaciones.
 	directorio = obtenerPathDirectorio(pathOriginal);
 	if (sonIguales(directorio, pathFinal))
 		return; // Si lo mueve al mismo lugar no hacer nada.
 
-	// Si alguno de los dos paths no existen informar.
+// Si alguno de los dos paths no existen informar.
 	indiceOriginal = obtenerIndice(directorio);
 	if (indiceOriginal == DIR_NO_EXISTE) {
 		printf("El directorio '%s' no existe.\n", pathFinal);
@@ -1245,7 +1287,7 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 
 	nombreArchivo = obtenerNombreArchivo(pathOriginal);
 
-	// Busco el archivo en disco.
+// Busco el archivo en disco.
 	metadataOriginal = string_new();
 	string_append(&metadataOriginal, PATH_METADATA);
 	string_append(&metadataOriginal, "/archivos/");
@@ -1253,13 +1295,13 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	string_append(&metadataOriginal, "/");
 	string_append(&metadataOriginal, nombreArchivo);
 
-	// Si no lo encuentra informa.
+// Si no lo encuentra informa.
 	if (access(metadataOriginal, 0) != 0) {
 		printf("El archivo '%s' no existe.\n", pathOriginal);
 		return;
 	}
 
-	// Si lo encuentra prepara la ruta para el comando de linux.
+// Si lo encuentra prepara la ruta para el comando de linux.
 	metadataFinal = string_new();
 	string_append(&metadataFinal, PATH_METADATA);
 	string_append(&metadataFinal, "/archivos/");
@@ -1273,10 +1315,10 @@ void moverArchivo(char *pathOriginal, t_directorio pathFinal) {
 	string_append(&comando, " ");
 	string_append(&comando, metadataFinal);
 
-	// Y lo ejecuta.
+// Y lo ejecuta.
 	system(comando);
 
-	// Por ultimo libero recursos.
+// Por ultimo libero recursos.
 	free(metadataOriginal);
 	free(metadataFinal);
 	free(nombreArchivo);
@@ -1288,7 +1330,7 @@ void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal) {
 	char *pathDirectorios;
 	FILE *archivo;
 
-	// Validaciones.
+// Validaciones.
 	indiceOriginal = obtenerIndice(pathOriginal);
 	if (indiceOriginal == DIR_NO_EXISTE) {
 		printf("El directorio '%s' no existe.\n", pathOriginal);
@@ -1312,14 +1354,14 @@ void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal) {
 		exit(EXIT_FAILURE);
 	}
 
-	// Actualizo en memoria.
+// Actualizo en memoria.
 	directorios[indiceOriginal].padre = directorios[indiceFinal].index;
 
-	// Actualizo la tabla de directorios en disco.
+// Actualizo la tabla de directorios en disco.
 	for (i = 0; i < 100; i++)
 		fwrite(&directorios[i], sizeof(t_directory), 1, archivo);
 
-	// Libero recursos.
+// Libero recursos.
 	fclose(archivo);
 	free(pathDirectorios);
 }
@@ -1334,37 +1376,45 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 	t_nodo *nodoCopia0, *nodoCopia1;
 	t_archivo_a_persistir *archivo;
 
-	indiceDirectorio = obtenerIndice(obtenerPathDirectorio(pathArchivo));
-	nombreArchivo = obtenerNombreArchivo(pathArchivo);
+// Con esto deterimino si el path que me llega es de yamafs o de linux.
+	if (string_starts_with(pathArchivo, "/root/")) {
+		indiceDirectorio = obtenerIndice(obtenerPathDirectorio(pathArchivo));
+		nombreArchivo = obtenerNombreArchivo(pathArchivo);
 
-	path = string_new();
-	string_append(&path, PATH_METADATA);
-	string_append(&path, "/archivos/");
-	string_append(&path, string_itoa(indiceDirectorio));
-	string_append(&path, "/");
-	string_append(&path, nombreArchivo);
+		path = string_new();
+		string_append(&path, PATH_METADATA);
+		string_append(&path, "/archivos/");
+		string_append(&path, string_itoa(indiceDirectorio));
+		string_append(&path, "/");
+		string_append(&path, nombreArchivo);
 
-	// Verifico existencia del archivo en ese path.
-	diccionario = config_create(path);
-	if (!diccionario)
-		return NULL;
+		// Verifico existencia del archivo en ese path.
+		diccionario = config_create(path);
+		if (!diccionario)
+			return NULL;
+	} else {
+		diccionario = config_create(pathArchivo);
+		nombreArchivo = obtenerNombreArchivo(pathArchivo);
+		if (!diccionario)
+			return NULL;
+	}
 
-	// Pido memoria correspondiente.
+// Pido memoria correspondiente.
 	archivo = malloc(sizeof(t_archivo_a_persistir));
 
-	// Nombre.
+// Nombre.
 	archivo->nombreArchivo = string_duplicate(nombreArchivo);
 
-	// Tamaño.
+// Tamaño.
 	archivo->tamanio = config_get_int_value(diccionario, "TAMANIO");
 
-	// Tipo.
+// Tipo.
 	archivo->tipo = config_get_int_value(diccionario, "TIPO");
 
-	// Indice (es util luego para calcular el indice del padre).
+// Indice (es util luego para calcular el indice del padre).
 	archivo->indiceDirectorio = indiceDirectorio;
 
-	// Bloques.
+// Bloques.
 	archivo->bloques = list_create();
 	cantidadBloques = archivo->tamanio / UN_MEGABYTE + 1; // Division entera
 	for (i = 0; i < cantidadBloques; i++) {
@@ -1411,8 +1461,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		list_add(archivo->bloques, bloque);
 	}
 
-	// Libero recursos. Liberar las listas desde la funcion que llama.
-	free(path);
+// Libero recursos. Liberar las listas desde la funcion que llama.
 	config_destroy(diccionario);
 
 	return archivo;
@@ -1429,19 +1478,19 @@ int obtenerTipo(char *pathArchivo) {
 	char *buffer, *comando;
 	pid_t pid = 0;
 
-	// Reservo un buffer para guardar el resultado del script.
+// Reservo un buffer para guardar el resultado del script.
 	buffer = string_new();
 
-	// Preparo el comando.
+// Preparo el comando.
 	comando = string_new();
 	string_append(&comando, "/home/utnso/thePonchos/obtenerTipo.sh ");
 	string_append(&comando, pathArchivo);
 
-	// Creo los pipes, pidiendole a la funcion los fileDescriptors que seran los extremos del "tubo" que se habra construido.
+// Creo los pipes, pidiendole a la funcion los fileDescriptors que seran los extremos del "tubo" que se habra construido.
 	pipe(pipe_padreAHijo);
 	pipe(pipe_hijoAPadre);
 
-	// Creo un proceso hijo.
+// Creo un proceso hijo.
 	pid = fork();
 	/* Con esta sentencia ya cree un proceso hijo, devuelve 0 si la operacion salio bien,
 	 *  no es el PID del proceso hijo sino un PID de referencia para el padre. */
@@ -1515,14 +1564,14 @@ int obtenerTipo(char *pathArchivo) {
 		close(pipe_hijoAPadre[0]);
 	}
 
-	// Determino el resultado de la operacion.
+// Determino el resultado de la operacion.
 	if (isdigit(buffer[0])) {
 		tipo = buffer[0] - '0'; // Convierto a int restandole la base '0' (48 ascii)
 	} else {
 		tipo = -1;
 	}
 
-	// Libero recursos.
+// Libero recursos.
 	free(comando);
 	free(buffer);
 	return tipo;
@@ -1533,7 +1582,7 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 	char *nombreArchivo, *pathMetadataArchivo;
 	t_directorio directorio;
 
-	// Verifico que exista el directorio en yamafs.
+// Verifico que exista el directorio en yamafs.
 	directorio = obtenerPathDirectorio(pathArchivo);
 	if (!directorio || !existePathDirectorio(directorio))
 		return false;
@@ -1541,7 +1590,7 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 	indice = obtenerIndice(directorio);
 	nombreArchivo = obtenerNombreArchivo(pathArchivo);
 
-	// Verifico que exista el archivo 'nombreArchivo' en el 'directorio'.
+// Verifico que exista el archivo 'nombreArchivo' en el 'directorio'.
 	pathMetadataArchivo = string_new();
 	string_append(&pathMetadataArchivo, PATH_METADATA);
 	string_append(&pathMetadataArchivo, "/archivos/");
@@ -1549,7 +1598,7 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 	string_append(&pathMetadataArchivo, "/");
 	string_append(&pathMetadataArchivo, nombreArchivo);
 
-	// Si lo encuentra retorna 'true' sino 'false'.
+// Si lo encuentra retorna 'true' sino 'false'.
 	if (access(pathMetadataArchivo, F_OK) != -1)
 		return true;
 	else
@@ -1580,7 +1629,7 @@ void *escucharPeticionesYama() {
 	/*
 	 Cuando el cliente cierra la conexion, recv() devolvera 0.
 	 */
-	//Guardo el ip del Yama para usarlo luego en otro hilo
+//Guardo el ip del Yama para usarlo luego en otro hilo
 	struct sockaddr_in address;
 	getpeername(socketYama, (struct sockaddr*) &address, (socklen_t*) &addrlen);
 	ipYama = inet_ntoa(address.sin_addr);
@@ -1716,13 +1765,13 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	t_nodo *nodoCopia0, *nodoCopia1;
 	t_bloque *bloque;
 
-	// Verifica que exista el archivo.
+// Verifica que exista el archivo.
 	if (!existeArchivoEnYamaFs(pathArchivo)) {
 		printf("El archivo '%s' no existe.\n", pathArchivo);
 		return NULL;
 	}
 
-	// Busca en la metadata del archivo, necesita el id del nodo en donde se encuentra el contenido del bloque que quiero replicar.
+// Busca en la metadata del archivo, necesita el id del nodo en donde se encuentra el contenido del bloque que quiero replicar.
 	nombreArchivo = obtenerNombreArchivo(pathArchivo);
 	directorio = obtenerPathDirectorio(pathArchivo);
 	indice = obtenerIndice(directorio);
@@ -1740,7 +1789,7 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 		return NULL;
 	}
 
-	// Reservo memoria para un bloque.
+// Reservo memoria para un bloque.
 	bloque = malloc(sizeof(t_bloque));
 	bloque->contenido = malloc(UN_BLOQUE);
 	nodoCopia0 = malloc(sizeof(t_nodo));
@@ -1748,14 +1797,14 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 
 	bloque->numeroBloque = numeroBloque;
 
-	// Cargo el objeto bloque, para luego traer el contenido del bloque de alguna de las dos copias.
+// Cargo el objeto bloque, para luego traer el contenido del bloque de alguna de las dos copias.
 	bloque->nodoCopia0 = nodoCopia0;
 	clave = string_new();
 	string_append(&clave, "BLOQUE");
 	string_append(&clave, string_itoa(numeroBloque));
 	string_append(&clave, "COPIA0");
 
-	// Verifico que el numeroBloque del archivo exista. Antes de que falle cuando trata de recuperarlo.
+// Verifico que el numeroBloque del archivo exista. Antes de que falle cuando trata de recuperarlo.
 	if (!config_has_property(diccionario, clave)) {
 		printf("No existe el numero de bloque '%d' en el archivo '%s'.\n",
 				numeroBloque, pathArchivo);
@@ -1790,7 +1839,7 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 	free(valores[ID_NODO]);
 	free(valores[NRO_BLOQUE_DATABIN]);
 
-	// Si pasa las validaciones, nos queda traer el contenido del bloque de alguno de los dos nodos que este conectado.
+// Si pasa las validaciones, nos queda traer el contenido del bloque de alguno de los dos nodos que este conectado.
 	resultado = traerBloqueNodo(bloque);
 	if (resultado == ERROR_AL_TRAER_BLOQUE) {
 		fprintf(stderr,
@@ -1799,7 +1848,7 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 		return NULL;
 	}
 
-	// Libero recursos.
+// Libero recursos.
 	free(valores);
 	config_destroy(diccionario);
 	return bloque;
@@ -1809,13 +1858,13 @@ int guardarBloque(t_bloque *bloque, int idNodo) {
 	int respuesta;
 
 	respuesta = guardarBloqueEnNodo(bloque, 0);
-	// Si salio mal.
+// Si salio mal.
 	if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
 		printf("Se produjo un error al recibir la respuesta.\n");
 		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
 	}
 
-	// Si guardo ok. :)
+// Si guardo ok. :)
 	return GUARDO_BLOQUE_OK;
 }
 
@@ -1845,29 +1894,29 @@ void *esperarConexionesWorker() {
 	int socketFSWorkers;
 	printf("Puerto conexion workers: %d\n", PUERTO_WORKERS);
 	struct sockaddr_in direccionFSWorker;
-	//struct sockaddr_in direccionDelServidorKernel;
+//struct sockaddr_in direccionDelServidorKernel;
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
 	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
-	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
+//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
 	int activado = 1;
 
 	socketFSWorkers = socket(AF_INET, SOCK_STREAM, 0);
-	// Permite reutilizar el socket sin que se bloquee por 2 minutos
+// Permite reutilizar el socket sin que se bloquee por 2 minutos
 	if (setsockopt(socketFSWorkers, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
 		perror("setsockopt");
 		exit(1);
 	}
 
-	// Se enlaza el socket al puerto
+// Se enlaza el socket al puerto
 	if (bind(socketFSWorkers, (struct sockaddr *) &direccionFSWorker,
 			sizeof(struct sockaddr)) != 0) {
 		perror("No se pudo conectar");
 		exit(1);
 	}
-	// Se pone a escuchar el servidor kernel
+// Se pone a escuchar el servidor kernel
 	if (listen(socketFSWorkers, 10) == -1) {
 		perror("listen");
 		exit(1);
@@ -1949,7 +1998,7 @@ t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 }
 
 void* obtenerSocketNodosYama() {
-	//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
+//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	sem_wait(&semIpYamaNodos);
 	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
 	if (socketPrograma <= 0) {
@@ -1973,8 +2022,19 @@ void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 		header->id = 31;
 	}
 	paquete = serializarInfoNodo(nodo, header);
-	enviarPorSocket(socketYamaNodos,paquete,header->tamanioPayload+(sizeof(uint32_t)*2));
+	enviarPorSocket(socketYamaNodos, paquete,
+			header->tamanioPayload + (sizeof(uint32_t) * 2));
 
 	return NULL;
 }
 
+t_bitmap recuperarBitmapAnterior(int idNodo) {
+	int i;
+	t_nodo *nodo;
+	for (i = 0; i < nodosEsperados->elements_count; i++) {
+		nodo = list_get(nodosEsperados, i);
+		if (nodo->idNodo == idNodo)
+			return nodo->bitmap;
+	}
+	return NULL;
+}

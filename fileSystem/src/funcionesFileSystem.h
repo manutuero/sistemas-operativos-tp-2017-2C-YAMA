@@ -67,6 +67,7 @@ int cantidad_nodos_esperados;
 char *PATH_METADATA;
 extern int estadoFs;
 extern int estadoNodos;
+extern bool estadoAnterior;
 char* ipYama;
 int socketYamaNodos;
 
@@ -199,6 +200,7 @@ void restaurarTablaDeNodos();
 void restaurarTablaDeArchivos();
 bool esNodoAnterior(t_list *nodosEsperados, int idNodo);
 void borrarDirectorioMetadata();
+t_bitmap recuperarBitmapAnterior(int idNodo);
 
 /* Auxiliares */
 char* getResultado(int);

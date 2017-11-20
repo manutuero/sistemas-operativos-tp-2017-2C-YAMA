@@ -60,8 +60,9 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	}
 
 	// Verifica si hay nodos conectados. Esto no es responsabilidad de la funcion, pero para que no rompa x ahora..LUEGO BORRAR
-	if(nodos->elements_count < 2) {
-		fprintf(stderr, "[ERROR]: no hay datanodes suficientes para arrancar...");
+	if (nodos->elements_count < 2) {
+		fprintf(stderr,
+				"[ERROR]: no hay datanodes suficientes para arrancar...");
 		return ERROR;
 	}
 
