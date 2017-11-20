@@ -122,6 +122,7 @@ void escucharMasters() {
 					if ((nuevoSocket = accept(socketYama,(void*) &direccionYama, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
+
 						//Le envia el archivo apenas se conecta con un puerto
 						printf("Entro una conexion por el puerto %d\n",nuevoSocket);
 						FD_SET(nuevoSocket, &auxRead);
@@ -135,7 +136,8 @@ void escucharMasters() {
 					}
 				} else {
 					buffer = malloc(1000);
-
+					//recibir header y ingresar a switch para ejecutar
+					//el hilo correspondiente
 					bytesRecibidos = recibirPorSocket(i, buffer, 1000);
 					if (bytesRecibidos < 0) {
 						perror("Error");
@@ -159,7 +161,10 @@ void escucharMasters() {
 		}
 	}
 }
+void escuchaActualizacionesNodos(){
 
+
+}
 void mandarRutaAFS(const t_header* header, void* buffer) {
 	//se lo manda a FS
 	char* bufferFS;

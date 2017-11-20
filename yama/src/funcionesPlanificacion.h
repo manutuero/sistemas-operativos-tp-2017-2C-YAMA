@@ -3,6 +3,7 @@
 
 #include <utils.h>
 #include <commons/collections/list.h>
+#include "funcionesYAMA.h"
 
 /* 									Estructuras									*/
 
@@ -112,6 +113,7 @@ t_list *listaMasters,*listaTablaEstados;
 /* funcion pionera del hilo de preplanificacion */
 void* preplanificarJob(t_job*);
 
+void actualizarConfig();
 
 void crearListas();
 
@@ -162,7 +164,7 @@ void incrementarDisponibilidadWorkers(int, int*);
 /* Incrementa el clock y si es el ultimo, vuelve al primero */
 void desplazarClock(int* ,int );
 
-/* Genera el archivo temporal*/
+/* Genera el nombre del archivo temporal*/
 char* generarNombreArchivoTemporal(int job, int nodo, int bloque);
 
 /* planificacion de reducciones locales */
@@ -190,7 +192,15 @@ void actualizarWorkload(int ,int *);
 /* seleccionar nodo con menor workload */
 int seleccionarNodoMenorCarga(int*, int);
 
+/* hilo de rePrePlanificacion */
+void *rePrePlanificacion(char *,char *,t_job*);
+
+/* obtener los bloques a rePrePlanificar */
+void filtrarBloquesCaidos(int nodo, int trabajo);
+
 /* Serializacion de estructuras de planificacion */
+
+void enviarMensajeFalloOperacion(t_job* jobMaster);
 
 void enviarPlanificacionAMaster(t_job*);
 
@@ -199,6 +209,8 @@ void* serializarTransformaciones(int, int*, t_list*);
 void* serializarRedLocales(int, int* , t_list* );
 
 void* serializarRedGlobales(int , int* , t_list* );
+
+void serializarPeticionInfoArchivo(void*,char*,char*);
 
 /* destruir listas */
 void destruir_listas(void);
@@ -218,4 +230,13 @@ void filtrarLista(t_list*,int);
 /* descontar el workload del job finalizado */
 void restarJob(t_list*);
 
+/* cambio de estado de la tabla de estados y verificar etapa completa*/
+
+int verificarEtapa(int,int);
+
+bool tareaOk(void*);
+
+void iniciarReduccionLocales(void);
+
+void iniciarReduccionGlobal(void);
 #endif /* SRC_PLANI2_H_ */

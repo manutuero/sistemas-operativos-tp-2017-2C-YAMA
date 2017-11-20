@@ -35,6 +35,9 @@ void conectarseAFS();
 void yamaEscuchando();
 void escucharMasters();
 
+/* Arma el Select para las actualizaciones de nodos */
+void escuchaActualizacionesNodos();
+
 /* recibe el  nombre del archivo a procesar */
 int recibirRutaDeArchivoAProcesar(int,t_rutaArchivo**);
 t_rutaArchivo* deserializarRutaArchivo(void* buffer);
