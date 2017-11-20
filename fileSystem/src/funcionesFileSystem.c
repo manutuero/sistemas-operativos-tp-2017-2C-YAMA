@@ -49,14 +49,23 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.\n");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	if (config_has_property(config, "PUERTO_WORKERS")) {
-			PUERTO_WORKERS = config_get_int_value(config, "PUERTO_WORKERS");
-		} else {
-			fprintf(stderr,
-					"No existe la clave 'PUERTO_WORKERS' en el archivo de configuracion.");
+		PUERTO_WORKERS = config_get_int_value(config, "PUERTO_WORKERS");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'PUERTO_WORKERS' en el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
+
+	if (config_has_property(config, "PUERTO_YAMANODOS")) {
+		PUERTO_YAMANODOS = config_get_int_value(config, "PUERTO_YAMANODOS");
+	} else {
+		fprintf(stderr,
+				"No existe la clave 'PUERTO_YAMANODOS' en el archivo de configuracion.");
+		exit(EXIT_FAILURE);
+	}
+
 }
 
 /* Implementacion de funciones para bitmaps */
@@ -292,7 +301,7 @@ void* esperarConexionesDatanodes() {
 						t_nodo *nodoDesconectado;
 						for (j = 0; j < nodos->elements_count; j++) {
 							nodoDesconectado = list_get(nodos, i);
-							if(nodoDesconectado->socketDescriptor == sd)
+							if (nodoDesconectado->socketDescriptor == sd)
 								list_remove(nodos, i);
 						}
 						// PASAR LOS BLOQUES DEL NODO DESCONECTADO A NO DISPONIBLES
@@ -325,7 +334,8 @@ void* esperarConexionesDatanodes() {
 							agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
 						}
 
-						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS && estadoFs == NO_ESTABLE) {
+						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+								&& estadoFs == NO_ESTABLE) {
 							if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
 								agregarNodo(nodos, nodo);
 							} else {
@@ -1555,9 +1565,6 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 		return false;
 }
 
-
-
-
 //crea un socket. Lo conecta a yama y se queda esperando peticiones de informacion de archivos.
 void *escucharPeticionesYama() {
 	t_header *header;
@@ -1582,7 +1589,11 @@ void *escucharPeticionesYama() {
 	/*
 	 Cuando el cliente cierra la conexion, recv() devolvera 0.
 	 */
-
+	//Guardo el ip del Yama para usarlo luego en otro hilo
+	struct sockaddr_in address;
+	getpeername(socketYama, (struct sockaddr*) &address, (socklen_t*) &addrlen);
+	ipYama = inet_ntoa(address.sin_addr);
+	sem_post(&semIpYamaNodos);
 	int status = 1;		// Estructura que manjea el status de los recieve.
 	while (status != 0) {
 		status = recibirHeader(socketYama, header);
@@ -1601,7 +1612,8 @@ void *escucharPeticionesYama() {
 			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . . SI ALGUNO FALLA DEVUELVE ERROR.
 
 			t_archivo_a_persistir* archivo = abrirArchivo(pathArchivo);
-			if ((archivo != NULL) && (existePathDirectorio(pathGuardadoFinal))){
+			if ((archivo != NULL)
+					&& (existePathDirectorio(pathGuardadoFinal))) {
 				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
@@ -1837,10 +1849,10 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 	return false;
 }
 
-void esperarConexionesWorker(){
+void *esperarConexionesWorker() {
 
 	int socketFSWorkers;
-	printf("%d\n",PUERTO_WORKERS);
+	printf("Puerto conexion workers: %d\n", PUERTO_WORKERS);
 	struct sockaddr_in direccionFSWorker;
 	//struct sockaddr_in direccionDelServidorKernel;
 	direccionFSWorker.sin_family = AF_INET;
@@ -1896,24 +1908,26 @@ void esperarConexionesWorker(){
 							(void*) &direccionFSWorker, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
-						printf("Entro una conexion por el puerto %d\n",	nuevoSocket);
+						printf("Entro una conexion por el puerto %d\n",
+								nuevoSocket);
 						FD_SET(nuevoSocket, &auxRead);
 
 						void* buffer;
 						t_header header;
 						recibirHeader(nuevoSocket, &header);
 						buffer = malloc(header.tamanioPayload);
-						recibirPorSocket(nuevoSocket, buffer,header.tamanioPayload);
+						recibirPorSocket(nuevoSocket, buffer,
+								header.tamanioPayload);
 						t_infoArchivoFinal* archivo;
 
-						if(header.id == ALMACENAMIENTO_ARCHIVO){
+						if (header.id == ALMACENAMIENTO_ARCHIVO) {
 							archivo = deserializarInfoArchivoFinal(buffer);
-						//TODO guardar archivoGlobal
+							//TODO guardar archivoGlobal
 						}
 
 						if (nuevoSocket > maxPuerto)
-								maxPuerto = nuevoSocket;
-						}
+							maxPuerto = nuevoSocket;
+					}
 					//close(nuevoSocket);
 					FD_CLR(nuevoSocket, &auxRead);
 					shutdown(nuevoSocket, 2);
@@ -1923,19 +1937,38 @@ void esperarConexionesWorker(){
 	}
 }
 
-t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer){
+t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 	t_infoArchivoFinal* archivo = malloc(sizeof(t_infoArchivoFinal));
 	int desplazamiento = 0;
 
-	memcpy(&archivo->largoRutaArchivoFinal, buffer + desplazamiento, sizeof(uint32_t));
+	memcpy(&archivo->largoRutaArchivoFinal, buffer + desplazamiento,
+			sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	archivo->rutaArchivoFinal = malloc(archivo->largoRutaArchivoFinal);
-	memcpy(archivo->rutaArchivoFinal, buffer + desplazamiento, archivo->largoRutaArchivoFinal);
+	memcpy(archivo->rutaArchivoFinal, buffer + desplazamiento,
+			archivo->largoRutaArchivoFinal);
 	desplazamiento += archivo->largoRutaArchivoFinal;
 	memcpy(&archivo->largoArchivo, buffer + desplazamiento, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	archivo->archivoFinal = malloc(archivo->largoArchivo);
-	memcpy(archivo->archivoFinal,buffer + desplazamiento, archivo->largoArchivo);
+	memcpy(archivo->archivoFinal, buffer + desplazamiento,
+			archivo->largoArchivo);
 	desplazamiento += archivo->largoArchivo;
 	return archivo;
+}
+
+void* obtenerSocketNodosYama() {
+	//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
+	sem_wait(&semIpYamaNodos);
+	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
+	if (socketPrograma <= 0) {
+		//perror(
+		//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+		//return (ERROR);
+	}
+	if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
+		return 0;
+	}
+	socketYamaNodos= socketPrograma;
+	return NULL;
 }

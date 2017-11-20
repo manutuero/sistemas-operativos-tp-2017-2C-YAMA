@@ -1,7 +1,8 @@
 #include "funcionesFileSystem.h"
 
+sem_t semIpYamaNodos;
 int main(int argc, char **argv) {
-	pthread_t hiloConexiones, hiloConsola, hiloYama, hiloWorkers;
+	pthread_t hiloConexiones, hiloConsola, hiloYama, hiloWorkers,hiloSocketYamaNodos;
 
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
@@ -13,6 +14,8 @@ int main(int argc, char **argv) {
 
 	sem_init(&semNodosRequeridos, 0, 0);
 	sem_init(&semEstadoEstable, 0, 0);
+	sem_init(&semIpYamaNodos, 0, 0);
+
 	nodos = list_create();
 	nodosEsperados = list_create();
 
@@ -44,12 +47,16 @@ int main(int argc, char **argv) {
 	/* Tambien agregar conexion con worker para recibir el archivo resultante a la reduccion global. */
 
 
-	pthread_create(&hiloWorkers, NULL, esperarConexionesWorker, NULL);
+	pthread_create(&hiloWorkers,NULL,esperarConexionesWorker,NULL);
+	pthread_create(&hiloSocketYamaNodos,NULL,obtenerSocketNodosYama,NULL);
+
 
 	pthread_join(hiloConexiones, NULL);
 	pthread_join(hiloConsola, NULL);
 
 	// Libero recursos.
 	sem_destroy(&semNodosRequeridos);
+	sem_destroy(&semEstadoEstable);
+	sem_destroy(&semIpYamaNodos);
 	return 0;
 }

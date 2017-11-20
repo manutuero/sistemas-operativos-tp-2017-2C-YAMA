@@ -51,16 +51,20 @@ enum respuestasDatanode {
 /* Semaforos */
 extern sem_t semNodosRequeridos;
 extern sem_t semEstadoEstable;
+extern sem_t semIpYamaNodos;
 
 /* Variables globales */
 char *ARCHCONFIG;
 int PUERTO;
 char* PUERTO_YAMA;
+int PUERTO_YAMANODOS;
 int PUERTO_WORKERS;
 int cantidad_nodos_esperados;
 char *PATH_METADATA;
 extern int estadoFs;
 extern int estadoNodos;
+char* ipYama;
+int socketYamaNodos;
 
 /*********************** Estructuras ************************/
 
@@ -203,8 +207,9 @@ int lastIndexOf(char *cadena, char caracter);
 void *escucharPeticionesYama();
 void serializarInfoArchivo(t_archivo_a_persistir* archivo,void* paqueteRespuesta,t_header *header);
 void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,char ** rutaGuardadoFinal);
+void *obtenerSocketNodosYama();
 
 /*Para worker*/
-void esperarConexionesWorker();
+void *esperarConexionesWorker();
 t_infoArchivoFinal* deserializarInfoArchivoFinal(void*);
 #endif
