@@ -24,14 +24,13 @@ void mostrarTablaDeEstados(int i) {
 
 //esta funcion va a recibir por parametro una estructura que tenga el job, el idMaster y el socket de ese master.
 void *preplanificarJob(t_job* jobMaster){
-	//t_list listaBloquesRecibidos, listaNodosInvolucrados, listaPlanificacionMaster;
+
 	t_header header;
 	t_bloqueRecv* bloqueRecibido;
-	//t_planificacion* planificacion;
-	int i,socketFS,socketMaster,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
+	int nodo,i,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
 	void* buffer;
 
-
+	/* envio de nombres de archivos a FS*/
 	/* Reservar memoria para los clocks */
 
 	clock = malloc(sizeof(uint32_t));
@@ -44,37 +43,42 @@ void *preplanificarJob(t_job* jobMaster){
 	/* Recibir de FS la composicion completa del archivo, en el header usamos
 	 * tamaño de payload para saber cantidad de bloques a recibir*/
 
-	//recibirHeader(socketFS,&header);
+	recibirHeader(socketFS,&header);
 
 	/* carga local de bloques de prueba */
-	t_bloqueRecv bloques[4] = {{0, 1, 0, 3, 4},
-								{1, 2, 4, 3, 9},
-								{2, 4, 7, 1, 3},
+	/*t_bloqueRecv bloques[4] = {{0, 1, 0, 3, 4},
+								{1, 2, 4, 3, 9},////////////eliminar
+								{2, 4, 7, 1, 3},////////////eliminar
 								{3, 1, 9, 3, 11}};
-	header.tamanioPayload = 4;
+	header.tamanioPayload = 4;*/
 
 
 	crearListas();
 
-	int nodo;
+
 	for (i=0;i<header.tamanioPayload;i++)
 	{
 		//Cambio bloqueRecibido por buffer en el malloc
 		buffer = malloc(sizeof(t_bloqueRecv));//Se liberara cuando se destruya la lista
 		bloqueRecibido = malloc(sizeof(t_bloqueRecv));//Se liberara cuando se destruya la lista
-		//recibirPorSocket(socketFS, buffer, sizeof(t_bloqueRecv));
-		//bloqueRecibido=(t_bloqueRecv*)buffer;
+		recibirPorSocket(socketFS, buffer, sizeof(t_bloqueRecv));
+		bloqueRecibido=(t_bloqueRecv*)buffer;
 
 		//prueba local (sin sockets)
-		bloqueRecibido=&bloques[i];
+		//bloqueRecibido=&bloques[i];
 		guardarEnBloqueRecibidos(bloqueRecibido);
 
 	}
+	/*              ACTUALIZAR CONFIG POR  INCREMENTO DE JOB    */
+	actualizarConfig();
+
+
 	t_bloqueRecv* bloque;
 	for(i=0;i<list_size(listaBloquesRecibidos);i++){
 			bloque = (t_bloqueRecv*)list_get(listaBloquesRecibidos,i);
 			printf("bloque  %d  nodo0: %d    nodo1: %d\n",bloque->nroBloqueArch, bloque->idNodo0, bloque->idNodo1);
 		}
+
 	printf("nodos involucrados: \n");
 		for(i=0;i<list_size(listaNodosInvolucrados);i++){
 			nodo = *(int*)list_get(listaNodosInvolucrados,i);
@@ -132,6 +136,7 @@ void *preplanificarJob(t_job* jobMaster){
 	{
 		printf("Fallo en la planificacion abortar job\n");
 		restaurarWorkload();
+		enviarMensajeFalloOperacion(jobMaster);
 	}
 
 	/* liberar listas para la siguiente planificacion */
@@ -247,10 +252,68 @@ void restarJob(t_list *listaFiltrada)
 /* 						Cambiar Estado segun informe master						*/
 void *cambiarEstado(char* nombreTMP, int estado)
 {
+	int etapaCompletada=0;
 	t_tabla_estados *registro;
+
 	registro = encontrarRegistro(nombreTMP);
 	registro->estado = estado;
+
+	etapaCompletada = verificarEtapa(registro->job,registro->etapa);
+
+	if (etapaCompletada)
+	{
+		switch (registro->etapa)
+		{
+			case 1:
+				iniciarReduccionLocales();
+				break;
+			case 2:
+				iniciarReduccionGlobal();
+				break;
+		}
+	}
 	return (void*)0;
+}
+
+int verificarEtapa(int trabajo,int etapa)
+{
+	t_tabla_estados *registro;
+	t_list *listaFiltrada;
+	listaFiltrada = list_create();
+	int i;
+
+	for(i=0;i<list_size(listaTablaEstados);i++)
+	{
+		registro = list_get(listaTablaEstados,i);
+		if(registro->job==trabajo && registro->etapa==etapa && registro->estado!=1)
+			list_add(listaFiltrada,registro);
+	}
+
+	i = list_all_satisfy(listaFiltrada,tareaOk);
+
+	list_destroy(listaFiltrada);
+
+	return i;
+}
+
+bool tareaOk(void *registro)
+{
+	t_tabla_estados *reg;
+	reg = (t_tabla_estados*) registro;
+
+	if(reg->estado == 2)
+		return 1;
+	else
+		return 0;
+
+}
+
+void iniciarReduccionLocales(void){
+	return;
+}
+
+void iniciarReduccionGlobal(void){
+	return;
 }
 
 /* 						all this will go in funcionesYama.c						*/
@@ -463,7 +526,7 @@ void restaurarWorkload()
 	for(i=0;list_size(listaPlanTransformaciones);i++)
 	{
 		registro = list_get(listaPlanTransformaciones,i);
-		workers[registro->idNodo].cant_transformaciones++;
+		workers[registro->idNodo].cant_transformaciones--;
 		workers[registro->idNodo].workLoad--;
 		workers[registro->idNodo].disponibilidad++;
 	}
@@ -628,6 +691,7 @@ void planificacionReduccionGlobal(int cantNodos,int *nodosInvolucrados)
 		list_add(listaPlanRedGlobal,infoReduccionGlobal);
 	}
 
+	list_destroy(listaAux);
 	return;
 }
 
@@ -657,7 +721,7 @@ bool existeRedLocal(t_reduccionLocalMaster *reduccion, t_list* lista)
 
 	t_reduccionLocalMaster *elementoLista;
 
-	elementoLista = malloc(sizeof(t_reduccionLocalMaster));
+	//elementoLista = malloc(sizeof(t_reduccionLocalMaster));
 
 	if (list_size(lista)>0)
 	{
@@ -684,7 +748,7 @@ int seleccionarNodoMenorCarga(int* nodosInvolucrados,int cantNodos)
 
 	for (i=0;i<cantNodos;i++)
 	{
-		if(nodoMenorCarga>nodosInvolucrados[i])
+		if(workers[nodoMenorCarga].workLoad>workers[nodosInvolucrados[i]].workLoad)
 		{
 			nodoMenorCarga = nodosInvolucrados[i];
 		}
@@ -699,8 +763,8 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	t_reduccionLocalMaster *registro;
 
 	/* Obtener el nombre del archivo de reduccion local */
-	registro = malloc(sizeof(t_reduccionLocalMaster));
-	registro=list_get(lista,posicion);
+	//registro = malloc(sizeof(t_reduccionLocalMaster));
+	registro=(t_reduccionLocalMaster*)list_get(lista,posicion);
 
 	infoReduccionGlobal->largoArchivoRedLocal = strlen(registro->archivoRedLocal)+1;
 	reduccionLocal = malloc(infoReduccionGlobal->largoArchivoRedLocal);
@@ -711,11 +775,11 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 
 	/* Cargar el resto de los campos del registro y agregarlo a la lista */
 	infoReduccionGlobal->idNodo = registro->idNodo;
-	infoReduccionGlobal->puerto=workers[nodoReduccionGlobal].puerto;
+	infoReduccionGlobal->puerto=workers[registro->idNodo].puerto;
 
-	infoReduccionGlobal->largoIp = strlen(workers[nodoReduccionGlobal].ip)+1;
+	infoReduccionGlobal->largoIp = strlen(workers[registro->idNodo].ip)+1;
 	infoReduccionGlobal->ip=malloc(infoReduccionGlobal->largoIp);
-	strcpy(infoReduccionGlobal->ip,workers[nodoReduccionGlobal].ip);
+	strcpy(infoReduccionGlobal->ip,workers[registro->idNodo].ip);
 	nombreTMP=generarNombreArchivoTemporal(job,nodoReduccionGlobal,9000);
 
 	/* Verifica si es el nodo encargado y completa acordemente */
@@ -736,6 +800,7 @@ void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionG
 	}
 	/* Release the memory */
 	free(nombreTMP);
+	free(reduccionLocal);
 	return;
 }
 
@@ -790,6 +855,8 @@ void actualizarWorkload(int cantNodosInvolucrados,int* nodosInvolucrados)
 	return;
 }
 
+
+/*								Destruir listas								 */
 void destruir_listas()
 {
 	list_destroy_and_destroy_elements(listaPlanTransformaciones,freeTransformaciones);
@@ -827,12 +894,91 @@ void freeRedGlobal(void *registro)
 	t_reduccionGlobalMaster *reg;
 
 	reg = (t_reduccionGlobalMaster*) registro;
-
-	free(reg->archivoRedGlobal);
+	if(reg->encargado==1)
+		free(reg->archivoRedGlobal);
 	free(reg->archivoRedLocal);
 	free(reg->ip);
 
 	free(reg);
+}
+
+void actualizarConfig()
+{
+	char* path = "YAMAconfig.cfg";
+	char cwd[1024];
+	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+			path);
+	t_config *config = config_create(pathArchConfig);
+
+	int estadoGuardado = 0;
+
+	if (!config) {
+		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		exit(EXIT_FAILURE);
+	}
+
+	if (config_has_property(config,"JOB"))
+		{
+			config_set_value(config,"JOB",(char*)job);
+			estadoGuardado = config_save(config);
+		}
+
+	if (estadoGuardado==(-1))
+	{
+		perror("[ERROR]: Fallo al guardar YAMAconfig.cfg");
+	}
+
+	if (config_has_property(config,"ALGORITMO_BALANCEO"))
+		algoritmo = config_get_int_value(config,"ALGORITMO_BALANCEO");
+
+	return;
+}
+
+void *rePrePlanificacion(char *ArchivoTrabajo,char *archivoTMP,t_job* jobRePlanificado)
+{
+	t_tabla_estados *registro;
+	pthread_t planificacion;
+
+
+	registro = encontrarRegistro(archivoTMP);
+
+	/* Descargo la carga del trabajo previamente planificado */
+	descargarWorkload(archivoTMP);
+
+	/* Deshabilito nodo caido */
+	workers[registro->nodo].habilitado=0;
+
+	/* ejecuto hilo de planificacion */
+	pthread_create(&planificacion,NULL,preplanificarJob(jobRePlanificado),NULL);
+
+	pthread_join(planificacion,NULL);
+
+	return (void*)1;
+}
+
+/*                     		Enviar la planificacion a master                  */
+
+
+void enviarMensajeFalloOperacion(t_job* jobMaster)
+{
+	void *bufferMensaje;
+	int desplazamiento=0;
+	t_header header;
+
+	header.id=101;
+	header.tamanioPayload=0;
+
+	bufferMensaje = malloc(sizeof(t_header));
+
+	memcpy(bufferMensaje, &header.id,sizeof(header.id));
+	desplazamiento += sizeof(header.id);
+
+	memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload,sizeof(header.tamanioPayload));
+	desplazamiento += sizeof(header.tamanioPayload);
+
+	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, 8);
+
+	return;
 }
 
 void enviarPlanificacionAMaster(t_job* jobMaster){
@@ -1015,5 +1161,28 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 	free(redGlobal);
 	return buffer;
 }
+/*          Envio peticion a FS para iniciar operacion de planificacion      */
 
+
+
+
+void serializarPeticionInfoArchivo(void *paquete,char *rutaArchivo,char *rutaGuardadoFinal){
+int desplazamiento=0;
+uint32_t *largoRuta=malloc(sizeof(uint32_t));
+*largoRuta=strlen(rutaArchivo)+1;
+memcpy(paquete,largoRuta,sizeof(uint32_t));
+desplazamiento+=sizeof(uint32_t);
+
+ memcpy(paquete+desplazamiento,rutaArchivo,*largoRuta);
+ desplazamiento+=*largoRuta;
+
+ *largoRuta=strlen(rutaGuardadoFinal)+1;
+ memcpy(paquete+desplazamiento,largoRuta,sizeof(uint32_t));
+ desplazamiento+=sizeof(uint32_t);
+
+ memcpy(paquete+desplazamiento,rutaGuardadoFinal,*largoRuta);
+ desplazamiento+=*largoRuta;
+
+ free(largoRuta);
+}
 
