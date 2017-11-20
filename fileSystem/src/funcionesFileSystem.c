@@ -49,6 +49,14 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.\n");
 		exit(EXIT_FAILURE);
 	}
+	
+	if (config_has_property(config, "PUERTO_WORKERS")) {
+			PUERTO_WORKERS = config_get_int_value(config, "PUERTO_WORKERS");
+		} else {
+			fprintf(stderr,
+					"No existe la clave 'PUERTO_WORKERS' en el archivo de configuracion.");
+		exit(EXIT_FAILURE);
+	}
 }
 
 /* Implementacion de funciones para bitmaps */
@@ -1824,4 +1832,107 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 			return true;
 	}
 	return false;
+}
+
+void esperarConexionesWorker(){
+
+	int socketFSWorkers;
+	printf("%d\n",PUERTO_WORKERS);
+	struct sockaddr_in direccionFSWorker;
+	//struct sockaddr_in direccionDelServidorKernel;
+	direccionFSWorker.sin_family = AF_INET;
+	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
+	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
+	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
+
+	int activado = 1;
+
+	socketFSWorkers = socket(AF_INET, SOCK_STREAM, 0);
+	// Permite reutilizar el socket sin que se bloquee por 2 minutos
+	if (setsockopt(socketFSWorkers, SOL_SOCKET, SO_REUSEADDR, &activado,
+			sizeof(activado)) == -1) {
+		perror("setsockopt");
+		exit(1);
+	}
+
+	// Se enlaza el socket al puerto
+	if (bind(socketFSWorkers, (struct sockaddr *) &direccionFSWorker,
+			sizeof(struct sockaddr)) != 0) {
+		perror("No se pudo conectar");
+		exit(1);
+	}
+	// Se pone a escuchar el servidor kernel
+	if (listen(socketFSWorkers, 10) == -1) {
+		perror("listen");
+		exit(1);
+	}
+
+	fd_set readfds, auxRead;
+	int tamanioDir = sizeof(direccionFSWorker);
+	char* buffer;
+	int bytesRecibidos, maxPuerto, i, nuevoSocket;
+	FD_ZERO(&readfds);
+	FD_ZERO(&auxRead);
+	FD_SET(socketFSWorkers, &auxRead);
+
+	maxPuerto = socketFSWorkers;
+
+	while (1) {
+
+		readfds = auxRead;
+		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
+			perror("select");
+			exit(1);
+		}
+
+		for (i = 0; i <= maxPuerto; i++) {
+			if (FD_ISSET(i, &readfds)) {
+				if (i == socketFSWorkers) {
+
+					if ((nuevoSocket = accept(socketFSWorkers,
+							(void*) &direccionFSWorker, &tamanioDir)) <= 0)
+						perror("accept");
+					else {
+						printf("Entro una conexion por el puerto %d\n",	nuevoSocket);
+						FD_SET(nuevoSocket, &auxRead);
+
+						void* buffer;
+						t_header header;
+						recibirHeader(nuevoSocket, &header);
+						buffer = malloc(header.tamanioPayload);
+						recibirPorSocket(nuevoSocket, buffer,header.tamanioPayload);
+						t_infoArchivoFinal* archivo;
+
+						if(header.id == ALMACENAMIENTO_ARCHIVO){
+							archivo = deserializarInfoArchivoFinal(buffer);
+						//TODO guardar archivoGlobal
+						}
+
+						if (nuevoSocket > maxPuerto)
+								maxPuerto = nuevoSocket;
+						}
+					//close(nuevoSocket);
+					FD_CLR(nuevoSocket, &auxRead);
+					shutdown(nuevoSocket, 2);
+				}
+			}
+		}
+	}
+}
+
+t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer){
+	t_infoArchivoFinal* archivo = malloc(sizeof(t_infoArchivoFinal));
+	int desplazamiento = 0;
+
+	memcpy(&archivo->largoRutaArchivoFinal, buffer + desplazamiento, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	archivo->rutaArchivoFinal = malloc(archivo->largoRutaArchivoFinal);
+	memcpy(archivo->rutaArchivoFinal, buffer + desplazamiento, archivo->largoRutaArchivoFinal);
+	desplazamiento += archivo->largoRutaArchivoFinal;
+	memcpy(&archivo->largoArchivo, buffer + desplazamiento, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	archivo->archivoFinal = malloc(archivo->largoArchivo);
+	memcpy(archivo->archivoFinal,buffer + desplazamiento, archivo->largoArchivo);
+	desplazamiento += archivo->largoArchivo;
+	return archivo;
 }

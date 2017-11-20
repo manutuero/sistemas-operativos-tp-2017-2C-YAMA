@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #define BACKLOG 3
 #define CANTIDAD_DIRECTORIOS 100
+#define ALMACENAMIENTO_ARCHIVO 23
 
 /* Enums */
 enum resultadosDeOperacion {
@@ -55,6 +56,7 @@ extern sem_t semEstadoEstable;
 char *ARCHCONFIG;
 int PUERTO;
 char* PUERTO_YAMA;
+int PUERTO_WORKERS;
 int cantidad_nodos_esperados;
 char *PATH_METADATA;
 extern int estadoFs;
@@ -95,6 +97,13 @@ typedef struct {
 	int tamanio;
 	t_bloque_arch primerBloque;
 } composicionArchivo;
+
+typedef struct {
+	int largoRutaArchivoFinal;
+	char* rutaArchivoFinal;
+	int largoArchivo;
+	char* archivoFinal;
+} t_infoArchivoFinal;
 
 extern t_directory directorios[100];
 t_list *nodos, *nodosEsperados;
@@ -194,4 +203,8 @@ int lastIndexOf(char *cadena, char caracter);
 void *escucharPeticionesYama();
 void serializarInfoArchivo(t_archivo_a_persistir* archivo,void* paqueteRespuesta,t_header *header);
 void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,char ** rutaGuardadoFinal);
+
+/*Para worker*/
+void esperarConexionesWorker();
+t_infoArchivoFinal* deserializarInfoArchivoFinal(void*);
 #endif

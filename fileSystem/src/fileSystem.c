@@ -1,7 +1,7 @@
 #include "funcionesFileSystem.h"
 
 int main(int argc, char **argv) {
-	pthread_t hiloConexiones, hiloConsola, hiloYama;
+	pthread_t hiloConexiones, hiloConsola, hiloYama, hiloWorkers;
 
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
@@ -42,6 +42,9 @@ int main(int argc, char **argv) {
 	}
 
 	/* Tambien agregar conexion con worker para recibir el archivo resultante a la reduccion global. */
+
+
+	pthread_create(&hiloWorkers, NULL, esperarConexionesWorker, NULL);
 
 	pthread_join(hiloConexiones, NULL);
 	pthread_join(hiloConsola, NULL);
