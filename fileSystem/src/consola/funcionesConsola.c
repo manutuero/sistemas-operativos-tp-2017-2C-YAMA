@@ -41,6 +41,7 @@ void ejecutarFormat() {
 		persistirTablaDeNodos();
 		persistirBitmaps();
 		estadoFs = ESTABLE;
+		estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS;
 		sem_post(&semEstadoEstable);
 	}
 }

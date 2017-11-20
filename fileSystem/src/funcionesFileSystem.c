@@ -21,28 +21,41 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 	t_config *config = config_create(pathArchConfig);
 
 	if (!config) {
-		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		fprintf(stderr,
+				"[ERROR]: No se pudo cargar el archivo de configuracion.\n");
 		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO")) {
 		PUERTO = config_get_int_value(config, "PUERTO");
 	} else {
-		perror("No existe la clave 'PUERTO' en el archivo de configuracion.");
+		fprintf(stderr,
+				"No existe la clave 'PUERTO' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PATH_METADATA")) {
 		PATH_METADATA = config_get_string_value(config, "PATH_METADATA");
 	} else {
-		perror(
-				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.");
+		fprintf(stderr,
+				"No existe la clave 'PATH_METADATA' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO_YAMA")) {
 		PUERTO_YAMA = config_get_string_value(config, "PUERTO_YAMA");
 	} else {
-		perror(
-				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.");
+		fprintf(stderr,
+				"No existe la clave 'PUERTO_YAMA' en el archivo de configuracion.\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if (config_has_property(config, "PUERTO_WORKERS")) {
+			PUERTO_WORKERS = config_get_int_value(config, "PUERTO_WORKERS");
+		} else {
+			fprintf(stderr,
+					"No existe la clave 'PUERTO_WORKERS' en el archivo de configuracion.");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -264,32 +277,31 @@ void* esperarConexionesDatanodes() {
 				}
 			}
 
-			// else  es un cambio en los sockets que estaba escuchando.
+			// else es un cambio en los sockets que estaba escuchando.
 			for (i = 0; i < numeroClientes; i++) {
 				sd = socketsClientes[i];
 
 				if (FD_ISSET(sd, &readfds)) {
-					//Chequea si fue para cerrarse y sino lee el mensaje;
-					// desconexion
+					// Desconexion de un nodo.
 					if (recibirHeader(sd, &header) == 0) {
-						//getpeername(sd, (struct sockaddr*) &address, (socklen_t*) &addrlen);
-						//printf("Cliente desconectado sd: %d \n", sd);
-						close(sd);
-						socketsClientes[i] = 0;
-						//SI SE DESCONECTO UN NODO BUSCARLO EN LA LISTA DE NODOS
-						//CONECTADOS (LISTA DE STRUCTS) Y SACARLO.
-						//ACTUALIZAR TABLA DE ARCHIVOS Y PASAR BLOQUES DE NODO
-						//DESCONECTADO A NO DISPONIBLES
+						cerrarSocket(sd);
+						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
+						estadoFs = NO_ESTABLE;
+						// Actualizo la lista de nodos conectados.
+						int j;
+						t_nodo *nodoDesconectado;
+						for (j = 0; j < nodos->elements_count; j++) {
+							nodoDesconectado = list_get(nodos, i);
+							if(nodoDesconectado->socketDescriptor == sd)
+								list_remove(nodos, i);
+						}
+						// PASAR LOS BLOQUES DEL NODO DESCONECTADO A NO DISPONIBLES
 						break;
-					}
-					//Si entra aca recibi un header que va a tener la info de quien se conecto.
-					else {
-						//printf("Header : %d.\n", header.tamanioPayload);
 					}
 
 					buffer = malloc(header.tamanioPayload);
 
-					//Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
+					// Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
 					if (recibirPorSocket(sd, buffer, header.tamanioPayload)
 							<= 0) {
 						perror(
@@ -310,25 +322,18 @@ void* esperarConexionesDatanodes() {
 
 						if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 							agregarNodo(nodos, nodo);
+							agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
 						}
 
-						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS) {
-							if (nodos->elements_count
-									== nodosEsperados->elements_count)
-								cerrarSocket(sd);
-
+						if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS && estadoFs == NO_ESTABLE) {
 							if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
 								agregarNodo(nodos, nodo);
 							} else {
 								cerrarSocket(sd);
 							}
-
-							puts("Nodos restaurados:\n");
-							for (i = 0; i < nodos->elements_count; i++) {
-								nodo = list_get(nodos, i);
-								printf("Id nodo: %d\n Bloques libres: %d\n",
-										nodo->idNodo, nodo->bloquesLibres);
-							}
+						} else if (estadoFs == ESTABLE) {
+							socketsClientes[i] = 0;
+							cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
 						}
 					}
 					free(buffer);
@@ -722,9 +727,9 @@ void borrarDirectorioMetadata() {
 		string_append(&comando, "rm -rf ");
 		string_append(&comando, PATH_METADATA);
 		system(comando);
+		free(comando);
 	}
 
-	free(comando);
 	closedir(directorio);
 }
 
@@ -1041,6 +1046,8 @@ void persistirTablaDeNodos() {
 		fputs(valor, filePointer);
 		free(clave);
 	}
+
+	fputs("\n", filePointer);
 
 	// Libero recursos.
 	fclose(filePointer);
@@ -1828,4 +1835,107 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 			return true;
 	}
 	return false;
+}
+
+void esperarConexionesWorker(){
+
+	int socketFSWorkers;
+	printf("%d\n",PUERTO_WORKERS);
+	struct sockaddr_in direccionFSWorker;
+	//struct sockaddr_in direccionDelServidorKernel;
+	direccionFSWorker.sin_family = AF_INET;
+	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
+	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
+	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
+
+	int activado = 1;
+
+	socketFSWorkers = socket(AF_INET, SOCK_STREAM, 0);
+	// Permite reutilizar el socket sin que se bloquee por 2 minutos
+	if (setsockopt(socketFSWorkers, SOL_SOCKET, SO_REUSEADDR, &activado,
+			sizeof(activado)) == -1) {
+		perror("setsockopt");
+		exit(1);
+	}
+
+	// Se enlaza el socket al puerto
+	if (bind(socketFSWorkers, (struct sockaddr *) &direccionFSWorker,
+			sizeof(struct sockaddr)) != 0) {
+		perror("No se pudo conectar");
+		exit(1);
+	}
+	// Se pone a escuchar el servidor kernel
+	if (listen(socketFSWorkers, 10) == -1) {
+		perror("listen");
+		exit(1);
+	}
+
+	fd_set readfds, auxRead;
+	int tamanioDir = sizeof(direccionFSWorker);
+	char* buffer;
+	int bytesRecibidos, maxPuerto, i, nuevoSocket;
+	FD_ZERO(&readfds);
+	FD_ZERO(&auxRead);
+	FD_SET(socketFSWorkers, &auxRead);
+
+	maxPuerto = socketFSWorkers;
+
+	while (1) {
+
+		readfds = auxRead;
+		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
+			perror("select");
+			exit(1);
+		}
+
+		for (i = 0; i <= maxPuerto; i++) {
+			if (FD_ISSET(i, &readfds)) {
+				if (i == socketFSWorkers) {
+
+					if ((nuevoSocket = accept(socketFSWorkers,
+							(void*) &direccionFSWorker, &tamanioDir)) <= 0)
+						perror("accept");
+					else {
+						printf("Entro una conexion por el puerto %d\n",	nuevoSocket);
+						FD_SET(nuevoSocket, &auxRead);
+
+						void* buffer;
+						t_header header;
+						recibirHeader(nuevoSocket, &header);
+						buffer = malloc(header.tamanioPayload);
+						recibirPorSocket(nuevoSocket, buffer,header.tamanioPayload);
+						t_infoArchivoFinal* archivo;
+
+						if(header.id == ALMACENAMIENTO_ARCHIVO){
+							archivo = deserializarInfoArchivoFinal(buffer);
+						//TODO guardar archivoGlobal
+						}
+
+						if (nuevoSocket > maxPuerto)
+								maxPuerto = nuevoSocket;
+						}
+					//close(nuevoSocket);
+					FD_CLR(nuevoSocket, &auxRead);
+					shutdown(nuevoSocket, 2);
+				}
+			}
+		}
+	}
+}
+
+t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer){
+	t_infoArchivoFinal* archivo = malloc(sizeof(t_infoArchivoFinal));
+	int desplazamiento = 0;
+
+	memcpy(&archivo->largoRutaArchivoFinal, buffer + desplazamiento, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	archivo->rutaArchivoFinal = malloc(archivo->largoRutaArchivoFinal);
+	memcpy(archivo->rutaArchivoFinal, buffer + desplazamiento, archivo->largoRutaArchivoFinal);
+	desplazamiento += archivo->largoRutaArchivoFinal;
+	memcpy(&archivo->largoArchivo, buffer + desplazamiento, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	archivo->archivoFinal = malloc(archivo->largoArchivo);
+	memcpy(archivo->archivoFinal,buffer + desplazamiento, archivo->largoArchivo);
+	desplazamiento += archivo->largoArchivo;
+	return archivo;
 }
