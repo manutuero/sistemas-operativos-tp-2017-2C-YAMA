@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
 		puts("Hay estado anterior..");
 		restaurarEstructurasAdministrativas();
 
-		//sem_wait(&semNodosRequeridos); No voy a tener la consola disponible hasta que no tenga al menos 2 nodos (de los nodos esperados)
+		sem_wait(&semNodosRequeridos); //No voy a tener la consola disponible hasta que no tenga al menos 2 nodos (de los nodos esperados)
 		// Por lo que entiendo, el no estar en un "estado estable" implica que no dejo que se conecten ni YAMA ni WORKER.
 		pthread_create(&hiloConsola, NULL, levantarConsola, NULL);
 	}

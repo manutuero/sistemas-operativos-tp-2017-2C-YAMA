@@ -108,36 +108,27 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap) {
 }
 
 /* Implementacion de funciones para mensajes */
-void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header) {
+void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	uint32_t bytesACopiar = 0, desplazamiento = 0, largoIp;
-
-	// reservo 4 uint32_t para los primeros 4 campos del struct + 1 para el largo del string ip.
-	void *payload = malloc(sizeof(uint32_t) * 5);
+	//se va a serializar id puerto y ip
+	void *payload = malloc(sizeof(uint32_t) * 3);
 
 	/* Serializamos el payload */
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(payload + desplazamiento, &infoNodo->sdNodo, bytesACopiar);
+	memcpy(payload + desplazamiento, &nodo->idNodo, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(payload + desplazamiento, &infoNodo->idNodo, bytesACopiar);
+	memcpy(payload + desplazamiento, &nodo->puertoWorker, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(payload + desplazamiento, &infoNodo->cantidadBloques, bytesACopiar);
-	desplazamiento += bytesACopiar;
-
-	bytesACopiar = sizeof(uint32_t);
-	memcpy(payload + desplazamiento, &infoNodo->puerto, bytesACopiar);
-	desplazamiento += bytesACopiar;
-
-	bytesACopiar = sizeof(uint32_t);
-	largoIp = strlen(infoNodo->ip);
+	largoIp = strlen(nodo->ip);
 	memcpy(payload + desplazamiento, &largoIp, bytesACopiar); // le agrego el largo de la cadena ip como parte del mensaje
 	desplazamiento += sizeof(uint32_t);
 
 	payload = realloc(payload, desplazamiento + largoIp); // Hacemos apuntar al nuevo espacio de memoria redimensionado.
-	memcpy(payload + desplazamiento, infoNodo->ip, largoIp);
+	memcpy(payload + desplazamiento, nodo->ip, largoIp);
 	desplazamiento += largoIp;
 
 	header->tamanioPayload = desplazamiento; // Modificamos por referencia al argumento header.
@@ -1969,6 +1960,21 @@ void* obtenerSocketNodosYama() {
 	if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
 		return 0;
 	}
-	socketYamaNodos= socketPrograma;
+	socketYamaNodos = socketPrograma;
 	return NULL;
 }
+
+void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
+	void* paquete = NULL;
+	t_header *header;
+	if (tipo == CONEXION) {
+		header->id = 30;
+	} else {
+		header->id = 31;
+	}
+	paquete = serializarInfoNodo(nodo, header);
+	enviarPorSocket(socketYamaNodos,paquete,header->tamanioPayload+(sizeof(uint32_t)*2));
+
+	return NULL;
+}
+

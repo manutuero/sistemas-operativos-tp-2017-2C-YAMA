@@ -39,6 +39,10 @@ enum nodos {
 	NO_DISPONIBLE = -1
 };
 
+enum tipoInfoNodo {
+	CONEXION,DESCONEXION
+};
+
 enum respuestasDatanode {
 	ERROR_AL_ENVIAR_PETICION = -3,
 	ERROR_AL_TRAER_BLOQUE,
@@ -142,7 +146,7 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 
 /* Firmas de funciones para mensajes */
 void* esperarConexionesDatanodes();
-void* serializarInfoNodo(t_infoNodo *infoNodo, t_header *header);
+void* serializarInfoNodo(t_nodo *nodo, t_header *header);
 t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
 int guardarBloqueEnNodo(t_bloque *bloque,int COPIA);
 int traerBloqueNodo(t_bloque *bloque);
