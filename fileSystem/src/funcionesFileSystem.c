@@ -1548,6 +1548,9 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 		return false;
 }
 
+
+
+
 //crea un socket. Lo conecta a yama y se queda esperando peticiones de informacion de archivos.
 void *escucharPeticionesYama() {
 	t_header *header;
@@ -1588,10 +1591,10 @@ void *escucharPeticionesYama() {
 
 			deserializarPeticionInfoArchivo(&peticionRecibida, &pathArchivo,
 					&pathGuardadoFinal);
-			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . Y EXISTENCIA DEL ARCHIVO. SI ALGUNO FALLA DEVUELVE ERROR.
+			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . . SI ALGUNO FALLA DEVUELVE ERROR.
 
 			t_archivo_a_persistir* archivo = abrirArchivo(pathArchivo);
-			if (archivo != NULL) {
+			if ((archivo != NULL) && (existePathDirectorio(pathGuardadoFinal))){
 				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
