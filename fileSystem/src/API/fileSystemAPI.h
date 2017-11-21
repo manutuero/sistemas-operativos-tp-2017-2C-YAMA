@@ -36,6 +36,7 @@ typedef struct {
 	uint32_t numeroBloque;
 	size_t bytesOcupados;
 	char *contenido;
+	char disponible;
 	int numeroBloqueCopia0;
 	int numeroBloqueCopia1;
 	t_nodo *nodoCopia0;
@@ -47,6 +48,7 @@ typedef struct {
 	char *nombreArchivo;
 	int tamanio;
 	int tipo;
+	char disponible;
 	t_list *bloques;
 } t_archivo_a_persistir; // nombre temporal...cambiar a t_archivo cuando hagan refactor de la utils.
 

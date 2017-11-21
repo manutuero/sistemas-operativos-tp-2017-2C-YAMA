@@ -4,6 +4,7 @@
 int estadoFs = NO_ESTABLE; // Por defecto siempre inicia no estable.
 int estadoNodos = -1; //Depende de que estado venga el fs como se va a iniciar
 int cantidad_nodos_esperados = 99;
+int archivosDisponibles = 0;
 bool estadoAnterior;
 sem_t semNodosRequeridos;
 sem_t semEstadoEstable;
@@ -294,11 +295,14 @@ void* esperarConexionesDatanodes() {
 								nodoDesconectado = list_get(nodos, i);
 								if (nodoDesconectado) {
 									if (nodoDesconectado->socketDescriptor
-											== sd)
+											== sd) {
 										list_remove(nodos, i);
+										actualizarDisponibilidadArchivos(
+												nodoDesconectado->idNodo,
+												DESCONEXION);
+									}
 								}
 							}
-							// PASAR LOS BLOQUES DEL NODO DESCONECTADO A NO DISPONIBLES
 							break;
 						}
 
@@ -335,17 +339,32 @@ void* esperarConexionesDatanodes() {
 									if (estadoAnterior) {
 										nodo->bitmap = recuperarBitmapAnterior(
 												nodo->idNodo);
+										actualizarDisponibilidadArchivos(
+												nodo->idNodo, CONEXION);
 									}
 									agregarNodo(nodos, nodo);
 								} else {
 									cerrarSocket(sd);
 								}
-							} else if (estadoFs == ESTABLE) {
-								socketsClientes[i] = 0;
-								cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+							} else if (estadoNodos
+									== ACEPTANDO_NODOS_YA_CONECTADOS // este escenario se da con el estado anterior.
+							&& estadoFs == ESTABLE) {
+								if (esNodoAnterior(nodosEsperados,
+										nodo->idNodo)) {
+									if (estadoAnterior) {
+										nodo->bitmap = recuperarBitmapAnterior(
+												nodo->idNodo);
+										actualizarDisponibilidadArchivos(
+												nodo->idNodo, CONEXION);
+									}
+									agregarNodo(nodos, nodo);
+								} else if (estadoFs == ESTABLE) {
+									socketsClientes[i] = 0;
+									cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+								}
 							}
+							free(buffer);
 						}
-						free(buffer);
 					}
 				}
 			}
@@ -955,13 +974,6 @@ void restaurarTablaDeArchivos() {
 		// Libero recursos.
 		free(directorio);
 	}
-
-	printf("Cantidad de archivos: %d\n", archivos->elements_count);
-	printf("Directorio: %s\n", directorios[i].nombre);
-	for (i = 0; i < archivos->elements_count; i++) {
-		archivo = list_get(archivos, i);
-		printf("Archivo: %s\n", archivo->nombreArchivo);
-	}
 }
 
 void agregarNodo(t_list *lista, t_nodo *nodo) {
@@ -1411,6 +1423,9 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 // Tipo.
 	archivo->tipo = config_get_int_value(diccionario, "TIPO");
 
+// Disponible. (pasa a '1' cuando se conectan todos los nodos que guardan los bloques del archivo)
+	archivo->disponible = '0';
+
 // Indice (es util luego para calcular el indice del padre).
 	archivo->indiceDirectorio = indiceDirectorio;
 
@@ -1424,6 +1439,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		nodoCopia1 = malloc(sizeof(t_nodo));
 
 		bloque->numeroBloque = i;
+		bloque->disponible = '0';
 
 		bloque->nodoCopia0 = nodoCopia0;
 		clave = string_new();
@@ -2038,3 +2054,141 @@ t_bitmap recuperarBitmapAnterior(int idNodo) {
 	}
 	return NULL;
 }
+
+void actualizarBloquesDisponibles(t_archivo_a_persistir *archivo, int idNodo) {
+	int i, bloquesTotales, bloquesDisponibles;
+	t_bloque *bloque;
+
+	bloquesTotales = archivo->bloques->elements_count;
+	bloquesDisponibles = contarDisponibles(archivo->bloques);
+
+	for (i = 0; i < bloquesTotales && bloquesDisponibles < bloquesTotales;
+			i++) {
+		bloque = list_get(archivo->bloques, i);
+		if (bloque->nodoCopia0->idNodo == idNodo
+				|| bloque->nodoCopia1->idNodo == idNodo) {
+			bloque->disponible = '1';
+			bloquesDisponibles++;
+			printf("Bloque: %d.. disponible: %c.\n", bloque->numeroBloque,
+					bloque->disponible);
+		}
+	}
+
+	// Si hay al menos 1 copia de cada bloque, el archivo pasa a estar disponible.
+	if (bloquesDisponibles == bloquesTotales) {
+		archivo->disponible = '1';
+		archivosDisponibles++;
+	}
+}
+
+void actualizarBloquesNoDisponibles(t_archivo_a_persistir *archivo, int idNodo) {
+	int i, bloquesTotales, bloquesDisponibles;
+	t_bloque *bloque;
+
+	bloquesTotales = archivo->bloques->elements_count;
+	bloquesDisponibles = contarDisponibles(archivo->bloques);
+	for (i = 0; i < bloquesTotales; i++) {
+		bloque = list_get(archivo->bloques, i);
+		if (bloque->nodoCopia0->idNodo == idNodo
+				|| bloque->nodoCopia1->idNodo == idNodo) {
+			bloque->disponible = '0';
+			bloquesDisponibles--;
+		}
+	}
+
+	// Si no hay al menos 1 copia de cada bloque, el archivo pasa a estar no disponible.
+	if (bloquesDisponibles < bloquesTotales) {
+		archivo->disponible = '0';
+		archivosDisponibles--;
+	}
+
+	puts("actualizo cuando se desconecto el nodo.");
+}
+
+void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
+	int i, archivosTotales;
+	t_archivo_a_persistir *archivo;
+
+	// Recorro la lista de archivos en memoria.
+	archivosTotales = archivos->elements_count;
+	for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
+			i++) {
+		archivo = list_get(archivos, i);
+		if (archivo->disponible == '1') {
+			archivosDisponibles++;
+			continue;
+		}
+
+		printf("\nArchivo: %s.\n", archivo->nombreArchivo);
+		// Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
+
+		if (tipoInfoNodo == CONEXION) {
+			actualizarBloquesDisponibles(archivo, idNodo);
+		} else if (tipoInfoNodo == DESCONEXION) {
+			actualizarBloquesNoDisponibles(archivo, idNodo);
+		}
+	}
+
+	// Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
+	if (archivosDisponibles == archivosTotales) {
+		estadoFs = ESTABLE;
+		sem_post(&semEstadoEstable);
+	} else {
+		estadoFs = NO_ESTABLE;
+	}
+}
+
+int contarDisponibles(t_list *bloques) {
+	int i, cantidadDisponibles = 0;
+	t_bloque *bloque;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		if (bloque->disponible == '1')
+			cantidadDisponibles++;
+	}
+	return cantidadDisponibles;
+}
+
+/*int i, j, archivosTotales, bloquesTotales, bloquesDisponibles;
+ t_archivo_a_persistir *archivo;
+ t_bloque *bloque;
+
+ // Recorro la lista de archivos en memoria.
+ archivosTotales = archivos->elements_count;
+ for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
+ i++) {
+ archivo = list_get(archivos, i);
+ if (archivo->disponible == '1') {
+ archivosDisponibles++;
+ continue;
+ }
+
+ printf("\nArchivo: %s.\n", archivo->nombreArchivo);
+ // Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
+ bloquesTotales = archivo->bloques->elements_count;
+ bloquesDisponibles = contarDisponibles(archivo->bloques);
+ for (j = 0; j < bloquesTotales && bloquesDisponibles < bloquesTotales;
+ j++) {
+ bloque = list_get(archivo->bloques, j);
+ if (bloque->nodoCopia0->idNodo == idNodo
+ || bloque->nodoCopia1->idNodo == idNodo) {
+ bloque->disponible = '1';
+ bloquesDisponibles++;
+ printf("Bloque: %d.. disponible: %c.\n", bloque->numeroBloque,
+ bloque->disponible);
+ }
+ }
+
+ // Si hay al menos 1 copia de cada bloque, el archivo pasa a estar disponible.
+ if (bloquesDisponibles == bloquesTotales) {
+ archivo->disponible = '1';
+ archivosDisponibles++;
+ }
+ }
+
+ // Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
+ if (archivosDisponibles == archivosTotales) {
+ estadoFs = ESTABLE;
+ sem_post(&semEstadoEstable);
+ }
+ * */

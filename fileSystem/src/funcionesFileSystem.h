@@ -40,7 +40,7 @@ enum nodos {
 };
 
 enum tipoInfoNodo {
-	CONEXION,DESCONEXION
+	CONEXION, DESCONEXION
 };
 
 enum respuestasDatanode {
@@ -201,6 +201,10 @@ void restaurarTablaDeArchivos();
 bool esNodoAnterior(t_list *nodosEsperados, int idNodo);
 void borrarDirectorioMetadata();
 t_bitmap recuperarBitmapAnterior(int idNodo);
+void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo);
+int contarDisponibles(t_list *bloques);
+void actualizarBloquesDisponibles(t_archivo_a_persistir *archivo, int idNodo);
+void actualizarBloquesNoDisponibles(t_archivo_a_persistir *archivo, int idNodo);
 
 /* Auxiliares */
 char* getResultado(int);

@@ -5,6 +5,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Lee la metadata del archivo que se encuentra en pathArchivo y lo recupera del yamafs.
 t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
+	pthread_mutex_lock(&mutex);
 	int i;
 	char *contenido;
 	t_list *bloques;
@@ -43,6 +44,7 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	contenido[archivo->tamanio] = '\0';
 
 	// LIBERAR ARCHIVO CUANDO LA FUNCION QUE LLAMA TERMINA!...para que no hayan leaks despues de cada llamado.
+	pthread_mutex_unlock(&mutex);
 	return archivo;
 }
 
@@ -51,6 +53,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	t_list *bloques, *nodosAux = copiarListaNodos(nodos);
 	t_bloque *bloque;
 	int i, respuesta, tamanio = 0;
+	char *pathArchivo;
 	t_nodo *nodoCopia0, *nodoCopia1;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
@@ -59,10 +62,20 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		return ERROR;
 	}
 
-	// Verifica si hay nodos conectados. Esto no es responsabilidad de la funcion, pero para que no rompa x ahora..LUEGO BORRAR
+	// Verifica si hay suficientes nodos conectados.
 	if (nodos->elements_count < 2) {
 		fprintf(stderr,
-				"[ERROR]: no hay datanodes suficientes para arrancar...");
+				"[ERROR]: no hay nodos suficientes para realizar el almacenamiento del archivo...\n");
+		return ERROR;
+	}
+
+	// Verifica si ya existe el archivo a almacenar.
+	pathArchivo = string_new();
+	string_append(&pathArchivo, path);
+	string_append(&pathArchivo, "/");
+	string_append(&pathArchivo, nombreArchivo);
+	if (existeArchivoEnYamaFs(pathArchivo)) {
+		printf("El archivo '%s' ya existe.\n", pathArchivo);
 		return ERROR;
 	}
 
