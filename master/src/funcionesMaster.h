@@ -11,6 +11,7 @@
 
 #include <utils.h>
 #include <commons/collections/list.h>
+#include <commons/temporal.h>
 #include <time.h>
 
 //MACROS
@@ -18,9 +19,9 @@
 #define TRANSFORMACIONOKYAMA 12
 #define REDUCCIONLOCALOKYAMA 16
 #define REDUCCIONGLOBALOKYAMA 20
-#define ERRORTRANSFORMACION -103
-#define ERRORREDUCCION -104
-#define ERRORREDUCCIONGLOBAL -106
+#define ERRORTRANSFORMACION 103
+#define ERRORREDUCCION 104
+#define ERRORREDUCCIONGLOBAL 104
 #define ERRORALMACENADOFINAL -4
 
 //MACROS YAMA
@@ -122,6 +123,11 @@
 	}t_infoReduccionesLocales;
 
 	typedef struct{
+		uint32_t largoRutaTemporalTransformacion;
+		char* rutaTemporalTransformacion;
+	}t_temporalesTransformacionWorker;
+
+	typedef struct{
 		uint32_t largoRutaTemporal;
 		char* rutaTemporalTransformacion;
 		uint32_t largoRutaArchivoAProcesar;
@@ -137,11 +143,6 @@
 		uint32_t cantidadNodos;
 		t_list* nodosAConectar;
 	}t_infoReduccionGlobal;
-
-	typedef struct{
-		uint32_t largoRutaTemporalTransformacion;
-		char* rutaTemporalTransformacion;
-	}t_temporalesTransformacionWorker;
 
 	typedef struct{
 		uint32_t puerto;
@@ -212,6 +213,7 @@ void deserializarPlanificacion(void*);
 void deserializarTransformaciones(int , void*, int*);
 void deserializarReduccionesLocales(int , void* , int* );
 void deserializarReduccionesGlobales(int , void* , int*);
+void cargarNodosTransformacion();
 
 void operarEtapas();
 
