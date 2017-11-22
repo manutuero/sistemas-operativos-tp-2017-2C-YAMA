@@ -19,9 +19,17 @@
 struct sockaddr_in direccionFS;
 struct sockaddr_in direccionYama;
 int socketYama, socketFS;
-char* ip;
+char* ip,*socketFSNodos;
 extern uint32_t ultimoMaster;
 uint32_t job;
+
+
+typedef struct{
+	uint32_t idNodo;
+	uint32_t puerto;
+	uint32_t largoIp;
+	char *IP;
+}t_infoNodos;
 
 /*  FUNCIONES YAMA */
 
@@ -38,8 +46,11 @@ void escucharMasters();
 /* Arma el Select para las actualizaciones de nodos */
 void escuchaActualizacionesNodos();
 
+t_infoNodos deserializarActualizacion(void*);
+
 /* recibe el  nombre del archivo a procesar */
 int recibirRutaDeArchivoAProcesar(int,t_rutaArchivo**);
+
 t_rutaArchivo* deserializarRutaArchivo(void* buffer);
 void* obtenerBloquesDelArchivo(t_rutaArchivo*);
 

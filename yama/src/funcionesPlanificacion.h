@@ -4,6 +4,7 @@
 #include <utils.h>
 #include <commons/collections/list.h>
 #include "funcionesYAMA.h"
+#include <stdlib.h>
 
 /* 									Estructuras									*/
 
@@ -102,6 +103,7 @@ typedef struct{
 extern t_worker_Disponibles workers[30];
 extern uint32_t job;
 extern int idMaster;
+extern uint32_t disponibilidadBase;
 
 /* Listas */
 t_list *listaBloquesRecibidos, *listaNodosInvolucrados;
@@ -130,6 +132,8 @@ int existeIdNodo(int );
 
 /* Funcion a utilizar en el list_sort */
 bool ordenarPorDisponibilidad(void* nodo0, void* nodo1);
+
+bool ordenarPorWorkload(void*,void*);
 
 /* Carga el vector a utilizar por el clock y clockAux; libera la memoria utilizada
  * por la lista de nodos involucrados */
@@ -191,6 +195,8 @@ void actualizarWorkload(int ,int *);
 
 /* seleccionar nodo con menor workload */
 int seleccionarNodoMenorCarga(int*, int);
+
+int tieneReduccionesLocales(int);
 
 /* hilo de rePrePlanificacion */
 void *rePrePlanificacion(char *,char *,t_job*);

@@ -1,9 +1,9 @@
 #include "funcionesPlanificacion.h"
 
 t_worker_Disponibles workers[30];
-int disponibilidadBase=1;//hardcode de momento a retirar de yamaConfig.cfg
+
 int algoritmo = 1;//idem anterior, 0 para clock y 1 para wclock
-uint32_t job = 0;
+//uint32_t job = 0;
 int idMaster = 1;
 
 void mostrarTablaDeEstados(int i) {
@@ -35,10 +35,6 @@ void *preplanificarJob(t_job* jobMaster){
 
 	clock = malloc(sizeof(uint32_t));
 	clockAux = malloc(sizeof(uint32_t));
-
-	/* Inicializo el array de todos los workers, deshabilitados  */
-
-	inicializarWorkers();
 
 	/* Recibir de FS la composicion completa del archivo, en el header usamos
 	 * tamaño de payload para saber cantidad de bloques a recibir*/
@@ -126,7 +122,7 @@ void *preplanificarJob(t_job* jobMaster){
 		printf("planifico. \n");
 		mostrarTablaDeEstados(i);
 
-		/* Actualizar workload aplicando estupiad ecuacion*/
+		/* Actualizar workload aplicando ecuacion*/
 		actualizarWorkload(cantNodosInvolucrados,nodosInvolucrados);
 
 		/* Enviar toda la planificacion a master */
@@ -599,7 +595,7 @@ void planificacionReduccionLocal()
 	t_reduccionLocalMaster *redLocal;
 	char *nombreTMP;
 
-	transformacion = malloc(sizeof(t_transformacionMaster));
+	//transformacion = malloc(sizeof(t_transformacionMaster));
 	redLocal = malloc(sizeof(t_reduccionLocalMaster));
 	nombreTMP = string_new();
 	transformacion = list_get(listaPlanTransformaciones,i);
@@ -620,7 +616,6 @@ void planificacionReduccionLocal()
 			transformacion=list_get(listaPlanTransformaciones,i);
 			redLocal = malloc(sizeof(t_reduccionLocalMaster));
 		}
-
 	}
 
 	free(nombreTMP);
@@ -700,7 +695,7 @@ void seleccionarTransformacionLocales(t_list *lista)
 {
 	int i;
 	t_reduccionLocalMaster *registro;
-	registro = malloc(sizeof(t_reduccionLocalMaster));
+	//registro = malloc(sizeof(t_reduccionLocalMaster));
 
 	for (i=0;i<list_size(listaPlanRedLocal);i++)
 	{
@@ -709,7 +704,7 @@ void seleccionarTransformacionLocales(t_list *lista)
 		if (existeRedLocal(registro,lista))
 		{
 			list_add(lista,registro);
-			registro = malloc(sizeof(t_reduccionLocalMaster));
+			//registro = malloc(sizeof(t_reduccionLocalMaster));
 		}
 	}
 }
@@ -744,16 +739,69 @@ bool existeRedLocal(t_reduccionLocalMaster *reduccion, t_list* lista)
 
 int seleccionarNodoMenorCarga(int* nodosInvolucrados,int cantNodos)
 {
-	int i, nodoMenorCarga=nodosInvolucrados[0];
+	int i,nodoMenorCarga;
+	t_list *listAux;
+	listAux = list_create();
 
 	for (i=0;i<cantNodos;i++)
 	{
-		if(workers[nodoMenorCarga].workLoad>workers[nodosInvolucrados[i]].workLoad)
+		if (tieneReduccionesLocales(nodosInvolucrados[i]))
 		{
-			nodoMenorCarga = nodosInvolucrados[i];
+			list_add(listAux,(int*)nodosInvolucrados[i]);
 		}
 	}
+
+	list_sort(listAux,ordenarPorWorkload);
+
+	nodoMenorCarga = (int) list_get(listAux,0);
+
 	return nodoMenorCarga;
+
+//crear lista con nodos que tengan reducciones locales
+// sort list by worload
+//select first element of the list
+
+
+	/*int i, nodoMenorCarga=nodosInvolucrados[0];
+
+	for (i=0;i<cantNodos;i++)
+	{
+		if(nodoIntervinoEnJob(nodosInvolucrados[i]))
+		{
+			if(workers[nodoMenorCarga].workLoad>workers[nodosInvolucrados[i]].workLoad)
+			{
+				nodoMenorCarga = nodosInvolucrados[i];
+			}
+		}
+	}
+	return nodoMenorCarga;*/
+}
+
+bool ordenarPorWorkload(void* val1,void* val2){
+	int nodo0,nodo1;
+	nodo0 = *(int*)val1;
+	nodo1 = *(int*)val2;
+
+
+	if ((workers[nodo0].workLoad) <= (workers[nodo1].workLoad))
+		return 1;
+	else
+		return 0;
+
+}
+
+int tieneReduccionesLocales(int nodo)
+{
+	t_reduccionLocalMaster *registro;
+	int i;
+
+	for (i=0;i<list_size(listaPlanRedLocal);i++)
+	{
+		registro = (t_reduccionLocalMaster*) list_get(listaPlanRedLocal,i);
+		if (registro->idNodo == nodo)
+			return 1;
+	}
+	return 0;
 }
 
 void cargarInfoReduccionGlobal(int posicion,int nodoReduccionGlobal,t_reduccionGlobalMaster* infoReduccionGlobal,t_list *lista)
@@ -919,7 +967,7 @@ void actualizarConfig()
 
 	if (config_has_property(config,"JOB"))
 		{
-			config_set_value(config,"JOB",(char*)job);
+			config_set_value(config,"JOB",string_itoa(job));
 			estadoGuardado = config_save(config);
 		}
 

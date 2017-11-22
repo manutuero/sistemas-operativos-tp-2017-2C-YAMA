@@ -9,7 +9,7 @@
 #include "funcionesPlanificacion.h"
 
 
-uint32_t ultimoMaster = 0;
+uint32_t ultimoMaster = 0,disponibilidadBase;
 char* temp = "/tmp/";
 
 void conectarseAFS(){
@@ -57,6 +57,14 @@ void cargarArchivoDeConfiguracion(){
 
 	if (config_has_property(config, "JOB")) {
 		job = config_get_int_value(config, "JOB");
+	}
+
+	if (config_has_property(config, "SOCKET_FS_NODOS")) {
+		socketFSNodos = config_get_string_value(config, "SOCKET_FS_NODOS");
+	}
+
+	if (config_has_property(config, "DISPONIBILIDAD_BASE")) {
+		disponibilidadBase = config_get_int_value(config, "DISPONIBILIDAD_BASE");
 	}
 
 	printf("Puerto: %d\n", PUERTO);
@@ -161,10 +169,96 @@ void escucharMasters() {
 		}
 	}
 }
+
 void escuchaActualizacionesNodos(){
 
+	t_header *header;
+	t_infoNodos infoNodo;
+	header = malloc(sizeof(t_header));
+	struct addrinfo hints;
+	struct addrinfo *serverInfo;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_socktype = SOCK_STREAM;
+	getaddrinfo(NULL, socketFSNodos, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost en AI_PASSIVE
+	int socketYamaNodos;
+	socketYamaNodos = socket(serverInfo->ai_family, serverInfo->ai_socktype,
+			serverInfo->ai_protocol);
+	bind(socketYamaNodos, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
+	listen(socketYamaNodos, 1); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+	int socketCliente = accept(socketYamaNodos, (struct sockaddr *) &addr, &addrlen);
+	/*
+	 Cuando el cliente cierra la conexion, recv() devolvera 0.
+	 */
+	//Guardo el ip del Yama para usarlo luego en otro hilo
+	/*struct sockaddr_in address;
+	getpeername(socketYamaNodos, (struct sockaddr*) &address, (socklen_t*) &addrlen);
+	ipYama = inet_ntoa(address.sin_addr);*/
 
+	int status = 1;		// Estructura que manjea el status de los recieve.
+	while (status != 0) {
+		status = recibirHeader(socketYamaNodos, header);
+
+			//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
+		if (status != 0) {
+
+			void * actualizacionRecibida = malloc(header->tamanioPayload);
+
+			status = recv(socketCliente, (void*) actualizacionRecibida,
+			header->tamanioPayload, 0);
+
+			infoNodo = deserializarActualizacion(actualizacionRecibida);
+
+			if(header->id==30)
+			{
+				workers[infoNodo.idNodo].habilitado=1;
+				workers[infoNodo.idNodo].puerto=infoNodo.puerto;
+				workers[infoNodo.idNodo].ip = malloc(infoNodo.largoIp);
+				strcpy(workers[infoNodo.idNodo].ip,infoNodo.IP);
+			}
+			else{
+				workers[infoNodo.idNodo].habilitado=0;
+			}
+
+
+		}
+	}
+	close(socketCliente);
+	close(socketYamaNodos);
+	return;
 }
+
+t_infoNodos deserializarActualizacion(void* mensaje)
+{
+
+	int desplazamiento=0, bytesACopiar = 0, tamanioIp = 0;
+	t_infoNodos infoNodo;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoNodo.idNodo, mensaje + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoNodo.puerto, mensaje + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t); // recibimos longitud IP
+	memcpy(&infoNodo.largoIp, mensaje + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = tamanioIp;
+	infoNodo.IP = malloc(tamanioIp + 1);
+	memcpy(infoNodo.IP, mensaje + desplazamiento, bytesACopiar);
+
+
+	return infoNodo;
+}
+
+
 void mandarRutaAFS(const t_header* header, void* buffer) {
 	//se lo manda a FS
 	char* bufferFS;
