@@ -876,19 +876,60 @@ void avisarAlmacenadoFinal() {
 	}
 
 	else{
-		void* buffer;
+		void* buffer, *bufferStruct;
+		int tamanioBuffer;
 		header.id = ORDENALMACENADOFINAL;
-		header.tamanioPayload = strlen(direccionDeResultado);
-		int tamanioBuffer = sizeof(t_header)+strlen(direccionDeResultado);
-		buffer = malloc(tamanioBuffer);
+		t_infoGuardadoFinal* guardado = malloc(sizeof(t_infoGuardadoFinal));
+		bufferStruct = serializarInfoGuardadoFinal(guardado,&tamanioBuffer);
+
+		header.tamanioPayload = tamanioBuffer;
+		tamanioBuffer = sizeof(t_header);
+		buffer = malloc(tamanioBuffer+sizeof(t_header));
 		memcpy(buffer, &header, sizeof(t_header));
-		memcpy(buffer+8, direccionDeResultado, strlen(direccionDeResultado));
-		enviarPorSocket(socketWorker, buffer, tamanioBuffer);
+		memcpy(buffer+sizeof(t_header),bufferStruct, tamanioBuffer);
+
+		enviarPorSocket(socketWorker, buffer, tamanioBuffer+sizeof(t_header));
 		printf("se avisa al worker encargado (nodo %d) para almacenar el resultado del job\n",nodoEncargado);
 		log_info(masterLogger,"Se avisa al worker encargado (nodo %d) para almacenar el resultado del job.",
 				nodoEncargado);
 		free(buffer);
 	}
+}
+
+void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuffer){
+	t_reduccionGlobalMaster* redGlobal;
+	void* buffer;
+	int i,desplazamiento=0;
+
+	for(i=0;i<list_size(listaRedGloblales);i++){
+		redGlobal = list_get(listaRedGloblales, i);
+		if(redGlobal->encargado == 1){
+			guardado->largoRutaTemporalArchivo = redGlobal->largoArchivoRedGlobal;
+			guardado->nombreArchivoTemporal = malloc(guardado->largoRutaTemporalArchivo);
+			strcpy(guardado->nombreArchivoTemporal,redGlobal->archivoRedGlobal);
+			i = listaRedGloblales->elements_count;
+		}
+	}
+	guardado->largoRutaArchivoFinal = strlen(direccionDeResultado);
+	guardado->nombreArchivoArchivoFinal = malloc(guardado->largoRutaArchivoFinal);
+	strcpy(guardado->nombreArchivoArchivoFinal, direccionDeResultado);
+
+	buffer = malloc(sizeof(uint32_t)*2 + guardado->largoRutaArchivoFinal +
+			guardado->largoRutaTemporalArchivo);
+
+	memcpy(buffer+desplazamiento,&guardado->largoRutaTemporalArchivo,sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento,guardado->nombreArchivoTemporal,guardado->largoRutaTemporalArchivo);
+	desplazamiento += guardado->largoRutaTemporalArchivo;
+	memcpy(buffer+desplazamiento,&guardado->largoRutaArchivoFinal,sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento,guardado->nombreArchivoArchivoFinal,guardado->largoRutaArchivoFinal);
+	desplazamiento += guardado->largoRutaArchivoFinal;
+
+	free(guardado->nombreArchivoArchivoFinal);
+	free(guardado->nombreArchivoTemporal);
+	free(guardado);
+	return buffer;
 }
 
 // * Hilo conexion con cada worker   * ///

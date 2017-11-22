@@ -55,6 +55,13 @@
 		char* nombreArchivoGuardadoFinal;
 	}t_pedidoTransformacion;
 
+	typedef struct{
+		uint32_t largoRutaTemporalArchivo;
+		char* nombreArchivoTemporal;
+		uint32_t largoRutaArchivoFinal;
+		char* nombreArchivoArchivoFinal;
+	}t_infoGuardadoFinal;
+
 /* Utilizada para enviar la etapa de transformacion */
 	typedef struct{
 		uint32_t idNodo;
@@ -236,6 +243,8 @@ void* serializarTransformacionWorker(t_infoTransformacion* , int* );
 void* serializarReduccionLocalWorker(t_infoReduccionesLocales* , int*);
 
 void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,int* largoBuffer);
+
+void* serializarInfoGuardadoFinal(t_infoGuardadoFinal*,int*);
 
 int respuestaTransformacion(int);
 
