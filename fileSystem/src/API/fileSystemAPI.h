@@ -8,6 +8,7 @@
 #include <commons/collections/list.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <semaphore.h>
 
 #define UN_MEGABYTE 1048576
 #define UN_BLOQUE sizeof(char)*UN_MEGABYTE
@@ -52,8 +53,15 @@ typedef struct {
 	t_list *bloques;
 } t_archivo_a_persistir; // nombre temporal...cambiar a t_archivo cuando hagan refactor de la utils.
 
+typedef struct {
+	t_bloque *bloque;
+	int copia;
+	int *rta;
+} t_arg;
+
 /* Semaforos */
 extern pthread_mutex_t mutex;
+extern sem_t semCopia0, semCopia1;
 
 /* API */
 int almacenarArchivo(char *pathDirectorio, char *nombreArchivo, int tipo,
@@ -77,7 +85,8 @@ void ordenarListaNodos(t_list *nodos);
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo);
 bool compararPorIdDesc(t_nodo *unNodo, t_nodo *otroNodo);
 void destruirNodo(t_nodo *nodo);
-t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo, int tamanio, t_list *bloques);
+t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
+		int tamanio, t_list *bloques);
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo);
 void liberarArchivo(t_archivo_a_persistir *archivo);
 void destruirBloque(t_bloque *bloque);

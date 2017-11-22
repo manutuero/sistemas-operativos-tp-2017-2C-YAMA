@@ -56,6 +56,8 @@ enum respuestasDatanode {
 extern sem_t semNodosRequeridos;
 extern sem_t semEstadoEstable;
 extern sem_t semIpYamaNodos;
+extern pthread_mutex_t mutexAlmacenarBloques;
+extern sem_t sem;
 
 /* Variables globales */
 char *ARCHCONFIG;
@@ -149,7 +151,7 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 void* esperarConexionesDatanodes();
 void* serializarInfoNodo(t_nodo *nodo, t_header *header);
 t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
-int guardarBloqueEnNodo(t_bloque *bloque,int COPIA);
+void guardarBloqueEnNodo(t_arg *args);
 int traerBloqueNodo(t_bloque *bloque);
 
 /* Firmas de funciones para directorios */

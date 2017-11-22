@@ -2,10 +2,13 @@
 #include "../funcionesFileSystem.h"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+sem_t semCopia0,
+semCopia1, sem;
 
 // Lee la metadata del archivo que se encuentra en pathArchivo y lo recupera del yamafs.
 t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	pthread_mutex_lock(&mutex);
+
 	int i;
 	char *contenido;
 	t_list *bloques;
@@ -50,15 +53,21 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 
 int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	pthread_mutex_lock(&mutex);
-	t_list *bloques, *nodosAux = copiarListaNodos(nodos);
+	t_list *bloques, *nodosAux;
 	t_bloque *bloque;
-	int i, respuesta, tamanio = 0;
+	int i, rta0, rta1, tamanio = 0;
 	char *pathArchivo;
 	t_nodo *nodoCopia0, *nodoCopia1;
+	pthread_t hiloCopia0, hiloCopia1;
+	t_arg arg0, arg1;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
-		list_clean_and_destroy_elements(nodosAux, (void*) destruirNodo);
+		return ERROR;
+	}
+
+	if (estadoFs == NO_ESTABLE && !estadoAnterior) {
+		printf("El sistema no se encuentra en un estado estable, primero debe formatearlo usando el comando 'format'.\n");
 		return ERROR;
 	}
 
@@ -79,6 +88,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		return ERROR;
 	}
 
+	nodosAux = copiarListaNodos(nodos);
 	// "Corta" el archivo en bloques segun su tipo y devuelve una lista con esos bloques.
 	bloques = obtenerBloques(datos, tipo);
 
@@ -111,21 +121,35 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		}
 	}
 
+	sem_init(&sem, 0, 1);
 	// Envia las solicitudes de almacenado (copia 0 y 1) a los nodos correspondientes.
 	for (i = 0; i < bloques->elements_count; i++) {
 		bloque = list_get(bloques, i);
 
-		respuesta = guardarBloqueEnNodo(bloque, 0);
-		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
+		arg0.bloque = bloque;
+		arg0.copia = 0;
+		arg0.rta = &rta0;
+
+		arg1.bloque = bloque;
+		arg1.copia = 1;
+		arg1.rta = &rta1;
+
+		sem_wait(&sem);
+		pthread_create(&hiloCopia0, NULL, (void*) guardarBloqueEnNodo, &arg0);
+		pthread_create(&hiloCopia1, NULL, (void*) guardarBloqueEnNodo, &arg1);
+
+		if (validarGuardado(rta0, bloque, bloque->nodoCopia0)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;
 		}
 
-		respuesta = guardarBloqueEnNodo(bloque, 1);
-		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
+		if (validarGuardado(rta1, bloque, bloque->nodoCopia1)
 				!= GUARDO_BLOQUE_OK) {
 			return ERROR;
 		}
+
+		pthread_join(hiloCopia0, NULL);
+		pthread_join(hiloCopia1, NULL);
 
 		tamanio += bloque->bytesOcupados;
 	}

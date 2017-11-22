@@ -8,10 +8,12 @@ int archivosDisponibles = 0;
 bool estadoAnterior;
 sem_t semNodosRequeridos;
 sem_t semEstadoEstable;
+pthread_mutex_t mutexAlmacenarBloques = PTHREAD_MUTEX_INITIALIZER;
 
 /* Inicializacion de estructuras administrativas */
 t_directory directorios[100];
-t_list *nodos, *nodosEsperados, *archivos;
+t_list *nodos,
+*nodosEsperados, *archivos;
 
 /*********************** Implementacion de funciones ************************/
 /* Implementacion de funciones para archivo de configuracion */
@@ -263,7 +265,7 @@ void* esperarConexionesDatanodes() {
 					perror("accept");
 					exit(EXIT_FAILURE);
 				}
-				//Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
+				// Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
 				if (nodos->elements_count < cantidad_nodos_esperados) {
 					// Agrego el nuevo socket al array
 					for (i = 0; i < numeroClientes; i++) {
@@ -285,7 +287,6 @@ void* esperarConexionesDatanodes() {
 					if (FD_ISSET(sd, &readfds)) {
 						// Desconexion de un nodo.
 						if (recibirHeader(sd, &header) == 0) {
-							cerrarSocket(sd);
 							socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
 							estadoFs = NO_ESTABLE;
 							// Actualizo la lista de nodos conectados.
@@ -297,9 +298,11 @@ void* esperarConexionesDatanodes() {
 									if (nodoDesconectado->socketDescriptor
 											== sd) {
 										list_remove(nodos, i);
-										actualizarDisponibilidadArchivos(
-												nodoDesconectado->idNodo,
-												DESCONEXION);
+										if (estadoAnterior) {
+											actualizarDisponibilidadArchivos(
+													nodoDesconectado->idNodo,
+													DESCONEXION);
+										}
 									}
 								}
 							}
@@ -404,44 +407,46 @@ void* serializarSetBloque(void *contenido, uint32_t nroBloqueDatabin) {
 	return paquete;
 }
 
-int guardarBloqueEnNodo(t_bloque *bloque, int COPIA) {
-	int bytesEnviados, bytesAEnviar, rta, socketNodo;
+void guardarBloqueEnNodo(t_arg *args) {
+	int bytesEnviados, bytesAEnviar, socketNodo;
 	void *paquete, *respuesta;
 
 	bytesAEnviar = sizeof(uint32_t) + UN_BLOQUE;
+	if (args->copia == 0) { //COPIA 0
+		socketNodo = args->bloque->nodoCopia0->socketDescriptor;
+		paquete = serializarSetBloque(args->bloque->contenido,
+				args->bloque->numeroBloqueCopia0);
 
-	if (COPIA == 0) { //COPIA 0
-		socketNodo = bloque->nodoCopia0->socketDescriptor;
-		paquete = serializarSetBloque(bloque->contenido,
-				bloque->numeroBloqueCopia0);
 	} else { //COPIA 1
-		socketNodo = bloque->nodoCopia1->socketDescriptor;
-		paquete = serializarSetBloque(bloque->contenido,
-				bloque->numeroBloqueCopia1);
+		socketNodo = args->bloque->nodoCopia1->socketDescriptor;
+		paquete = serializarSetBloque(args->bloque->contenido,
+				args->bloque->numeroBloqueCopia1);
 	}
+
 	// Envio el paquete.
 	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
 	if (bytesEnviados < bytesAEnviar) {
 		fprintf(stderr, "[ERROR]: no se pudo enviar todo el paquete.\n");
-		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+		*args->rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
 	}
 
 	// Si se envio bien espero la respuesta.
 	respuesta = malloc(sizeof(uint32_t));
+
 	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
 		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
-			rta = GUARDO_BLOQUE_OK;
+			*args->rta = GUARDO_BLOQUE_OK;
 		} else {
 			printf("[Error]: no se guardo el bloque.\n");
-			rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+			*args->rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
 		}
 	} else {
-		rta = ERROR_AL_RECIBIR_RESPUESTA;
+		*args->rta = ERROR_AL_RECIBIR_RESPUESTA;
 	}
+	sem_post(&sem);
 
 	free(respuesta);
 	free(paquete);
-	return rta;
 }
 
 int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin) {
@@ -729,22 +734,22 @@ bool hayEstadoAnterior() {
 
 /* Implementacion de funciones de inicializacion */
 void crearDirectorioMetadata() {
-	DIR *directorio = opendir(PATH_METADATA);
+	char *comando;
+	struct stat st;
 
-	// Si el directorio no existe, lo crea.
-	if (ENOENT == errno) {
-		char *comando = string_new();
-		string_append(&comando, "mkdir -p ");
-		string_append(&comando, PATH_METADATA);
-		system(comando);
-	}
+	// Si existe el directorio como le dimos un format debemos borrarlo.
+	if ((stat(PATH_METADATA, &st) == 0 && S_ISDIR(st.st_mode)))
+		borrarDirectorioMetadata();
+
+	comando = string_new();
+	string_append(&comando, "mkdir -p ");
+	string_append(&comando, PATH_METADATA);
+	system(comando);
 
 	crearDirectorioArchivos();
 	crearTablaDeDirectorios();
 	crearTablaDeNodos();
 	crearDirectorioBitmaps();
-
-	closedir(directorio);
 }
 
 void borrarDirectorioMetadata() {
@@ -1871,17 +1876,18 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 }
 
 int guardarBloque(t_bloque *bloque, int idNodo) {
-	int respuesta;
+	/*	int respuesta;
 
-	respuesta = guardarBloqueEnNodo(bloque, 0);
-// Si salio mal.
-	if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
-		printf("Se produjo un error al recibir la respuesta.\n");
-		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
-	}
+	 //respuesta = guardarBloqueEnNodo(bloque, 0);
+	 Si salio mal.
+	 if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
+	 printf("Se produjo un error al recibir la respuesta.\n");
+	 return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+	 }
 
-// Si guardo ok. :)
-	return GUARDO_BLOQUE_OK;
+	 // Si guardo ok. :)
+	 return GUARDO_BLOQUE_OK;*/
+	return 0;
 }
 
 void persistirBitmaps() {
@@ -1908,31 +1914,30 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 void *esperarConexionesWorker() {
 
 	int socketFSWorkers;
-	printf("Puerto conexion workers: %d\n", PUERTO_WORKERS);
+	printf("\nPuerto conexion workers: %d.\n", PUERTO_WORKERS);
 	struct sockaddr_in direccionFSWorker;
-//struct sockaddr_in direccionDelServidorKernel;
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
 	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
-//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
+	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
 	int activado = 1;
 
 	socketFSWorkers = socket(AF_INET, SOCK_STREAM, 0);
-// Permite reutilizar el socket sin que se bloquee por 2 minutos
+	// Permite reutilizar el socket sin que se bloquee por 2 minutos
 	if (setsockopt(socketFSWorkers, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
 		perror("setsockopt");
 		exit(1);
 	}
 
-// Se enlaza el socket al puerto
+	// Se enlaza el socket al puerto
 	if (bind(socketFSWorkers, (struct sockaddr *) &direccionFSWorker,
 			sizeof(struct sockaddr)) != 0) {
 		perror("No se pudo conectar");
 		exit(1);
 	}
-// Se pone a escuchar el servidor kernel
+	// Se pone a escuchar el servidor kernel
 	if (listen(socketFSWorkers, 10) == -1) {
 		perror("listen");
 		exit(1);
@@ -2109,8 +2114,8 @@ void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
 	int i, archivosTotales;
 	t_archivo_a_persistir *archivo;
 
-	// Recorro la lista de archivos en memoria.
 	archivosTotales = archivos->elements_count;
+	// Recorro la lista de archivos en memoria.
 	for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
 			i++) {
 		archivo = list_get(archivos, i);
@@ -2148,47 +2153,3 @@ int contarDisponibles(t_list *bloques) {
 	}
 	return cantidadDisponibles;
 }
-
-/*int i, j, archivosTotales, bloquesTotales, bloquesDisponibles;
- t_archivo_a_persistir *archivo;
- t_bloque *bloque;
-
- // Recorro la lista de archivos en memoria.
- archivosTotales = archivos->elements_count;
- for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
- i++) {
- archivo = list_get(archivos, i);
- if (archivo->disponible == '1') {
- archivosDisponibles++;
- continue;
- }
-
- printf("\nArchivo: %s.\n", archivo->nombreArchivo);
- // Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
- bloquesTotales = archivo->bloques->elements_count;
- bloquesDisponibles = contarDisponibles(archivo->bloques);
- for (j = 0; j < bloquesTotales && bloquesDisponibles < bloquesTotales;
- j++) {
- bloque = list_get(archivo->bloques, j);
- if (bloque->nodoCopia0->idNodo == idNodo
- || bloque->nodoCopia1->idNodo == idNodo) {
- bloque->disponible = '1';
- bloquesDisponibles++;
- printf("Bloque: %d.. disponible: %c.\n", bloque->numeroBloque,
- bloque->disponible);
- }
- }
-
- // Si hay al menos 1 copia de cada bloque, el archivo pasa a estar disponible.
- if (bloquesDisponibles == bloquesTotales) {
- archivo->disponible = '1';
- archivosDisponibles++;
- }
- }
-
- // Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
- if (archivosDisponibles == archivosTotales) {
- estadoFs = ESTABLE;
- sem_post(&semEstadoEstable);
- }
- * */
