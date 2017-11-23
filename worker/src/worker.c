@@ -1,6 +1,8 @@
 #include "funcionesWorker.h"
 
 int main(void) {
+
+	//pathTemporales = "/home/utnso/temp/";
 	crearLogger();
 	NODOARCHCONFIG = "nodoConfig.cfg";
 	cargarArchivoConfiguracion(NODOARCHCONFIG);
@@ -9,7 +11,7 @@ int main(void) {
 
 	//struct sockaddr_in direccionDelServidorKernel;
 	direccionWorker.sin_family = AF_INET;
-	direccionWorker.sin_port = htons(PUERTO);
+	direccionWorker.sin_port = htons(PUERTO_WORKER);
 	direccionWorker.sin_addr.s_addr = INADDR_ANY;
 	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
@@ -59,8 +61,7 @@ int main(void) {
 			if (FD_ISSET(i, &readfds)) {
 				if (i == socketWorker) {
 
-					if ((nuevoSocket = accept(socketWorker,
-							(void*) &direccionWorker, &tamanioDir)) <= 0)
+					if ((nuevoSocket = accept(socketWorker,(void*) &direccionWorker, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
 						//Le envia el archivo apenas se conecta con un puerto
@@ -69,9 +70,11 @@ int main(void) {
 						FD_SET(nuevoSocket, &auxRead);
 
 						void* buffer;
-						t_infoTransformacion infoTransformacion;
-						t_infoReduccionLocal infoReduccionLocal;
-						t_infoReduccionGlobal infoReduccionGlobal;
+						t_infoTransformacion* infoTransformacion;
+						t_infoReduccionLocal* infoReduccionLocal;
+						t_infoReduccionGlobal* infoReduccionGlobal;
+						t_infoGuardadoFinal* infoGuardadoFinal;
+						char* nombreArchTempPedido;
 						t_header header;
 						recibirHeader(nuevoSocket, &header);
 						buffer = malloc(header.tamanioPayload);
@@ -89,10 +92,24 @@ int main(void) {
 							break;
 						case REDUCCION_GLOBAL:
 							infoReduccionGlobal=deserializarInfoReduccionGlobal(buffer);
-							realizarReduccionGLobal(infoReduccionGlobal);
+							realizarReduccionGlobal(infoReduccionGlobal);
 							break;
+						case ORDEN_GUARDADO_FINAL:
+							infoGuardadoFinal=deserializarInfoGuardadoFinal(buffer);
+							guardadoFinalEnFilesystem(infoGuardadoFinal);
+							break;
+						case SOLICITUD_WORKER:
+							nombreArchTempPedido=deserializarSolicitudArchivo(buffer);
+							responderSolicitudArchivoWorker(nombreArchTempPedido,nuevoSocket);
+							break;
+
+						/*case ERROR_ARCHIVO_NO_ENCONTRADO:
+							enviarErrorReduciconGlobalAMaster();
+							break;
+						*/
+
 						}
-						waitpid();
+						wait(NULL);
 							//t_rutaArchivo* ruta;
 							//ruta = malloc(sizeof(t_rutaArchivo));
 
@@ -109,7 +126,7 @@ int main(void) {
 					if (bytesRecibidos < 0) {
 						perror("Error");
 						free(buffer);
-						exit(1);
+						//exit(1);
 					}
 					if (bytesRecibidos == 0) {
 						//printf("Se desconecto del fileSystem el socket %d", i);
