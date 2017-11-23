@@ -331,3 +331,350 @@ char *guardarArchScript(char*contenidoArchivoScript) {
 	fclose(arch);
 	return rutaArchScritp;
 }
+
+void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal) {
+	char* lineaAEjecutar = string_new();
+	char* contenidoArchRecibido = string_new();
+	int i, socketDePedido, encontrado;
+	int resultado;
+	FILE* archivoReduccionGlobal;
+	FILE* archAAparear = fopen("archivoAAparear", "w+");
+	FILE*archivoApareado = fopen("archivoApareado", "w+");
+	archivoReduccionGlobal = fopen(
+			infoReduccionGlobal->rutaArchivoTemporalFinal, "r+");
+	for (i = 0; i < list_size(infoReduccionGlobal->nodosAConectar); i++) {
+		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
+				infoReduccionGlobal->nodosAConectar, i);
+		FILE* archivoRecibido = fopen("tempRecibido", "w+");
+		socketDePedido = solicitarArchivoAWorker(infoArchivo.ip,
+				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal);
+		if (socketDePedido != -1) {
+			contenidoArchRecibido = recibirArchivoTemp(socketDePedido,
+					&encontrado);
+			txt_write_in_file(archivoRecibido, contenidoArchRecibido);
+			if (encontrado != 0) {
+
+				aparearArchivos(archAAparear, archivoRecibido, archivoApareado);
+
+			} else {
+				//avisarAMasterDelError
+			}
+		} else {
+			//no se pudo conectar a worker
+		}
+		fclose(archivoRecibido);
+	}
+
+	copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
+
+	string_append_with_format(&lineaAEjecutar, "echo -e %s | ./%s > %s",
+			archivoReduccionGlobal, infoReduccionGlobal->archivoReductor,
+			infoReduccionGlobal->rutaArchivoTemporalFinal);
+	resultado = system(lineaAEjecutar);
+
+	fclose(archAAparear);
+
+	fclose(archivoApareado);
+}
+
+
+
+void copiarContenidoDeArchivo(FILE* archivoCopiado, FILE* archivoACopiar) {
+	t_regArch regArchivoACopiar = malloc(LARGO_MAX_LINEA);
+	while (!(feof(archivoACopiar))) {
+		fgets(regArchivoACopiar, LARGO_MAX_LINEA, archivoACopiar);
+		txt_write_in_file(archivoCopiado, regArchivoACopiar);
+	}
+
+}
+
+char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
+	void*buffer;
+	t_header header;
+	recibirHeader(socketDePedido, &header);
+	buffer = malloc(header.tamanioPayload);
+	recibirPorSocket(socketDePedido, buffer, header.tamanioPayload);
+	char*archTemporal = malloc(header.tamanioPayload);
+
+	if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
+		encontrado = 0;
+	} else {
+		archTemporal = deserializarRecepcionArchivoTemp(buffer);
+	}
+	return archTemporal;
+	free(archTemporal);
+}
+
+char* deserializarRecepcionArchivoTemp(void* buffer) {
+
+	char* archTemporal = string_new();
+	int desplazamiento = 0;
+	int bytesACopiar;
+	int largoArchTemporal;
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&largoArchTemporal, buffer + desplazamiento, sizeof(uint32_t));
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = largoArchTemporal;
+	memcpy(archTemporal, buffer + desplazamiento, largoArchTemporal);
+	desplazamiento += bytesACopiar;
+	return archTemporal;
+}
+
+int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
+	void* buffer;
+	void* bufferMensaje;
+	t_header header;
+	int largoBuffer, tamanioMensaje, desplazamiento = 0;
+	int socketWorker = conectarseAWorker(puerto, ip);
+	if (socketWorker != -1) {
+		buffer = serializarSolicitudArchivo(nombreArchivoTemp, &largoBuffer);
+		tamanioMensaje = largoBuffer + sizeof(t_header);
+		bufferMensaje = malloc(tamanioMensaje);
+		header.id = SOLICITUD_WORKER;
+		header.tamanioPayload = largoBuffer;
+
+		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje + desplazamiento, &header.tamanioPayload,
+				sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
+
+		enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
+		free(buffer);
+		free(bufferMensaje);
+
+		return socketWorker;
+	} else {
+		return socketWorker;
+	}
+
+}
+
+int conectarseAWorker(int puerto, char* ip) {
+
+	struct sockaddr_in direccionWorker;
+	printf("puerto %d, ip %s\n", puerto, ip);
+
+	direccionWorker.sin_family = AF_INET;
+	direccionWorker.sin_port = htons(puerto);
+	direccionWorker.sin_addr.s_addr = inet_addr(ip);
+	//memset(&(direccionYama.sin_zero), '\0', 8);
+	int socketWorker;
+
+	socketWorker = socket(AF_INET, SOCK_STREAM, 0);
+	if (connect(socketWorker, (struct sockaddr *) &direccionWorker,
+			sizeof(struct sockaddr)) != 0) {
+		perror("fallo la conexion al worker");
+		return -1;
+	} else {
+		printf("se conecto a un worker\n");
+	}
+
+	return socketWorker;
+}
+
+void* serializarSolicitudArchivo(char* nombreArchTemp, int* largoBuffer) {
+	void* buffer;
+	int desplazamiento = 0;
+	int largoNombreArchTemp = strlen(nombreArchTemp);
+	int tamanioBuffer = largoNombreArchTemp + sizeof(uint32_t);
+	buffer = malloc(tamanioBuffer);
+
+	memcpy(buffer + desplazamiento, &largoNombreArchTemp, sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(buffer + desplazamiento, &nombreArchTemp, largoNombreArchTemp);
+	desplazamiento += largoNombreArchTemp;
+
+	*largoBuffer = desplazamiento;
+
+	return buffer;
+}
+
+char* deserializarSolicitudArchivo(void* buffer) {
+	int* largoNombreArchTemp;
+	char*nombreArchTemp = string_new();
+	int desplazamiento = 0, bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&largoNombreArchTemp, buffer + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = *largoNombreArchTemp;
+	memcpy(nombreArchTemp, buffer + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	return nombreArchTemp;
+}
+
+void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
+	char* pathTemporales = "/home/utnso/temp/";
+	char* rutaArchivo = string_new();
+	int validacion, desplazamiento = 0;
+	int tamanioBuffer;
+	char*contenidoArch = string_new();
+	void*buffer;
+	void*bufferMensaje;
+	t_header header;
+	validacion = verificarExistenciaArchTemp(nombreArchTemp, pathTemporales);
+	if (validacion == 1) {
+		header.id = ERROR_ARCHIVO_NO_ENCONTRADO;
+		header.tamanioPayload = 0;
+		buffer = malloc(sizeof(uint32_t) * 2);
+		memcpy(buffer + desplazamiento, &header.id, sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(buffer + desplazamiento, &header.tamanioPayload,
+				sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+
+		enviarPorSocket(socketWorker, buffer, sizeof(t_header));
+
+	} else {
+		string_append(&rutaArchivo, pathTemporales);
+		string_append(&rutaArchivo, nombreArchTemp);
+		contenidoArch = obtenerContenidoArchivo(rutaArchivo);
+		tamanioBuffer = devolverTamanioArchivo(rutaArchivo);
+		header.id = RECIBIR_ARCH_TEMP;
+		header.tamanioPayload = tamanioBuffer;
+		bufferMensaje = malloc(tamanioBuffer + sizeof(t_header));
+		buffer = malloc(tamanioBuffer);
+		memcpy(buffer, contenidoArch, tamanioBuffer);
+
+		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje + desplazamiento, &header.tamanioPayload,
+				sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
+
+		enviarPorSocket(socketWorker, bufferMensaje,
+				sizeof(t_header) + header.tamanioPayload);
+
+	}
+	free(buffer);
+	free(bufferMensaje);
+
+}
+
+int devolverTamanioArchivo(char* archivo) {
+	printf("%s\n", archivo);
+	int file = open(archivo, O_RDONLY);
+	struct stat mystat;
+	if (file == -1) {
+		perror("open");
+		exit(1);
+	}
+	if (fstat(file, &mystat) < 0) {
+		perror("fstat");
+		close(file);
+		exit(1);
+	}
+	int tam = mystat.st_size;
+
+	close(file);
+	return tam;
+}
+
+char* obtenerContenidoArchivo(char*rutaArchivo) {
+	char* buffer;
+	int file = open(rutaArchivo, O_RDWR);
+	struct stat mystat;
+	if (file == -1) {
+		perror("open");
+		exit(1);
+	}
+	if (fstat(file, &mystat) < 0) {
+		perror("fstat");
+		close(file);
+		exit(1);
+	}
+	int tam = mystat.st_size;
+	buffer = (char*) malloc(tam * sizeof(char) + 1);
+	char* pmap = (char *) mmap(0, tam, PROT_READ, MAP_SHARED, file, 0);
+	int i;
+	for (i = 0; i < tam; i++) {
+		buffer[i] = pmap[i];
+	}
+	buffer[i] = '\0';
+	close(file);
+	munmap(pmap, tam);
+	return buffer;
+}
+
+int verificarExistenciaArchTemp(char* nombreArchTemp, char* pathTemporales) {
+
+	if (access(nombreArchTemp, F_OK) != -1) {
+		return 1;
+	}
+
+	return 2;
+}
+
+t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
+	t_infoReduccionGlobal* infoReduccionGlobal = malloc(
+			sizeof(t_infoReduccionGlobal));
+	uint32_t bytesACopiar, desplazamiento = 0, i = 0;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionGlobal->largoRutaArchivoTemporalFinal,
+			buffer + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = infoReduccionGlobal->largoRutaArchivoTemporalFinal;
+	infoReduccionGlobal->rutaArchivoTemporalFinal = malloc(
+			infoReduccionGlobal->largoRutaArchivoTemporalFinal);
+	memcpy(infoReduccionGlobal->rutaArchivoTemporalFinal,
+			buffer + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionGlobal->largoArchivoReductor, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(infoReduccionGlobal->largoArchivoReductor);
+	infoReduccionGlobal->archivoReductor = malloc(
+			infoReduccionGlobal->largoArchivoReductor);
+	memcpy(infoReduccionGlobal->archivoReductor, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionGlobal->cantidadNodos, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	infoReduccionGlobal->nodosAConectar = list_create();
+	for (i = 0; i > infoReduccionGlobal->cantidadNodos; i++) {
+		t_datosNodoAEncargado* nodo = malloc(sizeof(t_datosNodoAEncargado));
+		bytesACopiar = sizeof(uint32_t);
+		memcpy(&nodo->puerto, buffer + desplazamiento, bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		bytesACopiar = sizeof(uint32_t);
+		memcpy(&nodo->largoIp, buffer + desplazamiento, bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		bytesACopiar = nodo->largoIp;
+		nodo->ip = malloc(nodo->largoIp);
+		memcpy(nodo->ip, buffer + desplazamiento, bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		bytesACopiar = sizeof(uint32_t);
+		memcpy(&nodo->largoRutaArchivoReduccionLocal, buffer + desplazamiento,
+				bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		bytesACopiar = nodo->largoRutaArchivoReduccionLocal;
+		nodo->rutaArchivoReduccionLocal = malloc(
+				nodo->largoRutaArchivoReduccionLocal);
+		memcpy(nodo->rutaArchivoReduccionLocal, buffer + desplazamiento,
+				bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		list_add(infoReduccionGlobal->nodosAConectar, nodo);
+	}
+	return infoReduccionGlobal;
+}
