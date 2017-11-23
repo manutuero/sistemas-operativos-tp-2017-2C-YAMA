@@ -22,7 +22,8 @@ int socketYama, socketFS;
 char* ip,*socketFSNodos;
 extern uint32_t ultimoMaster;
 uint32_t job;
-
+char* FS_IP;
+int FS_PUERTO,PUERTO_FS_NODOS;
 
 typedef struct{
 	uint32_t idNodo;

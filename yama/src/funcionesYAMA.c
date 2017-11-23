@@ -8,34 +8,33 @@
 #include "funcionesYAMA.h"
 #include "funcionesPlanificacion.h"
 
-
-uint32_t ultimoMaster = 0,disponibilidadBase;
+uint32_t ultimoMaster = 0, disponibilidadBase;
 char* temp = "/tmp/";
 
-void conectarseAFS(){
+void conectarseAFS() {
 
 //	struct sockaddr_in direccionFS;
 
 	direccionFS.sin_family = AF_INET;
-	direccionFS.sin_port = htons(6667);
+	direccionFS.sin_port = htons(FS_PUERTO);
 	direccionFS.sin_addr.s_addr = inet_addr("127.0.0.1");
-		//memset(&(direccionYama.sin_zero), '\0', 8);
+	//memset(&(direccionYama.sin_zero), '\0', 8);
 
+	//int socketFS;
 
-		//int socketFS;
+	socketFS = socket(AF_INET, SOCK_STREAM, 0);
 
-		socketFS = socket(AF_INET, SOCK_STREAM, 0);
+	if (connect(socketFS, (struct sockaddr *) &direccionFS,
+			sizeof(struct sockaddr)) != 0) {
+		perror("fallo la conexion al fileSystem");
+		exit(1);
+	}
 
-		if(connect(socketFS, (struct sockaddr *)&direccionFS, sizeof(struct sockaddr)) != 0){
-				perror("fallo la conexion al fileSystem");
-				exit(1);
-			}
-
-		printf("conectado al filesystem con el socket %d\n",socketFS);
+	printf("Conectado al filesystem con el socket %d\n", socketFS);
 
 }
 
-void cargarArchivoDeConfiguracion(){
+void cargarArchivoDeConfiguracion() {
 	char* path = "YAMAconfig.cfg";
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
@@ -47,9 +46,9 @@ void cargarArchivoDeConfiguracion(){
 		exit(EXIT_FAILURE);
 	}
 
-	if (config_has_property(config, "YAMA_IP")) {
-			ip = config_get_string_value(config, "YAMA_IP");
-		}
+	if (config_has_property(config, "FS_IP")) {
+		FS_IP = config_get_string_value(config, "FS_IP");
+	}
 
 	if (config_has_property(config, "YAMA_PUERTO")) {
 		PUERTO = config_get_int_value(config, "YAMA_PUERTO");
@@ -59,12 +58,17 @@ void cargarArchivoDeConfiguracion(){
 		job = config_get_int_value(config, "JOB");
 	}
 
-	if (config_has_property(config, "SOCKET_FS_NODOS")) {
-		socketFSNodos = config_get_string_value(config, "SOCKET_FS_NODOS");
+	if (config_has_property(config, "PUERTO_FS_NODOS")) {
+		PUERTO_FS_NODOS = config_get_int_value(config, "PUERTO_FS_NODOS");
 	}
 
 	if (config_has_property(config, "DISPONIBILIDAD_BASE")) {
-		disponibilidadBase = config_get_int_value(config, "DISPONIBILIDAD_BASE");
+		disponibilidadBase = config_get_int_value(config,
+				"DISPONIBILIDAD_BASE");
+	}
+
+	if (config_has_property(config, "FS_PUERTO")) {
+		FS_PUERTO = config_get_int_value(config, "FS_PUERTO");
 	}
 
 	printf("Puerto: %d\n", PUERTO);
@@ -72,8 +76,7 @@ void cargarArchivoDeConfiguracion(){
 	printf("Job actual: %d\n", job);
 }
 
-
-void yamaEscuchando(){
+void yamaEscuchando() {
 
 	//struct sockaddr_in direccionDelServidorKernel;
 	direccionYama.sin_family = AF_INET;
@@ -85,13 +88,15 @@ void yamaEscuchando(){
 
 	socketYama = socket(AF_INET, SOCK_STREAM, 0);
 	// Permite reutilizar el socket sin que se bloquee por 2 minutos
-	if (setsockopt(socketYama, SOL_SOCKET, SO_REUSEADDR, &activado, sizeof(activado)) == -1) {
+	if (setsockopt(socketYama, SOL_SOCKET, SO_REUSEADDR, &activado,
+			sizeof(activado)) == -1) {
 		perror("setsockopt");
 		exit(1);
 	}
 
 	// Se enlaza el socket al puerto
-	if(bind(socketYama, (struct sockaddr *)&direccionYama, sizeof(struct sockaddr))!= 0){
+	if (bind(socketYama, (struct sockaddr *) &direccionYama,
+			sizeof(struct sockaddr)) != 0) {
 		perror("No se pudo conectar");
 		exit(1);
 	}
@@ -127,17 +132,19 @@ void escucharMasters() {
 			if (FD_ISSET(i, &readfds)) {
 				if (i == socketYama) {
 
-					if ((nuevoSocket = accept(socketYama,(void*) &direccionYama, &tamanioDir)) <= 0)
+					if ((nuevoSocket = accept(socketYama,
+							(void*) &direccionYama, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
 
 						//Le envia el archivo apenas se conecta con un puerto
-						printf("Entro una conexion por el puerto %d\n",nuevoSocket);
+						printf("Entro una conexion por el puerto %d\n",
+								nuevoSocket);
 						FD_SET(nuevoSocket, &auxRead);
 						t_rutaArchivo* ruta;
 						ruta = malloc(sizeof(t_rutaArchivo));
 
-						recibirRutaDeArchivoAProcesar(nuevoSocket,&ruta);
+						recibirRutaDeArchivoAProcesar(nuevoSocket, &ruta);
 						//recive la ruta del archivo
 						if (nuevoSocket > maxPuerto)
 							maxPuerto = nuevoSocket;
@@ -170,7 +177,7 @@ void escucharMasters() {
 	}
 }
 
-void escuchaActualizacionesNodos(){
+void escuchaActualizacionesNodos() {
 
 	t_header *header;
 	t_infoNodos infoNodo;
@@ -181,61 +188,54 @@ void escuchaActualizacionesNodos(){
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_flags = AI_PASSIVE;
 	hints.ai_socktype = SOCK_STREAM;
-	getaddrinfo(NULL, socketFSNodos, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost en AI_PASSIVE
+	char* puertoFsNodos = string_itoa(PUERTO_FS_NODOS);
+	getaddrinfo(NULL, puertoFsNodos, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost men AI_PASSIVE
 	int socketYamaNodos;
-	socketYamaNodos = socket(serverInfo->ai_family, serverInfo->ai_socktype,
-			serverInfo->ai_protocol);
+	socketYamaNodos =nuevoSocket();
+	//socket(serverInfo->ai_family, serverInfo->ai_socktype,serverInfo->ai_protocol);
 	bind(socketYamaNodos, serverInfo->ai_addr, serverInfo->ai_addrlen);
-	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
-	listen(socketYamaNodos, 1); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
+	freeaddrinfo(serverInfo);
+	listen(socketYamaNodos, 3); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
+
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 	int socketCliente = accept(socketYamaNodos, (struct sockaddr *) &addr, &addrlen);
-	/*
-	 Cuando el cliente cierra la conexion, recv() devolvera 0.
-	 */
-	//Guardo el ip del Yama para usarlo luego en otro hilo
-	/*struct sockaddr_in address;
-	getpeername(socketYamaNodos, (struct sockaddr*) &address, (socklen_t*) &addrlen);
-	ipYama = inet_ntoa(address.sin_addr);*/
 
 	int status = 1;		// Estructura que manjea el status de los recieve.
 	while (status != 0) {
-		status = recibirHeader(socketYamaNodos, header);
+		status = recibirHeader(socketCliente, header);
 
-			//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
+		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
 		if (status != 0) {
 
 			void * actualizacionRecibida = malloc(header->tamanioPayload);
 
 			status = recv(socketCliente, (void*) actualizacionRecibida,
-			header->tamanioPayload, 0);
+					header->tamanioPayload, 0);
 
 			infoNodo = deserializarActualizacion(actualizacionRecibida);
 
-			if(header->id==30)
-			{
-				workers[infoNodo.idNodo].habilitado=1;
-				workers[infoNodo.idNodo].puerto=infoNodo.puerto;
+			if (header->id == 30) {
+				workers[infoNodo.idNodo].habilitado = 1;
+				workers[infoNodo.idNodo].puerto = infoNodo.puerto;
 				workers[infoNodo.idNodo].ip = malloc(infoNodo.largoIp);
-				strcpy(workers[infoNodo.idNodo].ip,infoNodo.IP);
+				strcpy(workers[infoNodo.idNodo].ip, infoNodo.IP);
+				printf("Recibida info nodo:   %d", infoNodo.idNodo);
+				puts("");
+			} else {
+				workers[infoNodo.idNodo].habilitado = 0;
 			}
-			else{
-				workers[infoNodo.idNodo].habilitado=0;
-			}
-
 
 		}
 	}
 	close(socketCliente);
-	close(socketYamaNodos);
+	close(socketYama);
 	return;
 }
 
-t_infoNodos deserializarActualizacion(void* mensaje)
-{
+t_infoNodos deserializarActualizacion(void* mensaje) {
 
-	int desplazamiento=0, bytesACopiar = 0, tamanioIp = 0;
+	int desplazamiento = 0, bytesACopiar = 0, tamanioIp = 0;
 	t_infoNodos infoNodo;
 
 	bytesACopiar = sizeof(uint32_t);
@@ -254,10 +254,8 @@ t_infoNodos deserializarActualizacion(void* mensaje)
 	infoNodo.IP = malloc(tamanioIp + 1);
 	memcpy(infoNodo.IP, mensaje + desplazamiento, bytesACopiar);
 
-
 	return infoNodo;
 }
-
 
 void mandarRutaAFS(const t_header* header, void* buffer) {
 	//se lo manda a FS
@@ -269,18 +267,18 @@ void mandarRutaAFS(const t_header* header, void* buffer) {
 	memcpy(bufferFS + desplazamiento, &header->tamanioPayload,
 			sizeof(header->tamanioPayload));
 	memcpy(bufferFS + desplazamiento, buffer, header->tamanioPayload);
-	enviarPorSocket(socketFS, bufferFS, header->tamanioPayload + desplazamiento);
+	enviarPorSocket(socketFS, bufferFS,
+			header->tamanioPayload + desplazamiento);
 	free(bufferFS);
 }
 
-int recibirRutaDeArchivoAProcesar(int socketMaster, t_rutaArchivo** ruta ){
+int recibirRutaDeArchivoAProcesar(int socketMaster, t_rutaArchivo** ruta) {
 	t_header header;
 	void* buffer;
-	if((recibirHeader(socketMaster, &header))<=0){
+	if ((recibirHeader(socketMaster, &header)) <= 0) {
 		perror("Error al recibir header");
 		return -1;
-	}
-	else{
+	} else {
 		buffer = malloc(header.tamanioPayload);
 		recibirPorSocket(socketMaster, buffer, header.tamanioPayload);
 
@@ -288,7 +286,7 @@ int recibirRutaDeArchivoAProcesar(int socketMaster, t_rutaArchivo** ruta ){
 		//mandarRutaAFS(&header, buffer);
 
 		*ruta = (t_rutaArchivo*) deserializarRutaArchivo(buffer);
-		printf("me llego la ruta %s\n",(*ruta)->ruta);
+		printf("me llego la ruta %s\n", (*ruta)->ruta);
 
 		t_job* jobMaster = malloc(sizeof(t_job));
 		jobMaster->idMaster = ultimoMaster;
@@ -297,7 +295,8 @@ int recibirRutaDeArchivoAProcesar(int socketMaster, t_rutaArchivo** ruta ){
 
 		pthread_t hiloPeticionMaster;
 		printf("job: %d\n", jobMaster->job);
-		pthread_create(&hiloPeticionMaster, NULL, (void*) preplanificarJob, jobMaster);
+		pthread_create(&hiloPeticionMaster, NULL, (void*) preplanificarJob,
+				jobMaster);
 
 		ultimoMaster++;
 		jobMaster++;
@@ -307,7 +306,7 @@ int recibirRutaDeArchivoAProcesar(int socketMaster, t_rutaArchivo** ruta ){
 
 }
 
-t_rutaArchivo* deserializarRutaArchivo(void* buffer){
+t_rutaArchivo* deserializarRutaArchivo(void* buffer) {
 	t_rutaArchivo* rutaArchivo = malloc(sizeof(t_rutaArchivo));
 	int desplazamiento = 0;
 
@@ -316,36 +315,34 @@ t_rutaArchivo* deserializarRutaArchivo(void* buffer){
 
 	rutaArchivo->ruta = malloc(rutaArchivo->tamanio);
 	//rutaArchivo = realloc(rutaArchivo, sizeof(rutaArchivo->tamanio)+rutaArchivo->tamanio);
-	memcpy(rutaArchivo->ruta, buffer+desplazamiento, rutaArchivo->tamanio);
+	memcpy(rutaArchivo->ruta, buffer + desplazamiento, rutaArchivo->tamanio);
 	desplazamiento += rutaArchivo->tamanio;
 
-return rutaArchivo;
+	return rutaArchivo;
 }
 
-void* obtenerBloquesDelArchivo(t_rutaArchivo* ruta){
-		t_header header;
+void* obtenerBloquesDelArchivo(t_rutaArchivo* ruta) {
+	t_header header;
 
-		void* buffer;
-		buffer = serializarRutaArchivo(&header,ruta); //esta en utils ya que lo voy a usar para Yama-fs
-		int tamanioMensaje = header.tamanioPayload + sizeof(header);
-		enviarPorSocket(socketFS,buffer,tamanioMensaje);
-		free(buffer);
-		/*//Envio a FS y espero que me mande los bloques de ese archivo
-		 t_header headerRespuesta;
-		 recibirHeader(socketFS,&headerRespuesta);
-		 t_bloques* bloques = recibirPaquete(socketFS,headerRespuesta);
+	void* buffer;
+	buffer = serializarRutaArchivo(&header, ruta); //esta en utils ya que lo voy a usar para Yama-fs
+	int tamanioMensaje = header.tamanioPayload + sizeof(header);
+	enviarPorSocket(socketFS, buffer, tamanioMensaje);
+	free(buffer);
+	/*//Envio a FS y espero que me mande los bloques de ese archivo
+	 t_header headerRespuesta;
+	 recibirHeader(socketFS,&headerRespuesta);
+	 t_bloques* bloques = recibirPaquete(socketFS,headerRespuesta);
 
-		 return bloques;
-		 */
-		return buffer;
+	 return bloques;
+	 */
+	return buffer;
 }
 
 /* Crear la tabla de estados global */
-void crearTablaDeEstados(){
+void crearTablaDeEstados() {
 
 	listaTablaEstados = list_create();
 
 }
-
-
 
