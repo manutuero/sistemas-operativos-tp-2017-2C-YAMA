@@ -297,6 +297,7 @@ void* esperarConexionesDatanodes() {
 								if (nodoDesconectado) {
 									if (nodoDesconectado->socketDescriptor
 											== sd) {
+										//Enviar desconexion a YAMA SI estoy en estado estable y el yama esta conectado
 										list_remove(nodos, i);
 										if (estadoAnterior) {
 											actualizarDisponibilidadArchivos(
@@ -985,6 +986,7 @@ void agregarNodo(t_list *lista, t_nodo *nodo) {
 	if (!lista) {
 		fprintf(stderr, "[WARNING]: La lista no esta inicializada.");
 	} else {
+		//Enviar info a YAMA SI estoy en estado estable Y esta yama conectado
 		list_add(lista, nodo);
 	}
 
@@ -1644,20 +1646,23 @@ void *escucharPeticionesYama() {
 	bind(socketYama, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
 	listen(socketYama, BACKLOG); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
+
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 	int socketCliente = accept(socketYama, (struct sockaddr *) &addr, &addrlen);
+	puts("");
 	/*
 	 Cuando el cliente cierra la conexion, recv() devolvera 0.
 	 */
 //Guardo el ip del Yama para usarlo luego en otro hilo
 	struct sockaddr_in address;
-	getpeername(socketYama, (struct sockaddr*) &address, (socklen_t*) &addrlen);
+	getpeername(socketCliente, (struct sockaddr*) &address,
+			(socklen_t*) &addrlen);
 	ipYama = inet_ntoa(address.sin_addr);
 	sem_post(&semIpYamaNodos);
 	int status = 1;		// Estructura que manjea el status de los recieve.
 	while (status != 0) {
-		status = recibirHeader(socketYama, header);
+		status = recibirHeader(socketCliente, header);
 
 		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
 		if (status != 0) {
@@ -2019,19 +2024,50 @@ t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 }
 
 void* obtenerSocketNodosYama() {
-//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
+	struct sockaddr_in direccionFS;
 	sem_wait(&semIpYamaNodos);
-	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
-	if (socketPrograma <= 0) {
-		//perror(
-		//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
-		//return (ERROR);
+	sleep(5);
+  //Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
+
+	printf("entra hilo socket nodo yama");
+	puts("");
+	direccionFS.sin_family = AF_INET;
+	direccionFS.sin_port = htons(PUERTO_YAMANODOS);
+	direccionFS.sin_addr.s_addr = inet_addr(ipYama);
+	//memset(&(direccionYama.sin_zero), '\0', 8);
+
+	int socketPrograma;
+
+	socketPrograma = nuevoSocket();//socket(AF_INET, SOCK_STREAM, 0);
+	int activado = 1;
+	if (setsockopt(socketPrograma, SOL_SOCKET, SO_REUSEADDR, &activado,
+				sizeof(activado)) == -1) {
+			perror("setsockopt");
+			exit(1);
+		}
+	if (connect(socketPrograma, (struct sockaddr *) &direccionFS,
+			sizeof(struct sockaddr)) != 0) {
+		perror("fallo la conexion al yama para info nodos. (funcionesFileSystem 2050)");
+		printf("Ip yama: %s   puerto yama nodos:   %d" ,ipYama,PUERTO_YAMANODOS);
+		exit(1);
 	}
-	if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
-		return 0;
-	}
+
+	printf("Conectado al yama con el socket para info nodos%d\n", socketPrograma);
+	puts("");
 	socketYamaNodos = socketPrograma;
+
+	enviarInfoNodosAYamaInicial();
+
 	return NULL;
+}
+
+void enviarInfoNodosAYamaInicial() {
+	t_nodo *nodo = NULL;
+	int i;
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		enviarInfoNodoYama(nodo, CONEXION);
+	}
 }
 
 void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {

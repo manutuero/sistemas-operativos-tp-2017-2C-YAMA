@@ -220,6 +220,8 @@ void *escucharPeticionesYama();
 void serializarInfoArchivo(t_archivo_a_persistir* archivo,void* paqueteRespuesta,t_header *header);
 void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,char ** rutaGuardadoFinal);
 void *obtenerSocketNodosYama();
+void* enviarInfoNodoYama(t_nodo *nodo, int tipo);
+void enviarInfoNodosAYamaInicial();
 
 /*Para worker*/
 void *esperarConexionesWorker();
