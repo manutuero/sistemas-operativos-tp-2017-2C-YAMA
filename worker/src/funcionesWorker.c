@@ -678,3 +678,55 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 	}
 	return infoReduccionGlobal;
 }
+
+void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,FILE* archivoApareado) {
+	t_regArch regArch1 = malloc(LARGO_MAX_LINEA);
+	t_regArch regArch2 = malloc(LARGO_MAX_LINEA);
+	bool finArch1 = false;
+	bool finArch2 = false;
+	copiarContenidoDeArchivo(archivoApareado, archAAparear);
+
+	//regArch1.linea=fgets(linea,LARGO_MAX_LINEA,arch1);
+	//regArch2.linea=fgets(linea,LARGO_MAX_LINEA,arch2);
+	leerRegArchivo(archAAparear, regArch1, &finArch1);
+	leerRegArchivo(archivoRecibido, regArch2, &finArch2);
+	while (!finArch1 && !finArch2) {
+		if (strcmp(regArch1, regArch2) < 0) {
+			txt_write_in_file(archivoApareado, regArch1);
+			//fwrite(regArch1.linea,sizeof(char),strlen(regArch1.linea),archFinal);
+			leerRegArchivo(archAAparear, regArch1, &finArch1);
+		} else {
+			txt_write_in_file(archivoApareado, regArch2);
+			//fwrite(regArch2.linea,sizeof(char),strlen(regArch2.linea),archFinal);
+			leerRegArchivo(archivoRecibido, regArch2, &finArch2);
+		}
+	}
+	txt_write_in_file(archivoApareado, "\n");
+	if (!finArch1) {
+		while (!finArch1) {
+			txt_write_in_file(archivoApareado, regArch1);
+			//fwrite(regArch1.linea,sizeof(char),strlen(regArch1.linea),archFinal);
+			leerRegArchivo(archAAparear, regArch1, &finArch1);
+		}
+		//txt_write_in_file(archFinal,"\n");
+	} else {
+		while (!finArch2) {
+			txt_write_in_file(archivoApareado, regArch2);
+			//fwrite(regArch2.linea,sizeof(char),strlen(regArch2.linea),archFinal);
+			leerRegArchivo(archivoRecibido, regArch2, &finArch2);
+		}
+		//txt_write_in_file(archFinal,"\n");
+	}
+
+}
+
+void leerRegArchivo(FILE* arch, t_regArch regArch, bool* fin) {
+	if (!(feof(arch))) {
+		fgets(regArch, LARGO_MAX_LINEA, arch);
+		*fin = false;
+	} else {
+		*fin = true;
+	}
+}
+
+
