@@ -130,9 +130,9 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void* buffer);
 char* getBloque(int numero);
 void abrirDatabin();
 void cerrarDatabin();
-void realizarTransformacion(t_infoTransformacion*);
-void realizarReduccionLocal(t_infoReduccionLocal*);
-void realizarReduccionGlobal(t_infoReduccionGlobal*);
+void realizarTransformacion(t_infoTransformacion*,int);
+void realizarReduccionLocal(t_infoReduccionLocal*,int);
+void realizarReduccionGlobal(t_infoReduccionGlobal*,int);
 char* armarNombreConPathTemp(char*);
 char *guardarArchScript(char*);
 
@@ -153,5 +153,6 @@ void copiarContenidoDeArchivo(FILE*,FILE*);
 
 void* serializarInfoGuardadoFinal(int,char*,t_infoGuardadoFinal*,int*);
 void guardadoFinalEnFilesystem(t_infoGuardadoFinal*);
+void notificarAMaster(int , int);
 
 #endif
