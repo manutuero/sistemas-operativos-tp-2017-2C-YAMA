@@ -23,12 +23,12 @@ typedef struct{
 
 struct sockaddr_in direccionFS;
 struct sockaddr_in direccionYama;
-int socketYama, socketFS;
+int socketMasters, socketFS;
 char* ip,*socketFSNodos;
 extern uint32_t ultimoMaster;
 uint32_t job;
 char* FS_IP;
-int FS_PUERTO,PUERTO_FS_NODOS;
+int FS_PUERTO,PUERTO_FS_NODOS,RETARDO_PLANIFICACION,PUERTO_MASTERS;
 
 typedef struct{
 	uint32_t idNodo;
