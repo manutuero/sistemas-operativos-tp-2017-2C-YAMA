@@ -17,10 +17,8 @@ void conectarseAFS() {
 
 	direccionFS.sin_family = AF_INET;
 	direccionFS.sin_port = htons(FS_PUERTO);
-	direccionFS.sin_addr.s_addr = inet_addr("127.0.0.1");
+	direccionFS.sin_addr.s_addr = inet_addr(FS_IP);
 	//memset(&(direccionYama.sin_zero), '\0', 8);
-
-	//int socketFS;
 
 	socketFS = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -50,25 +48,28 @@ void cargarArchivoDeConfiguracion() {
 		FS_IP = config_get_string_value(config, "FS_IP");
 	}
 
-	if (config_has_property(config, "YAMA_PUERTO")) {
-		PUERTO = config_get_int_value(config, "YAMA_PUERTO");
+	if (config_has_property(config, "FS_PUERTO")) {
+		FS_PUERTO = config_get_int_value(config, "FS_PUERTO");
 	}
 
 	if (config_has_property(config, "JOB")) {
 		job = config_get_int_value(config, "JOB");
 	}
 
-	if (config_has_property(config, "PUERTO_FS_NODOS")) {
-		PUERTO_FS_NODOS = config_get_int_value(config, "PUERTO_FS_NODOS");
+	if (config_has_property(config, "RETARDO_PLANIFICACION")) {
+		RETARDO_PLANIFICACION = config_get_int_value(config, "RETARDO_PLANIFICACION");
 	}
 
 	if (config_has_property(config, "DISPONIBILIDAD_BASE")) {
-		disponibilidadBase = config_get_int_value(config,
-				"DISPONIBILIDAD_BASE");
+		disponibilidadBase = config_get_int_value(config,"DISPONIBILIDAD_BASE");
 	}
 
-	if (config_has_property(config, "FS_PUERTO")) {
-		FS_PUERTO = config_get_int_value(config, "FS_PUERTO");
+	if (config_has_property(config, "PUERTO_FS_NODOS")) {
+		PUERTO_FS_NODOS = config_get_int_value(config,"PUERTO_FS_NODOS");
+	}
+
+	if (config_has_property(config, "PUERTO_MASTERS")) {
+		PUERTO_MASTERS = config_get_int_value(config,"PUERTO_MASTERS");
 	}
 
 	printf("Puerto: %d\n", PUERTO);
@@ -86,22 +87,22 @@ void yamaEscuchando() {
 
 	int activado = 1;
 
-	socketYama = socket(AF_INET, SOCK_STREAM, 0);
+	socketMasters = socket(AF_INET, SOCK_STREAM, 0);
 	// Permite reutilizar el socket sin que se bloquee por 2 minutos
-	if (setsockopt(socketYama, SOL_SOCKET, SO_REUSEADDR, &activado,
+	if (setsockopt(socketMasters, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
 		perror("setsockopt");
 		exit(1);
 	}
 
 	// Se enlaza el socket al puerto
-	if (bind(socketYama, (struct sockaddr *) &direccionYama,
+	if (bind(socketMasters, (struct sockaddr *) &direccionYama,
 			sizeof(struct sockaddr)) != 0) {
 		perror("No se pudo conectar");
 		exit(1);
 	}
 	// Se pone a escuchar el servidor kernel
-	if (listen(socketYama, 10) == -1) {
+	if (listen(socketMasters, 10) == -1) {
 		perror("listen");
 		exit(1);
 	}
@@ -115,9 +116,9 @@ void escucharMasters() {
 	int bytesRecibidos, maxPuerto, i, nuevoSocket;
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
-	FD_SET(socketYama, &auxRead);
+	FD_SET(socketMasters, &auxRead);
 
-	maxPuerto = socketYama;
+	maxPuerto = socketMasters;
 	inicializarWorkers(); //inicializa antes de entrar a la plani. sacar cuando este la conexion de nodos 
 	int redLocales = 0;
 	printf("escuchando masters\n");
@@ -131,9 +132,9 @@ void escucharMasters() {
 
 		for (i = 0; i <= maxPuerto; i++) {
 			if (FD_ISSET(i, &readfds)) {
-				if (i == socketYama) {
+				if (i == socketMasters) {
 
-					if ((nuevoSocket = accept(socketYama,
+					if ((nuevoSocket = accept(socketMasters,
 							(void*) &direccionYama, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
@@ -289,7 +290,7 @@ void escuchaActualizacionesNodos() {
 		}
 	}
 	close(socketCliente);
-	close(socketYama);
+	close(socketMasters);
 	return;
 }
 

@@ -965,9 +965,14 @@ void actualizarConfig()
 		exit(EXIT_FAILURE);
 	}
 
+	if (config_has_property(config, "JOB"))
+		{
+			job = config_get_int_value(config, "JOB");
+		}
+
 	if (config_has_property(config,"JOB"))
 		{
-			config_set_value(config,"JOB",string_itoa(job));
+			config_set_value(config,"JOB",string_itoa(job+1));
 			estadoGuardado = config_save(config);
 		}
 
