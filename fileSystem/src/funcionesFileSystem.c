@@ -408,46 +408,45 @@ void* serializarSetBloque(void *contenido, uint32_t nroBloqueDatabin) {
 	return paquete;
 }
 
-void guardarBloqueEnNodo(t_arg *args) {
-	int bytesEnviados, bytesAEnviar, socketNodo;
+int guardarBloqueEnNodo(t_bloque *bloque, int COPIA) {
+	int bytesEnviados, bytesAEnviar, rta, socketNodo;
 	void *paquete, *respuesta;
 
 	bytesAEnviar = sizeof(uint32_t) + UN_BLOQUE;
-	if (args->copia == 0) { //COPIA 0
-		socketNodo = args->bloque->nodoCopia0->socketDescriptor;
-		paquete = serializarSetBloque(args->bloque->contenido,
-				args->bloque->numeroBloqueCopia0);
 
+	if (COPIA == 0) { //COPIA 0
+		socketNodo = bloque->nodoCopia0->socketDescriptor;
+		paquete = serializarSetBloque(bloque->contenido,
+				bloque->numeroBloqueCopia0);
 	} else { //COPIA 1
-		socketNodo = args->bloque->nodoCopia1->socketDescriptor;
-		paquete = serializarSetBloque(args->bloque->contenido,
-				args->bloque->numeroBloqueCopia1);
+		socketNodo = bloque->nodoCopia1->socketDescriptor;
+		paquete = serializarSetBloque(bloque->contenido,
+				bloque->numeroBloqueCopia1);
 	}
 
 	// Envio el paquete.
 	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
 	if (bytesEnviados < bytesAEnviar) {
 		fprintf(stderr, "[ERROR]: no se pudo enviar todo el paquete.\n");
-		*args->rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
 	}
 
 	// Si se envio bien espero la respuesta.
 	respuesta = malloc(sizeof(uint32_t));
-
 	if (recibirPorSocket(socketNodo, respuesta, sizeof(uint32_t)) > 0) {
 		if (*(int*) respuesta == GUARDO_BLOQUE_OK) {
-			*args->rta = GUARDO_BLOQUE_OK;
+			rta = GUARDO_BLOQUE_OK;
 		} else {
 			printf("[Error]: no se guardo el bloque.\n");
-			*args->rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+			rta = ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
 		}
 	} else {
-		*args->rta = ERROR_AL_RECIBIR_RESPUESTA;
+		rta = ERROR_AL_RECIBIR_RESPUESTA;
 	}
-	sem_post(&sem);
 
 	free(respuesta);
 	free(paquete);
+	return rta;
 }
 
 int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin) {
@@ -983,16 +982,27 @@ void restaurarTablaDeArchivos() {
 }
 
 void agregarNodo(t_list *lista, t_nodo *nodo) {
-	if (!lista) {
+	if (!lista)
 		fprintf(stderr, "[WARNING]: La lista no esta inicializada.");
-	} else {
-		//Enviar info a YAMA SI estoy en estado estable Y esta yama conectado
+
+	if (!existeNodo(nodo->idNodo)) {
 		list_add(lista, nodo);
 	}
 
-// Se conectaron al menos
+	// Se conectaron al menos
 	if (lista->elements_count >= 2)
 		sem_post(&semNodosRequeridos);
+}
+
+bool existeNodo(int idNodo) {
+	int i;
+	t_nodo *nodo;
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		if (nodo->idNodo == idNodo)
+			return true;
+	}
+	return false;
 }
 
 t_list* copiarListaNodos(t_list *lista) {
