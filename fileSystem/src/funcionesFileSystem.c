@@ -126,7 +126,7 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	largoIp = strlen(nodo->ip);
+	largoIp = strlen(nodo->ip)+1;
 	memcpy(payload + desplazamiento, &largoIp, bytesACopiar); // le agrego el largo de la cadena ip como parte del mensaje
 	desplazamiento += sizeof(uint32_t);
 
@@ -149,7 +149,7 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	memcpy(paquete + desplazamiento, payload, header->tamanioPayload);
-
+	free(payload);
 	return paquete;
 }
 
@@ -1641,8 +1641,17 @@ void *escucharPeticionesYama() {
 	hints.ai_socktype = SOCK_STREAM;
 	getaddrinfo(NULL, PUERTO_YAMA, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost en AI_PASSIVE
 	int socketYama;
+
+	int activado = 1;
 	socketYama = socket(serverInfo->ai_family, serverInfo->ai_socktype,
 			serverInfo->ai_protocol);
+	// Permite reutilizar el socket sin que se bloquee por 2 minutos
+	if (setsockopt(socketYama, SOL_SOCKET, SO_REUSEADDR, &activado,
+			sizeof(activado)) == -1) {
+		perror("setsockopt");
+		exit(1);
+	}
+
 	bind(socketYama, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
 	listen(socketYama, BACKLOG); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
@@ -2027,37 +2036,20 @@ void* obtenerSocketNodosYama() {
 	struct sockaddr_in direccionFS;
 	sem_wait(&semIpYamaNodos);
 	sleep(5);
-  //Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
-
-	printf("entra hilo socket nodo yama");
-	puts("");
+	//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	direccionFS.sin_family = AF_INET;
 	direccionFS.sin_port = htons(PUERTO_YAMANODOS);
 	direccionFS.sin_addr.s_addr = inet_addr(ipYama);
 	//memset(&(direccionYama.sin_zero), '\0', 8);
 
-	int socketPrograma;
-
-	socketPrograma = nuevoSocket();//socket(AF_INET, SOCK_STREAM, 0);
-	int activado = 1;
-	if (setsockopt(socketPrograma, SOL_SOCKET, SO_REUSEADDR, &activado,
-				sizeof(activado)) == -1) {
-			perror("setsockopt");
-			exit(1);
-		}
-	if (connect(socketPrograma, (struct sockaddr *) &direccionFS,
+	socketYamaNodos = nuevoSocket(); //socket(AF_INET, SOCK_STREAM, 0);
+	if (connect(socketYamaNodos, (struct sockaddr *) &direccionFS,
 			sizeof(struct sockaddr)) != 0) {
-		perror("fallo la conexion al yama para info nodos. (funcionesFileSystem 2050)");
-		printf("Ip yama: %s   puerto yama nodos:   %d" ,ipYama,PUERTO_YAMANODOS);
+		perror(
+				"fallo la conexion al yama para info nodos. (funcionesFileSystem 2050)");
 		exit(1);
 	}
-
-	printf("Conectado al yama con el socket para info nodos%d\n", socketPrograma);
-	puts("");
-	socketYamaNodos = socketPrograma;
-
 	enviarInfoNodosAYamaInicial();
-
 	return NULL;
 }
 
@@ -2073,15 +2065,22 @@ void enviarInfoNodosAYamaInicial() {
 void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	void* paquete = NULL;
 	t_header *header;
+	header=malloc(sizeof(t_header));
 	if (tipo == CONEXION) {
 		header->id = 30;
 	} else {
 		header->id = 31;
 	}
 	paquete = serializarInfoNodo(nodo, header);
-	enviarPorSocket(socketYamaNodos, paquete,
-			header->tamanioPayload + (sizeof(uint32_t) * 2));
 
+	int enviados=enviarPorSocket(socketYamaNodos, paquete,
+			header->tamanioPayload);
+	if(enviados<header->tamanioPayload + (sizeof(uint32_t) * 2)){
+		perror("ERROR Al enviar informacion de nodos a YAMA");
+	}
+
+	free(header);
+	free(paquete);
 	return NULL;
 }
 

@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
 		sem_wait(&semEstadoEstable);
 		pthread_create(&hiloYama, NULL, escucharPeticionesYama, NULL);
 		pthread_create(&hiloWorkers, NULL, esperarConexionesWorker, NULL);
-		pthread_create(&hiloSocketYamaNodos, NULL, obtenerSocketNodosYama, NULL);
+		//pthread_create(&hiloSocketYamaNodos, NULL, obtenerSocketNodosYama, NULL);
 	} else if (hayEstadoAnterior()) {
 		puts("Hay estado anterior..");
 		estadoAnterior = true;
@@ -48,7 +48,6 @@ int main(int argc, char **argv) {
 		pthread_create(&hiloYama, NULL, escucharPeticionesYama, NULL);
 		pthread_create(&hiloWorkers, NULL, esperarConexionesWorker, NULL);
 		pthread_create(&hiloSocketYamaNodos, NULL, obtenerSocketNodosYama, NULL);
-
 		sem_wait(&semNodosRequeridos);
 		pthread_create(&hiloConsola, NULL, levantarConsola, NULL);
 	}
