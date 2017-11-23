@@ -729,4 +729,88 @@ void leerRegArchivo(FILE* arch, t_regArch regArch, bool* fin) {
 	}
 }
 
+t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void* buffer) {
+	t_infoGuardadoFinal* infoGuardadoFinal = malloc(
+			sizeof(t_infoGuardadoFinal));
+	uint32_t bytesACopiar, desplazamiento = 0;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoGuardadoFinal->largoRutaTemporal, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = infoGuardadoFinal->largoRutaTemporal;
+	infoGuardadoFinal->rutaTemporal = malloc(
+			infoGuardadoFinal->largoRutaTemporal);
+	memcpy(infoGuardadoFinal->rutaTemporal, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoGuardadoFinal->largoRutaArchFinal, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = infoGuardadoFinal->largoRutaArchFinal;
+	infoGuardadoFinal->rutaArchFInal = malloc(
+			infoGuardadoFinal->largoRutaArchFinal);
+	desplazamiento += bytesACopiar;
+
+	return infoGuardadoFinal;
+
+}
+
+void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
+	char*contenidoArchTempFinal;
+	int tamanioArchTempFinal;
+	tamanioArchTempFinal=devolverTamanioArchivo(infoGuardadoFinal->largoRutaTemporal);
+	contenidoArchTempFinal=malloc(tamanioArchTempFinal);
+	contenidoArchTempFinal=obtenerContenidoArchivo(infoGuardadoFinal->largoRutaTemporal);
+	void* buffer;
+	void* bufferMensaje;
+	t_header header;
+	int largoBuffer, tamanioMensaje, desplazamiento = 0;
+	int socketFilesystem = conectarseAFilesystem(PUERTO_FILESYSTEM,
+			IP_FILESYSTEM);
+	if (socketFilesystem != -1) {
+		buffer = serializarInfoGuardadoFinal(tamanioArchTempFinal,contenidoArchTempFinal,infoGuardadoFinal, &largoBuffer);
+		tamanioMensaje = largoBuffer + sizeof(t_header);
+		bufferMensaje = malloc(tamanioMensaje);
+		header.id = GUARDAR_FINAL;
+		header.tamanioPayload = largoBuffer;
+
+		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje + desplazamiento, &header.tamanioPayload,
+				sizeof(uint32_t));
+		desplazamiento += sizeof(uint32_t);
+		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
+
+		enviarPorSocket(socketFilesystem, bufferMensaje, tamanioMensaje);
+		free(buffer);
+		free(bufferMensaje);
+	}
+}
+
+void* serializarInfoGuardadoFinal(int tamanioArchTempFinal,char* contenidoArchTempFinal,t_infoGuardadoFinal* infoGuardadoFinal,int* largoBuffer) {
+	void*buffer;
+	int desplazamiento=0;;
+	int tamanioBuffer = infoGuardadoFinal->largoRutaArchFinal
+			+ tamanioArchTempFinal + (sizeof(uint32_t) * 2);
+	buffer = malloc(tamanioBuffer);
+
+	memcpy(buffer + desplazamiento, &infoGuardadoFinal->largoRutaArchFinal,sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer + desplazamiento, infoGuardadoFinal->rutaArchFInal,infoGuardadoFinal->largoRutaArchFinal);
+	desplazamiento += infoGuardadoFinal->largoRutaArchFinal;
+	memcpy(buffer + desplazamiento, &tamanioArchTempFinal,sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+
+	memcpy(buffer + desplazamiento, contenidoArchTempFinal,tamanioArchTempFinal);
+	desplazamiento += tamanioArchTempFinal;
+
+	*largoBuffer = desplazamiento;
+
+	return buffer;
+}
 
