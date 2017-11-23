@@ -14,7 +14,12 @@
 #include <stdlib.h>
 #include <utils.h>
 
-
+typedef struct{
+		uint32_t largoArchivo;
+		char* nombreArchivo;
+		uint32_t largoArchivo2;
+		char* nombreArchivoGuardadoFinal;
+	}t_pedidoTransformacion;
 
 struct sockaddr_in direccionFS;
 struct sockaddr_in direccionYama;
@@ -50,9 +55,9 @@ void escuchaActualizacionesNodos();
 t_infoNodos deserializarActualizacion(void*);
 
 /* recibe el  nombre del archivo a procesar */
-int recibirRutaDeArchivoAProcesar(int,t_rutaArchivo**);
-
+int recibirRutaDeArchivoAProcesar(int,t_pedidoTransformacion**);
 t_rutaArchivo* deserializarRutaArchivo(void* buffer);
+t_pedidoTransformacion* deserializarRutasArchivos(void* buffer);
 void* obtenerBloquesDelArchivo(t_rutaArchivo*);
 
 /* Crea la tabla de estados */
