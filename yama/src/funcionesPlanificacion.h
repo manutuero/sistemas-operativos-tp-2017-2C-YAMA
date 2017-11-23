@@ -94,6 +94,7 @@ typedef struct{
 		uint32_t job;
 		uint32_t idMaster;
 		int socketMaster;
+		int replanifica;
 	}t_job;
 
 /* Array de workers, se ira cargando a medida que se conecten y FS informe

@@ -14,16 +14,21 @@
 #include <stdlib.h>
 #include <utils.h>
 
-
+typedef struct{
+		uint32_t largoArchivo;
+		char* nombreArchivo;
+		uint32_t largoArchivo2;
+		char* nombreArchivoGuardadoFinal;
+	}t_pedidoTransformacion;
 
 struct sockaddr_in direccionFS;
 struct sockaddr_in direccionYama;
-int socketYama, socketFS;
+int socketMasters, socketFS;
 char* ip,*socketFSNodos;
 extern uint32_t ultimoMaster;
 uint32_t job;
 char* FS_IP;
-int FS_PUERTO,PUERTO_FS_NODOS;
+int FS_PUERTO,PUERTO_FS_NODOS,RETARDO_PLANIFICACION,PUERTO_MASTERS;
 
 typedef struct{
 	uint32_t idNodo;
@@ -50,9 +55,9 @@ void escuchaActualizacionesNodos();
 t_infoNodos deserializarActualizacion(void*);
 
 /* recibe el  nombre del archivo a procesar */
-int recibirRutaDeArchivoAProcesar(int,t_rutaArchivo**);
-
+int recibirRutaDeArchivoAProcesar(int,t_pedidoTransformacion**);
 t_rutaArchivo* deserializarRutaArchivo(void* buffer);
+t_pedidoTransformacion* deserializarRutasArchivos(void* buffer);
 void* obtenerBloquesDelArchivo(t_rutaArchivo*);
 
 /* Crea la tabla de estados */

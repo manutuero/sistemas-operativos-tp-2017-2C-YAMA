@@ -84,15 +84,15 @@ int main(void) {
 
 						case TRANSFORMACION:
 							infoTransformacion=deserializarInfoTransformacion(buffer);
-							realizarTransformacion(infoTransformacion);
+							realizarTransformacion(infoTransformacion,nuevoSocket);
 							break;
 						case REDUCCION_LOCAL:
 							infoReduccionLocal=deserializarInfoReduccionLocal(buffer);
-							realizarReduccionLocal(infoReduccionLocal);
+							realizarReduccionLocal(infoReduccionLocal,nuevoSocket);
 							break;
 						case REDUCCION_GLOBAL:
 							infoReduccionGlobal=deserializarInfoReduccionGlobal(buffer);
-							realizarReduccionGlobal(infoReduccionGlobal);
+							realizarReduccionGlobal(infoReduccionGlobal,nuevoSocket);
 							break;
 						case ORDEN_GUARDADO_FINAL:
 							infoGuardadoFinal=deserializarInfoGuardadoFinal(buffer);
@@ -102,11 +102,6 @@ int main(void) {
 							nombreArchTempPedido=deserializarSolicitudArchivo(buffer);
 							responderSolicitudArchivoWorker(nombreArchTempPedido,nuevoSocket);
 							break;
-
-						/*case ERROR_ARCHIVO_NO_ENCONTRADO:
-							enviarErrorReduciconGlobalAMaster();
-							break;
-						*/
 
 						}
 						wait(NULL);
