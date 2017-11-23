@@ -239,3 +239,95 @@ t_infoTransformacion deserializarInfoTransformacion(void* buffer) {
 	return infoTransformacion;
 }
 
+void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal) {
+	//verificarExistenciaPathTemp(pathTemporales);
+	char*rutaArchReductor;
+	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor);
+	FILE* archivoReduccionLocal;
+	archivoReduccionLocal = fopen(infoReduccionLocal->rutaArchReducidoLocal,
+			"r+");
+	char*lineaAEjecutar = string_new();
+	int i;
+	int resultado;
+	FILE* archivo;
+	char linea[LARGO_MAX_LINEA];
+	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
+		archivo = fopen(list_get(infoReduccionLocal->archTemporales, i), "r+");
+		while (fgets(linea, LARGO_MAX_LINEA, archivo) != NULL) {
+			txt_write_in_file(archivoReduccionLocal, linea);
+		}
+		fclose(archivo);
+	}
+
+	string_append_with_format(&lineaAEjecutar, "echo -e %s | sort | ./%s > %s",
+			archivoReduccionLocal, rutaArchReductor,
+			infoReduccionLocal->rutaArchReducidoLocal);
+	resultado = system(lineaAEjecutar);
+}
+
+t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
+	t_infoReduccionLocal* infoReduccionLocal = malloc(
+			sizeof(t_infoReduccionLocal));
+	uint32_t bytesACopiar, desplazamiento = 0, i = 0;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionLocal->largoRutaArchReducidoLocal,
+			buffer + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = infoReduccionLocal->largoRutaArchReducidoLocal;
+	infoReduccionLocal->rutaArchReducidoLocal = malloc(
+			infoReduccionLocal->largoRutaArchReducidoLocal);
+	memcpy(infoReduccionLocal->rutaArchReducidoLocal, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionLocal->largoArchivoReductor, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = infoReduccionLocal->largoArchivoReductor;
+	infoReduccionLocal->archReductor = malloc(
+			infoReduccionLocal->largoArchivoReductor);
+	memcpy(infoReduccionLocal->archReductor, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionLocal->cantidadTransformaciones,
+			buffer + desplazamiento, bytesACopiar);
+	desplazamiento += bytesACopiar;
+
+	infoReduccionLocal->archTemporales = list_create();
+	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
+		t_temporalesTransformacionWorker* temporal = malloc(
+				sizeof(t_temporalesTransformacionWorker));
+		bytesACopiar = sizeof(uint32_t);
+		memcpy(&temporal->largoRutaTemporalTransformacion,
+				buffer + desplazamiento, bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		bytesACopiar = sizeof(temporal->largoRutaTemporalTransformacion);
+		temporal->rutaTemporalTransformacion = malloc(
+				temporal->largoRutaTemporalTransformacion);
+		memcpy(temporal->rutaTemporalTransformacion, buffer + desplazamiento,
+				bytesACopiar);
+		desplazamiento += bytesACopiar;
+
+		list_add(infoReduccionLocal->archTemporales,
+				temporal->rutaTemporalTransformacion);
+	}
+
+	return infoReduccionLocal;
+}
+
+char *guardarArchScript(char*contenidoArchivoScript) {
+	char*rutaArchScritp = string_new();
+	string_append(&rutaArchScritp,
+			"/home/utnso/thePonchos/scriptsGuardados/archScript");
+	FILE*arch = fopen(rutaArchScritp, "w");
+	txt_write_in_file(arch, contenidoArchivoScript);
+	fclose(arch);
+	return rutaArchScritp;
+}

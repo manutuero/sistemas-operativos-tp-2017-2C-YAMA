@@ -19,7 +19,7 @@ int PUERTO_DATANODE;
 char* RUTA_DATABIN;
 FILE *filePointer;
 int fileDescriptor;
-char* pathTemporales = "/home/utnso/temp/";
+extern char* pathTemporales;
 struct sockaddr_in direccionWorker;
 int socketWorker;
 
