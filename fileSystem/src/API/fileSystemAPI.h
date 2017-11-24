@@ -56,7 +56,6 @@ typedef struct {
 typedef struct {
 	t_bloque *bloque;
 	int copia;
-	int *rta;
 } t_arg;
 
 /* Semaforos */

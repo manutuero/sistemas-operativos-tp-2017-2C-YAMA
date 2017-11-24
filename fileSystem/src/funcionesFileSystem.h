@@ -56,8 +56,6 @@ enum respuestasDatanode {
 extern sem_t semNodosRequeridos;
 extern sem_t semEstadoEstable;
 extern sem_t semIpYamaNodos;
-extern pthread_mutex_t mutexAlmacenarBloques;
-extern sem_t sem;
 
 /* Variables globales */
 char *ARCHCONFIG;
@@ -140,6 +138,7 @@ void actualizarTablaDeNodos();
 int totalBloquesFileSystem();
 int bloquesLibresFileSystem();
 int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin);
+bool existeNodo(int idNodo);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
@@ -151,7 +150,7 @@ int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
 void* esperarConexionesDatanodes();
 void* serializarInfoNodo(t_nodo *nodo, t_header *header);
 t_infoNodo deserializarInfoNodo(void *mensaje, int tamanioPayload);
-void guardarBloqueEnNodo(t_arg *args);
+int guardarBloqueEnNodo(t_bloque *bloque, int COPIA);
 int traerBloqueNodo(t_bloque *bloque);
 
 /* Firmas de funciones para directorios */
@@ -213,7 +212,6 @@ char* getResultado(int);
 void stringAppend(char** original, char* stringToAdd);
 t_list* copiarListaNodos(t_list *lista);
 int lastIndexOf(char *cadena, char caracter);
-
 
 /*Para yama*/
 void *escucharPeticionesYama();
