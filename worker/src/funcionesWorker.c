@@ -176,25 +176,38 @@ char* getBloque(int numero) {
 void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketMaster) {
 	int respuesta;
 	char* rutaArchTransformador;
+	char*rutaDataBLoque=string_new();
+	string_append(&rutaDataBLoque,infoTransformacion->nombreArchTemp);
+	string_append(&rutaDataBLoque,"D");
+	FILE* dataBloque=fopen(rutaDataBLoque,"w+");
 	FILE*archivoTemp;
 	rutaArchTransformador = guardarArchScript(
 			infoTransformacion->archTransformador);
-	archivoTemp = fopen(infoTransformacion->nombreArchTemp, "r+");
+	archivoTemp = fopen(infoTransformacion->nombreArchTemp, "w+");
 	char* bloque;
 	char*data;
 	bloque = getBloque(infoTransformacion->numBloque);
 	data = memcpy(data, bloque, infoTransformacion->bytesOcupados);
+	txt_write_in_file(dataBloque,data);
 	char* lineaAEjecutar = string_new();
 	string_append(&data, "\0");
-	string_append_with_format(&lineaAEjecutar, "echo -e %s | ./%s | sort > %s",
-			data, rutaArchTransformador, infoTransformacion->nombreArchTemp);
+	string_append_with_format(&lineaAEjecutar, "cat %s | ./%s | sort > %s",
+			dataBloque, rutaArchTransformador, infoTransformacion->nombreArchTemp);
 
 	respuesta = system(lineaAEjecutar);
 
 	//registrarOperacionEnLogs(repuesta)
+	fclose(dataBloque);
 	fclose(archivoTemp);
 
+	remove(rutaDataBLoque);
 	notificarAMaster(TRANSFORMACION_OK, socketMaster);
+
+	if(respuesta!=-1){
+	log_info(workerLogger,"Transformacion del bloque d% realizada",infoTransformacion->numBloque);
+	}else {
+		log_info(workerLogger,"No se pudo realizar la transformacion en el bloque",infoTransformacion->numBloque);
+	}
 }
 
 char *guardarArchScript(char*contenidoArchivoScript) {
@@ -240,6 +253,7 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	resultado = system(lineaAEjecutar);
 
 	notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
+	log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
 }
 
 void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int socketMaster) {
@@ -286,8 +300,9 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 
 	notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
 	fclose(archAAparear);
-
 	fclose(archivoApareado);
+
+	log_info(workerLogger,"Reduccion Global realizada, archivo %s generado",infoReduccionGlobal->rutaArchivoTemporalFinal);
 }
 
 void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
