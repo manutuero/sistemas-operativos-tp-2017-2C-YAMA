@@ -25,34 +25,27 @@ void mostrarTablaDeEstados(int i) {
 //esta funcion va a recibir por parametro una estructura que tenga el job, el idMaster y el socket de ese master.
 void *preplanificarJob(t_job* jobMaster){
 
-	t_header header;
 	t_bloqueRecv* bloqueRecibido;
 	int nodo,i,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
 	void* buffer;
 
-	/* envio de nombres de archivos a FS*/
+	crearListas();
+
+	/* ENFS envio de nombres de archivos a FS*/
+
+	envioPedidoArchivoAFS(jobMaster->pedidoTransformacion);
+
 	/* Reservar memoria para los clocks */
 
 	clock = malloc(sizeof(uint32_t));
 	clockAux = malloc(sizeof(uint32_t));
 
-	/* Recibir de FS la composicion completa del archivo, en el header usamos
-	 * tamaño de payload para saber cantidad de bloques a recibir*/
+	/* RVFS    Recibir de FS la composicion completa del archivo          */
 
-	recibirHeader(socketFS,&header);
-
-	/* carga local de bloques de prueba */
-	/*t_bloqueRecv bloques[4] = {{0, 1, 0, 3, 4},
-								{1, 2, 4, 3, 9},////////////eliminar
-								{2, 4, 7, 1, 3},////////////eliminar
-								{3, 1, 9, 3, 11}};
-	header.tamanioPayload = 4;*/
+	recibirComposicionArchivo();
 
 
-	crearListas();
-
-
-	for (i=0;i<header.tamanioPayload;i++)
+	/*for (i=0;i<header.tamanioPayload;i++)
 	{
 		//Cambio bloqueRecibido por buffer en el malloc
 		buffer = malloc(sizeof(t_bloqueRecv));//Se liberara cuando se destruya la lista
@@ -64,10 +57,12 @@ void *preplanificarJob(t_job* jobMaster){
 		//bloqueRecibido=&bloques[i];
 		guardarEnBloqueRecibidos(bloqueRecibido);
 
-	}
-	/*              ACTUALIZAR CONFIG POR  INCREMENTO DE JOB    */
+	}*/
+
+	/*ACFG          ACTUALIZAR CONFIG POR  INCREMENTO DE JOB  		  */
 	actualizarConfig();
 
+	/*PNIN   			  Preparar Nodos Involucrados					   */
 
 	t_bloqueRecv* bloque;
 	for(i=0;i<list_size(listaBloquesRecibidos);i++){
@@ -100,7 +95,7 @@ void *preplanificarJob(t_job* jobMaster){
 	*clock = 0;
 	*clockAux = 0;
 
-									/* Inicia la planificacion */
+	/* IPLA 			     	Inicia la planificacion 					     */
 
 	/* pre-planificacion de transformaciones */
 	for(i=0;i<list_size(listaBloquesRecibidos);i++)
@@ -135,17 +130,15 @@ void *preplanificarJob(t_job* jobMaster){
 		enviarMensajeFalloOperacion(jobMaster);
 	}
 
-	/* liberar listas para la siguiente planificacion */
+	/*LMPZ         liberar listas para la siguiente planificacion			 */
 	destruir_listas();
 
 	/* Liberar variables dinamicas */
-	free(buffer);
 	free(clock);
 	free(clockAux);
 
 	return((void*)0);
 }
-
 
 /*						Descargar workload al finalizar un trabajo             */
 //Esta Funcion recibira el nombreTMP del archivo que produjo el fin del trabajo
@@ -246,7 +239,7 @@ void restarJob(t_list *listaFiltrada)
 
 
 /* 						Cambiar Estado segun informe master						*/
-void *cambiarEstado(char* nombreTMP, int estado)
+void cambiarEstado(char* nombreTMP, int estado)
 {
 	int etapaCompletada=0;
 	t_tabla_estados *registro;
@@ -256,7 +249,7 @@ void *cambiarEstado(char* nombreTMP, int estado)
 
 	etapaCompletada = verificarEtapa(registro->job,registro->etapa);
 
-	if (etapaCompletada)
+	/*if (etapaCompletada)
 	{
 		switch (registro->etapa)
 		{
@@ -267,8 +260,9 @@ void *cambiarEstado(char* nombreTMP, int estado)
 				iniciarReduccionGlobal();
 				break;
 		}
-	}
-	return (void*)0;
+	}*/
+
+	return;
 }
 
 int verificarEtapa(int trabajo,int etapa)
@@ -304,13 +298,6 @@ bool tareaOk(void *registro)
 
 }
 
-void iniciarReduccionLocales(void){
-	return;
-}
-
-void iniciarReduccionGlobal(void){
-	return;
-}
 
 /* 						all this will go in funcionesYama.c						*/
 
@@ -987,26 +974,131 @@ void actualizarConfig()
 	return;
 }
 
-void *rePrePlanificacion(char *ArchivoTrabajo,char *archivoTMP,t_job* jobRePlanificado)
+
+/*RPPL				           Re Pre Planificacion 	      					*/
+
+
+void rePrePlanificacion(char *ArchivoTrabajo,char *archivoTMP,t_job* jobRePlanificado)
 {
 	t_tabla_estados *registro;
-	pthread_t planificacion;
+	t_list *listaTareasCaidas,*listaTransformacionesCaidas,
+		   *listaRedesLocalesCaidas,*listaBloquesRecibidos;
+
+	listaTareasCaidas = list_create();
+	listaTransformacionesCaidas = list_create();
+	listaRedesLocalesCaidas = list_create();
+	listaBloquesRecibidos = list_create();
+
 
 
 	registro = encontrarRegistro(archivoTMP);
 
-	/* Descargo la carga del trabajo previamente planificado */
-	descargarWorkload(archivoTMP);
+	filtrarTareasCaidas(registro->job,registro->nodo,listaTareasCaidas);
 
 	/* Deshabilito nodo caido */
 	workers[registro->nodo].habilitado=0;
 
+
+	/* Descargo la carga del trabajo previamente planificado */
+//	descargarWorkload(archivoTMP);
+
+
+
 	/* ejecuto hilo de planificacion */
-	pthread_create(&planificacion,NULL,preplanificarJob(jobRePlanificado),NULL);
+	//pthread_create(&planificacion,NULL,preplanificarJob(jobRePlanificado),NULL);
 
-	pthread_join(planificacion,NULL);
+	//pthread_join(planificacion,NULL);
 
-	return (void*)1;
+	return;
+}
+
+void filtrarTareasCaidas(int jobCaido,int nodoCaido,t_list* listaTareasCaidas){
+
+	int i;
+	t_tabla_estados *registro;
+
+	for (i=0;i<list_size(listaTablaEstados);i++)
+	{
+		registro = list_get(listaTablaEstados,i);
+		if((registro->nodo==nodoCaido)&&(registro->job==jobCaido))
+			registro->estado=1;//a cambiar
+			list_add(listaTareasCaidas,registro);
+	}
+
+	return;
+}
+
+
+/*          Envio peticion a FS para iniciar operacion de planificacion      */
+
+void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
+
+	t_header *header;
+	void *paquete,*bufferMensaje;
+	int bytesAEnviar;
+
+	header = malloc(sizeof(t_header));
+
+	header->id=5;
+
+	paquete = serializarPeticionInfoArchivo(pedido,header);
+
+	bytesAEnviar = header->tamanioPayload+ sizeof(t_header);
+
+	bufferMensaje = malloc(bytesAEnviar);
+
+	/* Mensaje para FS */
+	memcpy(bufferMensaje,header,sizeof(t_header));
+	memcpy(bufferMensaje,paquete,header->tamanioPayload);
+
+	enviarPorSocket(socketFS,bufferMensaje,bytesAEnviar);
+
+	return;
+}
+
+/*  						Recibir composicion de archivo   				*/
+
+void recibirComposicionArchivo(){
+
+	t_header *header;
+	void *buffer;
+	int cantidadDeBloques,i,desplazamiento=0;
+	t_bloqueRecv *bloqueRecibido;
+
+	header = malloc(sizeof(t_header));
+	recibirHeader(socketFS,header);
+
+	buffer = malloc(sizeof(header->tamanioPayload));
+	recibirPorSocket(socketFS,buffer,header->tamanioPayload);
+
+	memcpy(&cantidadDeBloques,buffer,sizeof(uint32_t));
+	desplazamiento+=sizeof(uint32_t);
+
+	for (i=0;i<cantidadDeBloques;i++)
+	{
+		bloqueRecibido = malloc(sizeof(t_bloqueRecv));
+		bloqueRecibido->nroBloqueArch = i;
+
+		memcpy(&bloqueRecibido->idNodo0,buffer,sizeof(uint32_t));
+		desplazamiento+=sizeof(uint32_t);
+
+		memcpy(&bloqueRecibido->nroBloqueNodo0,buffer,sizeof(uint32_t));
+		desplazamiento+=sizeof(uint32_t);
+
+		memcpy(&bloqueRecibido->idNodo1,buffer,sizeof(uint32_t));
+		desplazamiento+=sizeof(uint32_t);
+
+		memcpy(&bloqueRecibido->nroBloqueNodo1,buffer,sizeof(uint32_t));
+		desplazamiento+=sizeof(uint32_t);
+
+		memcpy(&bloqueRecibido->bytesOcupados,buffer,sizeof(uint32_t));
+		desplazamiento+=sizeof(uint32_t);
+
+		list_add(listaBloquesRecibidos,bloqueRecibido);
+
+	}
+
+	return;
 }
 
 /*                     		Enviar la planificacion a master                  */
@@ -1059,7 +1151,7 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 			sizeof(cantTransformaciones) + sizeof(cantRedLocal) + sizeof(cantRedGlobal);
 
 	t_header header;
-	header.id = 5;
+	header.id = 9;
 	header.tamanioPayload = tamanioTotalBuffer;
 
 	bufferMensaje = malloc(tamanioTotalBuffer+sizeof(t_header));
@@ -1100,6 +1192,9 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 
 	free(bufferMensaje);
 }
+
+
+/*SRLZ					Serializaciones								 */
 
 void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_list* lista){
 	void* buffer;
@@ -1214,28 +1309,33 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 	free(redGlobal);
 	return buffer;
 }
-/*          Envio peticion a FS para iniciar operacion de planificacion      */
 
+void* serializarPeticionInfoArchivo(t_pedidoTransformacion pedido, t_header* header)
+{
+	int desplazamiento=0;
+	void* paquete;
+	//Cualquier cosa revisar quilombo de doble puntero
 
+	paquete= malloc(sizeof(uint32_t));
 
+	//uint32_t *largoRuta=malloc(sizeof(uint32_t));
+	memcpy(paquete,&pedido.largoArchivo,sizeof(uint32_t));
+	desplazamiento+=sizeof(uint32_t);
 
-void serializarPeticionInfoArchivo(void *paquete,char *rutaArchivo,char *rutaGuardadoFinal){
-int desplazamiento=0;
-uint32_t *largoRuta=malloc(sizeof(uint32_t));
-*largoRuta=strlen(rutaArchivo)+1;
-memcpy(paquete,largoRuta,sizeof(uint32_t));
-desplazamiento+=sizeof(uint32_t);
+	paquete = realloc(paquete,desplazamiento+pedido.largoArchivo);
+	memcpy(paquete+desplazamiento,pedido.nombreArchivo,pedido.largoArchivo);
+	desplazamiento+=pedido.largoArchivo;
 
- memcpy(paquete+desplazamiento,rutaArchivo,*largoRuta);
- desplazamiento+=*largoRuta;
+	paquete = realloc(paquete,desplazamiento+(sizeof(uint32_t)));
+	memcpy(paquete+desplazamiento,&pedido.largoArchivo2,sizeof(uint32_t));
+	desplazamiento+=sizeof(uint32_t);
 
- *largoRuta=strlen(rutaGuardadoFinal)+1;
- memcpy(paquete+desplazamiento,largoRuta,sizeof(uint32_t));
- desplazamiento+=sizeof(uint32_t);
+	paquete = realloc(paquete,desplazamiento+pedido.largoArchivo2);
+	memcpy(paquete+desplazamiento,pedido.nombreArchivoGuardadoFinal,pedido.largoArchivo2);
+	desplazamiento+=pedido.largoArchivo2;
 
- memcpy(paquete+desplazamiento,rutaGuardadoFinal,*largoRuta);
- desplazamiento+=*largoRuta;
+	header->tamanioPayload = desplazamiento;
 
- free(largoRuta);
+	return paquete;
 }
 

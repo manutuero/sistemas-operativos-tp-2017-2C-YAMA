@@ -73,7 +73,7 @@ void cargarArchivoDeConfiguracion() {
 	}
 
 	printf("Puerto: %d\n", PUERTO);
-	printf("IP YAMA: %s\n", ip);
+	printf("IP FS: %s\n", FS_IP);
 	printf("Job actual: %d\n", job);
 }
 
@@ -139,10 +139,10 @@ void escucharMasters() {
 						perror("accept");
 					else {
 
-						//Le envia el archivo apenas se conecta con un puerto
 						printf("Entro una conexion por el puerto %d\n",
 								nuevoSocket);
 						FD_SET(nuevoSocket, &auxRead);
+
 						t_pedidoTransformacion* rutas;
 						rutas = malloc(sizeof(t_pedidoTransformacion));
 
@@ -154,7 +154,7 @@ void escucharMasters() {
 						if (nuevoSocket > maxPuerto)
 							maxPuerto = nuevoSocket;
 					}
-				} else {
+				} else {//header
 					t_header headerResp;
 					headerResp.tamanioPayload = 0;
 					bytesRecibidos = recibirHeader(i, &headerResp);
@@ -165,7 +165,6 @@ void escucharMasters() {
 						bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
 						printf("termino la trans del temporal %s\n",temporal);
 						free(temporal);
-
 						uint32_t respuesta = 13;
 						headerResp.id = 13;
 						//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
@@ -356,6 +355,7 @@ int recibirRutaDeArchivoAProcesar(int socketMaster, t_pedidoTransformacion** rut
 		jobMaster->idMaster = ultimoMaster;
 		jobMaster->job = job;
 		jobMaster->socketMaster = socketMaster;
+		jobMaster->pedidoTransformacion=**ruta;
 
 		pthread_t hiloPeticionMaster;
 		printf("job: %d\n", jobMaster->job);

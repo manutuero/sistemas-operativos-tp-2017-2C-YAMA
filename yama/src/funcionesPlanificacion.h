@@ -95,6 +95,7 @@ typedef struct{
 		uint32_t idMaster;
 		int socketMaster;
 		int replanifica;
+		t_pedidoTransformacion pedidoTransformacion;
 	}t_job;
 
 /* Array de workers, se ira cargando a medida que se conecten y FS informe
@@ -120,6 +121,10 @@ void actualizarConfig();
 
 void crearListas();
 
+/* Obtener bloques de un archivo  */
+void envioPedidoArchivoAFS(t_pedidoTransformacion);
+
+void recibirComposicionArchivo();
 
 /* Inicializa el array de workers suponiendo que todos estan deshabilitados inicialmente */
 void inicializarWorkers(void);
@@ -199,8 +204,11 @@ int seleccionarNodoMenorCarga(int*, int);
 
 int tieneReduccionesLocales(int);
 
-/* hilo de rePrePlanificacion */
-void *rePrePlanificacion(char *,char *,t_job*);
+/* funcion de rePrePlanificacion */
+void rePrePlanificacion(char *,char *,t_job*);
+
+/* filtrar de la tabla de estado las tareas que tenia el nodo caido */
+void filtrarTareasCaidas(int,int,t_list*);
 
 /* obtener los bloques a rePrePlanificar */
 void filtrarBloquesCaidos(int nodo, int trabajo);
@@ -217,7 +225,7 @@ void* serializarRedLocales(int, int* , t_list* );
 
 void* serializarRedGlobales(int , int* , t_list* );
 
-void serializarPeticionInfoArchivo(void*,char*,char*);
+void* serializarPeticionInfoArchivo(t_pedidoTransformacion,t_header*);
 
 /* destruir listas */
 void destruir_listas(void);
