@@ -126,7 +126,7 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	largoIp = strlen(nodo->ip)+1;
+	largoIp = strlen(nodo->ip) + 1;
 	memcpy(payload + desplazamiento, &largoIp, bytesACopiar); // le agrego el largo de la cadena ip como parte del mensaje
 	desplazamiento += sizeof(uint32_t);
 
@@ -252,6 +252,7 @@ void* esperarConexionesDatanodes() {
 			}
 
 			// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
+
 			actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
 			if (actividad < 0) {
 				fprintf(stderr, "[ERROR]: Fallo la funcion select().");
@@ -272,11 +273,76 @@ void* esperarConexionesDatanodes() {
 						//Busco una pos vacia en la lista de clientes para guardar el socket entrante
 						if (socketsClientes[i] == 0) {
 							socketsClientes[i] = socketEntrante;
-							break;
+							//Recibo la informacion del nuevo socket conectado
+							if (recibirHeader(socketEntrante, &header) != 0) {
+								buffer = malloc(header.tamanioPayload);
+								if (recibirPorSocket(socketEntrante, buffer,
+										header.tamanioPayload) <= 0) {
+									perror(
+											"Error. El payload no se pudo recibir correctamente.");
+								} else {
+									t_infoNodo infoNodo = deserializarInfoNodo(
+											buffer, header.tamanioPayload);
+
+									t_nodo *nodo = malloc(sizeof(t_nodo));
+									nodo->socketDescriptor = socketEntrante;
+									nodo->idNodo = infoNodo.idNodo;
+									nodo->bloquesTotales =
+											infoNodo.cantidadBloques;
+									nodo->bloquesLibres = nodo->bloquesTotales;
+									nodo->puertoWorker = 0;
+									getpeername(socketEntrante, (struct sockaddr*) &address,
+											(socklen_t*) &addrlen);
+									nodo->ip = inet_ntoa(address.sin_addr);
+
+									if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
+										agregarNodo(nodos, nodo);
+										agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
+									}
+
+									if (estadoNodos
+											== ACEPTANDO_NODOS_YA_CONECTADOS
+											&& estadoFs == NO_ESTABLE) {
+										if (esNodoAnterior(nodosEsperados,
+												nodo->idNodo)) {
+											if (estadoAnterior) {
+												nodo->bitmap =
+														recuperarBitmapAnterior(
+																nodo->idNodo);
+												actualizarDisponibilidadArchivos(
+														nodo->idNodo, CONEXION);
+											}
+											agregarNodo(nodos, nodo);
+										} else {
+											cerrarSocket(socketEntrante);
+										}
+									} else if (estadoNodos
+											== ACEPTANDO_NODOS_YA_CONECTADOS // este escenario se da con el estado anterior.
+									&& estadoFs == ESTABLE) {
+										if (esNodoAnterior(nodosEsperados,
+												nodo->idNodo)) {
+											if (estadoAnterior) {
+												nodo->bitmap =
+														recuperarBitmapAnterior(
+																nodo->idNodo);
+												actualizarDisponibilidadArchivos(
+														nodo->idNodo, CONEXION);
+											}
+											agregarNodo(nodos, nodo);
+										} else if (estadoFs == ESTABLE) {
+											socketsClientes[i] = 0;
+											cerrarSocket(socketEntrante); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+										}
+									}
+									free(buffer);
+								}
+
+								break;
+							}
 						}
 					}
 				} else { //Rechazo el socket ya que el sistema no permite mas conexiones.
-					cerrarSocket(sd);
+					cerrarSocket(socketEntrante);
 				}
 
 			} else {
@@ -286,9 +352,9 @@ void* esperarConexionesDatanodes() {
 
 					if (FD_ISSET(sd, &readfds)) {
 						// Desconexion de un nodo.
-						if (recibirHeader(sd, &header) == 0) {
+						buffer=malloc(1);
+						if (recv(sd,buffer,sizeof(buffer), MSG_PEEK | MSG_DONTWAIT) == 0) {
 							socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
-							estadoFs = NO_ESTABLE;
 							// Actualizo la lista de nodos conectados.
 							int j;
 							t_nodo *nodoDesconectado;
@@ -310,65 +376,6 @@ void* esperarConexionesDatanodes() {
 							break;
 						}
 
-						buffer = malloc(header.tamanioPayload);
-
-						// Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
-						if (recibirPorSocket(sd, buffer, header.tamanioPayload)
-								<= 0) {
-							perror(
-									"Error. El payload no se pudo recibir correctamente.");
-						} else {
-							t_infoNodo infoNodo = deserializarInfoNodo(buffer,
-									header.tamanioPayload);
-
-							t_nodo *nodo = malloc(sizeof(t_nodo));
-							nodo->socketDescriptor = sd;
-							nodo->idNodo = infoNodo.idNodo;
-							nodo->bloquesTotales = infoNodo.cantidadBloques;
-							nodo->bloquesLibres = nodo->bloquesTotales;
-							nodo->puertoWorker = 0;
-							getpeername(sd, (struct sockaddr*) &address,
-									(socklen_t*) &addrlen);
-							nodo->ip = inet_ntoa(address.sin_addr);
-
-							if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
-								agregarNodo(nodos, nodo);
-								agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
-							}
-
-							if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
-									&& estadoFs == NO_ESTABLE) {
-								if (esNodoAnterior(nodosEsperados,
-										nodo->idNodo)) {
-									if (estadoAnterior) {
-										nodo->bitmap = recuperarBitmapAnterior(
-												nodo->idNodo);
-										actualizarDisponibilidadArchivos(
-												nodo->idNodo, CONEXION);
-									}
-									agregarNodo(nodos, nodo);
-								} else {
-									cerrarSocket(sd);
-								}
-							} else if (estadoNodos
-									== ACEPTANDO_NODOS_YA_CONECTADOS // este escenario se da con el estado anterior.
-							&& estadoFs == ESTABLE) {
-								if (esNodoAnterior(nodosEsperados,
-										nodo->idNodo)) {
-									if (estadoAnterior) {
-										nodo->bitmap = recuperarBitmapAnterior(
-												nodo->idNodo);
-										actualizarDisponibilidadArchivos(
-												nodo->idNodo, CONEXION);
-									}
-									agregarNodo(nodos, nodo);
-								} else if (estadoFs == ESTABLE) {
-									socketsClientes[i] = 0;
-									cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
-								}
-							}
-							free(buffer);
-						}
 					}
 				}
 			}
@@ -1968,9 +1975,9 @@ void *esperarConexionesWorker() {
 	}
 
 	fd_set readfds, auxRead;
-	int tamanioDir = sizeof(direccionFSWorker);
-	char* buffer;
-	int bytesRecibidos, maxPuerto, i, nuevoSocket;
+	socklen_t tamanioDir = sizeof(direccionFSWorker);
+	//char* buffer;
+	int maxPuerto, i, nuevoSocket;
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
 	FD_SET(socketFSWorkers, &auxRead);
@@ -2003,13 +2010,11 @@ void *esperarConexionesWorker() {
 						buffer = malloc(header.tamanioPayload);
 						recibirPorSocket(nuevoSocket, buffer,
 								header.tamanioPayload);
-						t_infoArchivoFinal* archivo;
-
+						//	t_infoArchivoFinal* archivo;
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
-							archivo = deserializarInfoArchivoFinal(buffer);
+							//archivo = deserializarInfoArchivoFinal(buffer);
 							//TODO guardar archivoGlobal
 						}
-
 						if (nuevoSocket > maxPuerto)
 							maxPuerto = nuevoSocket;
 					}
@@ -2075,7 +2080,7 @@ void enviarInfoNodosAYamaInicial() {
 void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	void* paquete = NULL;
 	t_header *header;
-	header=malloc(sizeof(t_header));
+	header = malloc(sizeof(t_header));
 	if (tipo == CONEXION) {
 		header->id = 30;
 	} else {
@@ -2083,9 +2088,9 @@ void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	}
 	paquete = serializarInfoNodo(nodo, header);
 
-	int enviados=enviarPorSocket(socketYamaNodos, paquete,
+	int enviados = enviarPorSocket(socketYamaNodos, paquete,
 			header->tamanioPayload);
-	if(enviados<header->tamanioPayload + (sizeof(uint32_t) * 2)){
+	if (enviados < header->tamanioPayload + (sizeof(uint32_t) * 2)) {
 		perror("ERROR Al enviar informacion de nodos a YAMA");
 	}
 
