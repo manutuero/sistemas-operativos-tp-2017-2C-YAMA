@@ -31,7 +31,7 @@ void *preplanificarJob(t_job* jobMaster){
 
 	crearListas();
 
-	/* ENFS envio de nombres de archivos a FS*/
+	/* ENFS envio de nombres de archivos a FS */
 
 	envioPedidoArchivoAFS(jobMaster->pedidoTransformacion);
 
@@ -978,30 +978,55 @@ void actualizarConfig()
 /*RPPL				           Re Pre Planificacion 	      					*/
 
 
-void rePrePlanificacion(char *ArchivoTrabajo,char *archivoTMP,t_job* jobRePlanificado)
+void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *archivoTMP,t_job* jobRePlanificado)
 {
 	t_tabla_estados *registro;
+	t_transformacionMaster *transformacionReplanificada;
 	t_list *listaTareasCaidas,*listaTransformacionesCaidas,
-		   *listaRedesLocalesCaidas,*listaBloquesRecibidos;
+		   *listaRedesLocalesCaidas;
+	int largoArchivo,i;
+	t_bloqueRecv *registroBloque;
+	t_pedidoTransformacion pedidoTransformacion;
 
 	listaTareasCaidas = list_create();
 	listaTransformacionesCaidas = list_create();
 	listaRedesLocalesCaidas = list_create();
 	listaBloquesRecibidos = list_create();
 
-
-
 	registro = encontrarRegistro(archivoTMP);
 
+	/* Prepara pedido de bloques a filesystem */
+	largoArchivo =  strlen(archivoTrabajo)+1;
+
+	pedidoTransformacion.largoArchivo = largoArchivo;
+	pedidoTransformacion.nombreArchivo= malloc(largoArchivo);
+	strcpy(pedidoTransformacion.nombreArchivo,archivoTrabajo);
+
+	largoArchivo = strlen(archivoGuardadoFinal)+1;
+
+	pedidoTransformacion.largoArchivo2 = largoArchivo;
+	pedidoTransformacion.nombreArchivoGuardadoFinal = malloc(largoArchivo);
+	strcpy(pedidoTransformacion.nombreArchivoGuardadoFinal,archivoGuardadoFinal);
+
+	/* Conseguir todas las tareas caidas */
 	filtrarTareasCaidas(registro->job,registro->nodo,listaTareasCaidas);
 
 	/* Deshabilito nodo caido */
 	workers[registro->nodo].habilitado=0;
 
+	envioPedidoArchivoAFS(pedidoTransformacion);
 
-	/* Descargo la carga del trabajo previamente planificado */
-//	descargarWorkload(archivoTMP);
+	for(i=0;i<list_size(listaTareasCaidas);i++)
+	{
+		registro = list_get(listaTareasCaidas,i);
 
+		if (registro->etapa == 1)
+		{
+			transformacionReplanificada = malloc(sizeof(t_transformacionMaster));
+			registroBloque = list_get(listaBloquesRecibidos,i);
+			//cargarInfoNodoAlterno()
+		}
+	}
 
 
 	/* ejecuto hilo de planificacion */
@@ -1028,7 +1053,10 @@ void filtrarTareasCaidas(int jobCaido,int nodoCaido,t_list* listaTareasCaidas){
 	return;
 }
 
-
+void rePrePlanificarTransformaciones(t_list *listaTareasCaidas)
+{
+	return;
+}
 /*          Envio peticion a FS para iniciar operacion de planificacion      */
 
 void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){

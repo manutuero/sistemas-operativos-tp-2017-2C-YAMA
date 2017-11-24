@@ -204,8 +204,10 @@ int seleccionarNodoMenorCarga(int*, int);
 
 int tieneReduccionesLocales(int);
 
-/* funcion de rePrePlanificacion */
-void rePrePlanificacion(char *,char *,t_job*);
+/*	rePrePlanificacion de nodo caido							*/
+void rePrePlanificacion(char *,char *,char *,t_job *);
+
+void rePrePlanificarTransformaciones(t_list *listaTareasCaidas);
 
 /* filtrar de la tabla de estado las tareas que tenia el nodo caido */
 void filtrarTareasCaidas(int,int,t_list*);

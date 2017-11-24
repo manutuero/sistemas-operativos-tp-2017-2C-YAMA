@@ -190,10 +190,11 @@ void escucharMasters() {
 						temporal[headerResp.tamanioPayload] = '\0';
 						bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
 						printf("termino la redglobal del temporal %s\n",temporal);
-						free(temporal);
 						uint32_t respuesta = 21;
 						headerResp.id = 21;
 						enviarPorSocket(i,&headerResp,sizeof(t_header));
+						descargarWorkload(temporal);
+						free(temporal);
 						printf("%d",respuesta);
 					}
 					if(headerResp.id == 103){
@@ -209,7 +210,7 @@ void escucharMasters() {
 						jobMaster->socketMaster = i;
 						jobMaster->replanifica = 1;
 						printf("repre2\n");
-						rePrePlanificacion(pedido->nombreArchivoGuardadoFinal,pedido->nombreArchivo, jobMaster);
+						rePrePlanificacion("Saraza",pedido->nombreArchivoGuardadoFinal,pedido->nombreArchivo, jobMaster);
 
 					}
 
