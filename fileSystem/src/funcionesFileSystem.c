@@ -263,7 +263,7 @@ void* esperarConexionesDatanodes() {
 					perror("accept");
 					exit(EXIT_FAILURE);
 				}
-				//Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
+				// Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
 				if (nodos->elements_count < cantidad_nodos_esperados) {
 					// Agrego el nuevo socket al array
 					for (i = 0; i < numeroClientes; i++) {
@@ -729,22 +729,22 @@ bool hayEstadoAnterior() {
 
 /* Implementacion de funciones de inicializacion */
 void crearDirectorioMetadata() {
-	DIR *directorio = opendir(PATH_METADATA);
+	char *comando;
+	struct stat st;
 
-	// Si el directorio no existe, lo crea.
-	if (ENOENT == errno) {
-		char *comando = string_new();
-		string_append(&comando, "mkdir -p ");
-		string_append(&comando, PATH_METADATA);
-		system(comando);
-	}
+	// Si existe el directorio como le dimos un format debemos borrarlo.
+	if ((stat(PATH_METADATA, &st) == 0 && S_ISDIR(st.st_mode)))
+		borrarDirectorioMetadata();
+
+	comando = string_new();
+	string_append(&comando, "mkdir -p ");
+	string_append(&comando, PATH_METADATA);
+	system(comando);
 
 	crearDirectorioArchivos();
 	crearTablaDeDirectorios();
 	crearTablaDeNodos();
 	crearDirectorioBitmaps();
-
-	closedir(directorio);
 }
 
 void borrarDirectorioMetadata() {
@@ -934,7 +934,7 @@ void restaurarTablaDeNodos() {
 		fileDescriptor = open(pathArchivoBitmap, O_RDWR);
 
 		bitmap = mmap(NULL, bytesALeer,
-		PROT_READ, MAP_SHARED, fileDescriptor, 0);
+		PROT_READ | PROT_WRITE, MAP_SHARED, fileDescriptor, 0);
 		nodo->bitmap = bitmap;
 
 		list_add(nodosEsperados, nodo);
@@ -977,15 +977,32 @@ void restaurarTablaDeArchivos() {
 }
 
 void agregarNodo(t_list *lista, t_nodo *nodo) {
-	if (!lista) {
+	if (!lista)
 		fprintf(stderr, "[WARNING]: La lista no esta inicializada.");
-	} else {
+
+	if (!existeNodo(nodo->idNodo)) {
 		list_add(lista, nodo);
+	} else {
+		printf(
+				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
+				nodo->idNodo);
+		cerrarSocket(nodo->socketDescriptor);
 	}
 
-// Se conectaron al menos
+	// Se conectaron al menos
 	if (lista->elements_count >= 2)
 		sem_post(&semNodosRequeridos);
+}
+
+bool existeNodo(int idNodo) {
+	int i;
+	t_nodo *nodo;
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		if (nodo->idNodo == idNodo)
+			return true;
+	}
+	return false;
 }
 
 t_list* copiarListaNodos(t_list *lista) {
@@ -1431,7 +1448,13 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 
 // Bloques.
 	archivo->bloques = list_create();
-	cantidadBloques = archivo->tamanio / UN_MEGABYTE + 1; // Division entera
+
+	if (archivo->tamanio % UN_MEGABYTE == 0) {
+		cantidadBloques = archivo->tamanio / UN_MEGABYTE; // Division entera
+	} else {
+		cantidadBloques = archivo->tamanio / UN_MEGABYTE + 1;
+	}
+
 	for (i = 0; i < cantidadBloques; i++) {
 		// Reservo un bloque.
 		bloque = malloc(sizeof(t_bloque));
@@ -1920,7 +1943,6 @@ void *esperarConexionesWorker() {
 	int socketFSWorkers;
 	printf("Puerto conexion workers: %d\n", PUERTO_WORKERS);
 	struct sockaddr_in direccionFSWorker;
-//struct sockaddr_in direccionDelServidorKernel;
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
 	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
@@ -2045,7 +2067,6 @@ void* obtenerSocketNodosYama() {
 	return NULL;
 }
 
-
 void enviarInfoNodosAYamaInicial() {
 	t_nodo *nodo = NULL;
 	int i;
@@ -2096,8 +2117,6 @@ void actualizarBloquesDisponibles(t_archivo_a_persistir *archivo, int idNodo) {
 				|| bloque->nodoCopia1->idNodo == idNodo) {
 			bloque->disponible = '1';
 			bloquesDisponibles++;
-			printf("Bloque: %d.. disponible: %c.\n", bloque->numeroBloque,
-					bloque->disponible);
 		}
 	}
 
@@ -2108,6 +2127,9 @@ void actualizarBloquesDisponibles(t_archivo_a_persistir *archivo, int idNodo) {
 	}
 }
 
+/* SEGUN ENTENDI NO HACE FALTA ACTUALIZAR LOS BLOQUES A 'NO DISPONIBLES' Y
+ * PASAR DE UN ESTADO 'ESTABLE' A UNO 'NO ESTABLE'...POR LAS DUDAS, LA FUNCION ES ESTA.
+ */
 void actualizarBloquesNoDisponibles(t_archivo_a_persistir *archivo, int idNodo) {
 	int i, bloquesTotales, bloquesDisponibles;
 	t_bloque *bloque;
@@ -2136,8 +2158,8 @@ void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
 	int i, archivosTotales;
 	t_archivo_a_persistir *archivo;
 
-	// Recorro la lista de archivos en memoria.
 	archivosTotales = archivos->elements_count;
+	// Recorro la lista de archivos en memoria.
 	for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
 			i++) {
 		archivo = list_get(archivos, i);
@@ -2146,13 +2168,11 @@ void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
 			continue;
 		}
 
-		printf("\nArchivo: %s.\n", archivo->nombreArchivo);
 		// Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
-
 		if (tipoInfoNodo == CONEXION) {
 			actualizarBloquesDisponibles(archivo, idNodo);
 		} else if (tipoInfoNodo == DESCONEXION) {
-			actualizarBloquesNoDisponibles(archivo, idNodo);
+			//actualizarBloquesNoDisponibles(archivo, idNodo); entiendo que no hace falta...por las dudas las funciones estan hechas
 		}
 	}
 
@@ -2176,46 +2196,13 @@ int contarDisponibles(t_list *bloques) {
 	return cantidadDisponibles;
 }
 
-/*int i, j, archivosTotales, bloquesTotales, bloquesDisponibles;
- t_archivo_a_persistir *archivo;
- t_bloque *bloque;
+void reiniciarEstructuras() {
+	int i;
+	t_nodo *nodo;
 
- // Recorro la lista de archivos en memoria.
- archivosTotales = archivos->elements_count;
- for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
- i++) {
- archivo = list_get(archivos, i);
- if (archivo->disponible == '1') {
- archivosDisponibles++;
- continue;
- }
-
- printf("\nArchivo: %s.\n", archivo->nombreArchivo);
- // Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
- bloquesTotales = archivo->bloques->elements_count;
- bloquesDisponibles = contarDisponibles(archivo->bloques);
- for (j = 0; j < bloquesTotales && bloquesDisponibles < bloquesTotales;
- j++) {
- bloque = list_get(archivo->bloques, j);
- if (bloque->nodoCopia0->idNodo == idNodo
- || bloque->nodoCopia1->idNodo == idNodo) {
- bloque->disponible = '1';
- bloquesDisponibles++;
- printf("Bloque: %d.. disponible: %c.\n", bloque->numeroBloque,
- bloque->disponible);
- }
- }
-
- // Si hay al menos 1 copia de cada bloque, el archivo pasa a estar disponible.
- if (bloquesDisponibles == bloquesTotales) {
- archivo->disponible = '1';
- archivosDisponibles++;
- }
- }
-
- // Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
- if (archivosDisponibles == archivosTotales) {
- estadoFs = ESTABLE;
- sem_post(&semEstadoEstable);
- }
- * */
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		nodo->bloquesLibres = nodo->bloquesTotales;
+		memset(nodo->bitmap, 'L', strlen(nodo->bitmap));
+	}
+}
