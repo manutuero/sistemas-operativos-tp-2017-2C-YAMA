@@ -37,15 +37,17 @@ void cargarArchivoDeConfiguracion() {
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
-	t_config *config = config_create(pathArchConfig);
+	//t_config* config = config_create(pathArchConfig);
+	config = config_create(pathArchConfig);
 
 	if (!config) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
 
+	FS_IP = string_new();
 	if (config_has_property(config, "FS_IP")) {
-		FS_IP = config_get_string_value(config, "FS_IP");
+		string_append(&FS_IP,config_get_string_value(config, "FS_IP"));
 	}
 
 	if (config_has_property(config, "FS_PUERTO")) {
@@ -72,7 +74,7 @@ void cargarArchivoDeConfiguracion() {
 		PUERTO_MASTERS = config_get_int_value(config,"PUERTO_MASTERS");
 	}
 
-	printf("Puerto: %d\n", PUERTO);
+	printf("Puerto: %d\n", PUERTO_MASTERS);
 	printf("IP FS: %s\n", FS_IP);
 	printf("Job actual: %d\n", job);
 }
@@ -81,7 +83,7 @@ void yamaEscuchando() {
 
 	//struct sockaddr_in direccionDelServidorKernel;
 	direccionYama.sin_family = AF_INET;
-	direccionYama.sin_port = htons(PUERTO);
+	direccionYama.sin_port = htons(PUERTO_MASTERS);
 	direccionYama.sin_addr.s_addr = INADDR_ANY;
 	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 

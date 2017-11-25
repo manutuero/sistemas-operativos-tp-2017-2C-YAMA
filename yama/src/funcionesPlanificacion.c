@@ -940,14 +940,17 @@ void freeRedGlobal(void *registro)
 void actualizarConfig()
 {
 	char* path = "YAMAconfig.cfg";
+	char* clave, *sJob;
 	char cwd[1024];
-	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+	char *pathArchConfig = string_new();
+	char* ruta = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
-	t_config *config = config_create(pathArchConfig);
-
+	string_append(&pathArchConfig,ruta);
+	//t_config *config = config_create(pathArchConfig);
+	FILE* fpConfig = fopen(pathArchConfig,"r+");
 	int estadoGuardado = 0;
 
-	if (!config) {
+	if (!fpConfig) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
@@ -957,13 +960,27 @@ void actualizarConfig()
 			job = config_get_int_value(config, "JOB");
 		}
 
+	clave = "JOB=";
+	sJob = string_new();
+	job++;
+	string_append(&sJob,string_itoa(job));
+	string_append(&sJob,"\n");
+	fputs(clave, fpConfig);
+	estadoGuardado = fputs(sJob, fpConfig);
+	//fputs(valor, filePointer);
+	/*
 	if (config_has_property(config,"JOB"))
 		{
-			config_set_value(config,"JOB",string_itoa(job+1));
-			estadoGuardado = config_save(config);
-		}
-
-	if (estadoGuardado==(-1))
+			char* jpb = string_new();
+			string_append(&jpb,string_itoa(job+1));
+			printf("%s\n",jpb);
+			printf("10\n");
+			config_set_value(config,"JOB",jpb);
+			printf("11\n");
+			estadoGuardado = config_save_in_file(config,pathArchConfig);
+			printf("12\n");
+		}*/
+	if (estadoGuardado==(EOF))
 	{
 		perror("[ERROR]: Fallo al guardar YAMAconfig.cfg");
 	}
@@ -971,6 +988,10 @@ void actualizarConfig()
 	if (config_has_property(config,"ALGORITMO_BALANCEO"))
 		algoritmo = config_get_int_value(config,"ALGORITMO_BALANCEO");
 
+	free(pathArchConfig);
+	free(sJob);
+	free(ruta);
+	//config_destroy(config);
 	return;
 }
 
