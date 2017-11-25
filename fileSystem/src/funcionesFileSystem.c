@@ -2036,10 +2036,24 @@ void* obtenerSocketNodosYama() {
 		return 0;
 	}
 	printf("Conectado a yama correctamente para enviar informacion de nodos");
+
 	socketYamaNodos = socketPrograma;
+	 enviarInfoNodosAYamaInicial();
+
+
+
 	return NULL;
 }
 
+
+void enviarInfoNodosAYamaInicial() {
+	t_nodo *nodo = NULL;
+	int i;
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		enviarInfoNodoYama(nodo, CONEXION);
+	}
+}
 void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	void* paquete = NULL;
 	t_header *header=malloc(sizeof(t_header));
