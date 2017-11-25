@@ -254,6 +254,14 @@ void escuchaActualizacionesNodos() {
 	int socketYamaNodos;
 	socketYamaNodos =nuevoSocket();
 	//socket(serverInfo->ai_family, serverInfo->ai_socktype,serverInfo->ai_protocol);
+
+
+	int activado=1;
+	if (setsockopt(socketYamaNodos, SOL_SOCKET, SO_REUSEADDR, &activado,
+				sizeof(activado)) == -1) {
+			perror("setsockopt");
+			exit(1);
+		}
 	bind(socketYamaNodos, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo);
 	listen(socketYamaNodos, 3); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
