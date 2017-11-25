@@ -105,16 +105,18 @@ void inicializarMutex() {
 void crearLogger() {
 	char *pathLogger = string_new();
 	char* temporal = string_new();
+	char* sTime = temporal_get_string_time();
 	char cwd[1024];
 	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
 	string_append(&temporal, "/logs/masterLogs");
-	string_append(&temporal, temporal_get_string_time());
+	string_append(&temporal, sTime);
 	string_append(&temporal,".log");
 	string_append(&pathLogger, temporal);
 
 	char *logMasterFileName = strdup(temporal);
 	masterLogger = log_create(pathLogger, logMasterFileName, true,
 			LOG_LEVEL_TRACE);
+	free(sTime);
 	free(temporal);
 	free(logMasterFileName);
 	free(pathLogger);
@@ -143,7 +145,12 @@ t_config* cargarArchivoDeConfiguracion() {
 		puertoYama = config_get_int_value(config, "YAMA_PUERTO");
 	}
 
+	if (config_has_property(config, "ID_MASTER")) {
+		idMaster = config_get_int_value(config, "ID_MASTER");
+	}
+
 	log_info(masterLogger, "Archivo de configuracion cargado exitosamente");
+	printf("ID Master: %d\n", idMaster);
 	printf("Puerto: %d\n", puertoYama);
 	printf("IP YAMA: %s\n", ipYama);
 	return config;
@@ -234,8 +241,11 @@ void* serializarArchivos(int* largoBuffer) {
 
 	tamanioBuffer = strlen(archivoAprocesar) + strlen(direccionDeResultado)
 			+ 2 * sizeof(uint32_t);
+	//tamanioBuffer = strlen(archivoAprocesar) + strlen(direccionDeResultado) + 2 * sizeof(uint32_t) + sizeof(idMaster);
 	buffer = malloc(tamanioBuffer);
-	memcpy(buffer, &pedido.largoArchivo, sizeof(uint32_t));
+	//memcpy(buffer, &idMaster, sizeof(uint32_t));
+	//desplazamiento += sizeof(uint32_t);
+	memcpy(buffer+desplazamiento, &pedido.largoArchivo, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer + desplazamiento, pedido.nombreArchivo, pedido.largoArchivo);
 	desplazamiento += pedido.largoArchivo;
@@ -560,12 +570,6 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor) {
 	for (i = 0; i < list_size(listaTransformaciones); i++) {
 		transformacion = (t_transformacionMaster*) list_get(
 				listaTransformaciones, i);
-		if (transformacion->idNodo == 1)
-			transformacion->puerto = 6671;
-		if (transformacion->idNodo == 3)
-			transformacion->puerto = 6672;
-		if (transformacion->idNodo == 4)
-			transformacion->puerto = 6673;
 
 		if(transformacionExistente(transformacion->archivoTransformacion) == 0){
 			pthread_t hiloConexionesWorker;
@@ -814,6 +818,7 @@ void avisarAYama(t_transformacionMaster* transformacion, t_header headerResp) {
 void avisarAYamaRedLocal(t_infoReduccionesLocales reduccionWorker,
 		t_header headerResp) {
 	int desplazamiento;
+	printf("%s\n",reduccionWorker.rutaArchivoReductorLocal);
 	headerResp.tamanioPayload = reduccionWorker.largoRutaArchivoReductorLocal;
 	void* buffer = malloc(sizeof(t_header) + headerResp.tamanioPayload);
 	desplazamiento = 0;
@@ -854,7 +859,6 @@ void avisarAlmacenadoFinal() {
 	t_reduccionGlobalMaster* redGlobalMaster;
 	t_header header;
 
-
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
 		redGlobalMaster = list_get(listaRedGloblales, i);
 		if (redGlobalMaster->encargado == 1) {
@@ -892,6 +896,7 @@ void avisarAlmacenadoFinal() {
 		printf("se avisa al worker encargado (nodo %d) para almacenar el resultado del job\n",nodoEncargado);
 		log_info(masterLogger,"Se avisa al worker encargado (nodo %d) para almacenar el resultado del job.",
 				nodoEncargado);
+		free(bufferStruct);
 		free(buffer);
 	}
 }
@@ -1025,13 +1030,16 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	t_falloTransformacion fallo;
 	fallo.largoRutaTemporal = transformacion->largoArchivo;
 	fallo.rutaTemporalTransformacion = malloc(fallo.largoRutaTemporal);
-	strcpy(fallo.rutaTemporalTransformacion,
-			transformacion->archivoTransformacion);
+	strcpy(fallo.rutaTemporalTransformacion,transformacion->archivoTransformacion);
 	fallo.largoRutaArchivoAProcesar = strlen(archivoAprocesar);
 	fallo.rutaArchivoAProcesar = malloc(fallo.largoRutaArchivoAProcesar);
 	strcpy(fallo.rutaArchivoAProcesar, archivoAprocesar);
+	fallo.largoRutaArchivoDestino = strlen(archivoAprocesar);
+	fallo.rutaArchivoDestino = malloc(fallo.largoRutaArchivoDestino);
+	strcpy(fallo.rutaArchivoDestino, direccionDeResultado);
 
-	tamanioBuffer = sizeof(t_header) + 2 * sizeof(uint32_t)
+
+	tamanioBuffer = sizeof(t_header) + 3 * sizeof(uint32_t)
 			+ fallo.largoRutaArchivoAProcesar + fallo.largoRutaTemporal;
 
 	buffer = malloc(tamanioBuffer);
@@ -1054,6 +1062,11 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	memcpy(buffer + desplazamiento, fallo.rutaArchivoAProcesar,
 			fallo.largoRutaArchivoAProcesar);
 	desplazamiento += fallo.largoRutaArchivoAProcesar;
+	memcpy(buffer + desplazamiento, &fallo.largoRutaArchivoDestino,sizeof(uint32_t));
+	desplazamiento += sizeof(uint32_t);
+	memcpy(buffer + desplazamiento, fallo.rutaArchivoDestino,fallo.largoRutaArchivoDestino);
+	desplazamiento += fallo.largoRutaArchivoDestino;
+
 	enviarPorSocket(socketYama, buffer, tamanioBuffer);
 	pthread_mutex_lock(&mutexTotalFallos);
 	fallos++;
@@ -1252,10 +1265,16 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 int respuestaTransformacion(int socketWorker) {
 
 	char* buffer = malloc(sizeof(int));
+	t_header header;
 	int respuesta;
-	recibirPorSocket(socketWorker, &respuesta, sizeof(int));
+	int bytesRecibidos = recibirPorSocket(socketWorker, &header, sizeof(int));
+	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, sizeof(int));
+	printf("%d\n", bytesRecibidos);
 	free(buffer);
-	return respuesta;
+	if(bytesRecibidos == 0)
+		return 0;
+	else //return respuesta;
+	return header.id;
 }
 
 void metricas(double tiempo) {

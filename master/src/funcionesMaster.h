@@ -139,6 +139,8 @@
 		char* rutaTemporalTransformacion;
 		uint32_t largoRutaArchivoAProcesar;
 		char* rutaArchivoAProcesar;
+		uint32_t largoRutaArchivoDestino;
+		char* rutaArchivoDestino;
 	}t_falloTransformacion;
 
 	typedef struct{
@@ -188,7 +190,7 @@ t_transformacionesNodo* nodosTransformacion;
 t_log* masterLogger;
 time_t tiempo;
 char* ipYama;
-int puertoYama, socketYama;
+int puertoYama, socketYama, idMaster;
 int transformacionesPendientes, reduccionesLocalesPendientes, fallos;
 int cantidadTareasCorriendoTransformacion, maximoTareasCorriendoTransformacion;
 int cantidadTareasCorriendoRedLocal, maximoTareasCorriendoRedLocal;
