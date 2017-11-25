@@ -2062,11 +2062,11 @@ void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	} else {
 		header->id = 31;
 	}
-	printf("envio infonodo id:  ",nodo->idNodo);
+	printf("envio infonodo id: %d ",nodo->idNodo);
 	puts("");
 	paquete = serializarInfoNodo(nodo, header);
 	enviarPorSocket(socketYamaNodos, paquete,
-			header->tamanioPayload + (sizeof(uint32_t) * 2));
+			header->tamanioPayload );
 
 	return NULL;
 }
