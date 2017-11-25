@@ -650,7 +650,7 @@ void cargarReduccionLocalTablaEstado(char* nombreTMP,int idNodo)
 /*  							Reduccion global 							*/
 void planificacionReduccionGlobal(int cantNodos,int *nodosInvolucrados)
 {
-	int nodoReduccionGlobal,i;
+	int nodoReduccionGlobal,i,cantRedLocales;
 	t_list *listaAux;
 	listaAux = list_create();
 
@@ -658,8 +658,18 @@ void planificacionReduccionGlobal(int cantNodos,int *nodosInvolucrados)
 
 	t_reduccionGlobalMaster *infoReduccionGlobal;
 
+	cantRedLocales=list_size(listaPlanRedLocal);
+
 	nodoReduccionGlobal = seleccionarNodoMenorCarga(nodosInvolucrados,cantNodos);
 	workers[nodoReduccionGlobal].cant_red_globales++;
+
+	if((cantRedLocales/2)==0)
+	{
+		workers[nodoReduccionGlobal].workLoad+=(cantRedLocales/2);
+	}else
+	{
+		workers[nodoReduccionGlobal].workLoad+=(cantRedLocales/2)+1;
+	}
 
 	for (i=0;i<list_size(listaAux);i++)
 	{
