@@ -40,7 +40,7 @@ void *preplanificarJob(t_job* jobMaster){
 	clock = malloc(sizeof(uint32_t));
 	clockAux = malloc(sizeof(uint32_t));
 
-	/* RVFS    Recibir de FS la composicion completa del archivo          */
+	/* RBFS    Recibir de FS la composicion completa del archivo          */
 
 	recibirComposicionArchivo();
 
@@ -940,17 +940,14 @@ void freeRedGlobal(void *registro)
 void actualizarConfig()
 {
 	char* path = "YAMAconfig.cfg";
-	char* clave, *sJob;
 	char cwd[1024];
-	char *pathArchConfig = string_new();
-	char* ruta = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
-	string_append(&pathArchConfig,ruta);
-	//t_config *config = config_create(pathArchConfig);
-	FILE* fpConfig = fopen(pathArchConfig,"r+");
+	t_config *config = config_create(pathArchConfig);
+
 	int estadoGuardado = 0;
 
-	if (!fpConfig) {
+	if (!config) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
@@ -960,27 +957,13 @@ void actualizarConfig()
 			job = config_get_int_value(config, "JOB");
 		}
 
-	clave = "JOB=";
-	sJob = string_new();
-	job++;
-	string_append(&sJob,string_itoa(job));
-	string_append(&sJob,"\n");
-	fputs(clave, fpConfig);
-	estadoGuardado = fputs(sJob, fpConfig);
-	//fputs(valor, filePointer);
-	/*
 	if (config_has_property(config,"JOB"))
 		{
-			char* jpb = string_new();
-			string_append(&jpb,string_itoa(job+1));
-			printf("%s\n",jpb);
-			printf("10\n");
-			config_set_value(config,"JOB",jpb);
-			printf("11\n");
-			estadoGuardado = config_save_in_file(config,pathArchConfig);
-			printf("12\n");
-		}*/
-	if (estadoGuardado==(EOF))
+			config_set_value(config,"JOB",string_itoa(job+1));
+			estadoGuardado = config_save(config);
+		}
+
+	if (estadoGuardado==(-1))
 	{
 		perror("[ERROR]: Fallo al guardar YAMAconfig.cfg");
 	}
@@ -988,10 +971,6 @@ void actualizarConfig()
 	if (config_has_property(config,"ALGORITMO_BALANCEO"))
 		algoritmo = config_get_int_value(config,"ALGORITMO_BALANCEO");
 
-	free(pathArchConfig);
-	free(sJob);
-	free(ruta);
-	//config_destroy(config);
 	return;
 }
 
@@ -1009,10 +988,10 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	t_bloqueRecv *registroBloque;
 	t_pedidoTransformacion pedidoTransformacion;
 
+	crearListas();
 	listaTareasCaidas = list_create();
 	listaTransformacionesCaidas = list_create();
 	listaRedesLocalesCaidas = list_create();
-	listaBloquesRecibidos = list_create();
 
 	registro = encontrarRegistro(archivoTMP);
 
@@ -1045,7 +1024,13 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 		{
 			transformacionReplanificada = malloc(sizeof(t_transformacionMaster));
 			registroBloque = list_get(listaBloquesRecibidos,i);
-			//cargarInfoNodoAlterno()
+			//cargarInfoNodoAlterno(registro,registroBloque,transformacionReplanificada);
+
+		}
+
+		if (registro->etapa==3)
+		{
+
 		}
 	}
 
@@ -1143,7 +1128,7 @@ void recibirComposicionArchivo(){
 		memcpy(&bloqueRecibido->bytesOcupados,buffer,sizeof(uint32_t));
 		desplazamiento+=sizeof(uint32_t);
 
-		list_add(listaBloquesRecibidos,bloqueRecibido);
+		guardarEnBloqueRecibidos(bloqueRecibido);
 
 	}
 

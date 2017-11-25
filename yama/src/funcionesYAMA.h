@@ -27,7 +27,6 @@ int socketMasters, socketFS;
 char* ip,*socketFSNodos;
 extern uint32_t ultimoMaster;
 uint32_t job;
-t_config* config;
 char* FS_IP;
 int FS_PUERTO,PUERTO_FS_NODOS,RETARDO_PLANIFICACION,PUERTO_MASTERS;
 
