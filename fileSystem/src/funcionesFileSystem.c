@@ -8,12 +8,10 @@ int archivosDisponibles = 0;
 bool estadoAnterior;
 sem_t semNodosRequeridos;
 sem_t semEstadoEstable;
-pthread_mutex_t mutexAlmacenarBloques = PTHREAD_MUTEX_INITIALIZER;
 
 /* Inicializacion de estructuras administrativas */
 t_directory directorios[100];
-t_list *nodos,
-*nodosEsperados, *archivos;
+t_list *nodos, *nodosEsperados, *archivos;
 
 /*********************** Implementacion de funciones ************************/
 /* Implementacion de funciones para archivo de configuracion */
@@ -126,7 +124,7 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	largoIp = strlen(nodo->ip) + 1;
+	largoIp = strlen(nodo->ip);
 	memcpy(payload + desplazamiento, &largoIp, bytesACopiar); // le agrego el largo de la cadena ip como parte del mensaje
 	desplazamiento += sizeof(uint32_t);
 
@@ -149,7 +147,7 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	memcpy(paquete + desplazamiento, payload, header->tamanioPayload);
-	free(payload);
+
 	return paquete;
 }
 
@@ -252,7 +250,6 @@ void* esperarConexionesDatanodes() {
 			}
 
 			// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
-
 			actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
 			if (actividad < 0) {
 				fprintf(stderr, "[ERROR]: Fallo la funcion select().");
@@ -266,83 +263,18 @@ void* esperarConexionesDatanodes() {
 					perror("accept");
 					exit(EXIT_FAILURE);
 				}
-				// Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
+				//Si la cantidad de nodos conectados es menor a la esperada, se agrega el socket, Sino se cierra
 				if (nodos->elements_count < cantidad_nodos_esperados) {
 					// Agrego el nuevo socket al array
 					for (i = 0; i < numeroClientes; i++) {
 						//Busco una pos vacia en la lista de clientes para guardar el socket entrante
 						if (socketsClientes[i] == 0) {
 							socketsClientes[i] = socketEntrante;
-							//Recibo la informacion del nuevo socket conectado
-							if (recibirHeader(socketEntrante, &header) != 0) {
-								buffer = malloc(header.tamanioPayload);
-								if (recibirPorSocket(socketEntrante, buffer,
-										header.tamanioPayload) <= 0) {
-									perror(
-											"Error. El payload no se pudo recibir correctamente.");
-								} else {
-									t_infoNodo infoNodo = deserializarInfoNodo(
-											buffer, header.tamanioPayload);
-
-									t_nodo *nodo = malloc(sizeof(t_nodo));
-									nodo->socketDescriptor = socketEntrante;
-									nodo->idNodo = infoNodo.idNodo;
-									nodo->bloquesTotales =
-											infoNodo.cantidadBloques;
-									nodo->bloquesLibres = nodo->bloquesTotales;
-									nodo->puertoWorker = 0;
-									getpeername(socketEntrante, (struct sockaddr*) &address,
-											(socklen_t*) &addrlen);
-									nodo->ip = inet_ntoa(address.sin_addr);
-
-									if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
-										agregarNodo(nodos, nodo);
-										agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
-									}
-
-									if (estadoNodos
-											== ACEPTANDO_NODOS_YA_CONECTADOS
-											&& estadoFs == NO_ESTABLE) {
-										if (esNodoAnterior(nodosEsperados,
-												nodo->idNodo)) {
-											if (estadoAnterior) {
-												nodo->bitmap =
-														recuperarBitmapAnterior(
-																nodo->idNodo);
-												actualizarDisponibilidadArchivos(
-														nodo->idNodo, CONEXION);
-											}
-											agregarNodo(nodos, nodo);
-										} else {
-											cerrarSocket(socketEntrante);
-										}
-									} else if (estadoNodos
-											== ACEPTANDO_NODOS_YA_CONECTADOS // este escenario se da con el estado anterior.
-									&& estadoFs == ESTABLE) {
-										if (esNodoAnterior(nodosEsperados,
-												nodo->idNodo)) {
-											if (estadoAnterior) {
-												nodo->bitmap =
-														recuperarBitmapAnterior(
-																nodo->idNodo);
-												actualizarDisponibilidadArchivos(
-														nodo->idNodo, CONEXION);
-											}
-											agregarNodo(nodos, nodo);
-										} else if (estadoFs == ESTABLE) {
-											socketsClientes[i] = 0;
-											cerrarSocket(socketEntrante); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
-										}
-									}
-									free(buffer);
-								}
-
-								break;
-							}
+							break;
 						}
 					}
 				} else { //Rechazo el socket ya que el sistema no permite mas conexiones.
-					cerrarSocket(socketEntrante);
+					cerrarSocket(sd);
 				}
 
 			} else {
@@ -352,9 +284,10 @@ void* esperarConexionesDatanodes() {
 
 					if (FD_ISSET(sd, &readfds)) {
 						// Desconexion de un nodo.
-						buffer=malloc(1);
-						if (recv(sd,buffer,sizeof(buffer), MSG_PEEK | MSG_DONTWAIT) == 0) {
+						if (recibirHeader(sd, &header) == 0) {
+							cerrarSocket(sd);
 							socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
+							estadoFs = NO_ESTABLE;
 							// Actualizo la lista de nodos conectados.
 							int j;
 							t_nodo *nodoDesconectado;
@@ -363,19 +296,75 @@ void* esperarConexionesDatanodes() {
 								if (nodoDesconectado) {
 									if (nodoDesconectado->socketDescriptor
 											== sd) {
-										//Enviar desconexion a YAMA SI estoy en estado estable y el yama esta conectado
 										list_remove(nodos, i);
-										if (estadoAnterior) {
-											actualizarDisponibilidadArchivos(
-													nodoDesconectado->idNodo,
-													DESCONEXION);
-										}
+										actualizarDisponibilidadArchivos(
+												nodoDesconectado->idNodo,
+												DESCONEXION);
 									}
 								}
 							}
 							break;
 						}
 
+						buffer = malloc(header.tamanioPayload);
+
+						// Lo que hariamos aca es buscar el nodo en la lista de nodos conectados y sacarlo. Ademas hay que actualizar la tabla de archivos.
+						if (recibirPorSocket(sd, buffer, header.tamanioPayload)
+								<= 0) {
+							perror(
+									"Error. El payload no se pudo recibir correctamente.");
+						} else {
+							t_infoNodo infoNodo = deserializarInfoNodo(buffer,
+									header.tamanioPayload);
+
+							t_nodo *nodo = malloc(sizeof(t_nodo));
+							nodo->socketDescriptor = sd;
+							nodo->idNodo = infoNodo.idNodo;
+							nodo->bloquesTotales = infoNodo.cantidadBloques;
+							nodo->bloquesLibres = nodo->bloquesTotales;
+							nodo->puertoWorker = 0;
+							getpeername(sd, (struct sockaddr*) &address,
+									(socklen_t*) &addrlen);
+							nodo->ip = inet_ntoa(address.sin_addr);
+
+							if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
+								agregarNodo(nodos, nodo);
+								agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
+							}
+
+							if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+									&& estadoFs == NO_ESTABLE) {
+								if (esNodoAnterior(nodosEsperados,
+										nodo->idNodo)) {
+									if (estadoAnterior) {
+										nodo->bitmap = recuperarBitmapAnterior(
+												nodo->idNodo);
+										actualizarDisponibilidadArchivos(
+												nodo->idNodo, CONEXION);
+									}
+									agregarNodo(nodos, nodo);
+								} else {
+									cerrarSocket(sd);
+								}
+							} else if (estadoNodos
+									== ACEPTANDO_NODOS_YA_CONECTADOS // este escenario se da con el estado anterior.
+							&& estadoFs == ESTABLE) {
+								if (esNodoAnterior(nodosEsperados,
+										nodo->idNodo)) {
+									if (estadoAnterior) {
+										nodo->bitmap = recuperarBitmapAnterior(
+												nodo->idNodo);
+										actualizarDisponibilidadArchivos(
+												nodo->idNodo, CONEXION);
+									}
+									agregarNodo(nodos, nodo);
+								} else if (estadoFs == ESTABLE) {
+									socketsClientes[i] = 0;
+									cerrarSocket(sd); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+								}
+							}
+							free(buffer);
+						}
 					}
 				}
 			}
@@ -430,7 +419,6 @@ int guardarBloqueEnNodo(t_bloque *bloque, int COPIA) {
 		paquete = serializarSetBloque(bloque->contenido,
 				bloque->numeroBloqueCopia1);
 	}
-
 	// Envio el paquete.
 	bytesEnviados = enviarPorSocket(socketNodo, paquete, bytesAEnviar);
 	if (bytesEnviados < bytesAEnviar) {
@@ -741,22 +729,22 @@ bool hayEstadoAnterior() {
 
 /* Implementacion de funciones de inicializacion */
 void crearDirectorioMetadata() {
-	char *comando;
-	struct stat st;
+	DIR *directorio = opendir(PATH_METADATA);
 
-	// Si existe el directorio como le dimos un format debemos borrarlo.
-	if ((stat(PATH_METADATA, &st) == 0 && S_ISDIR(st.st_mode)))
-		borrarDirectorioMetadata();
-
-	comando = string_new();
-	string_append(&comando, "mkdir -p ");
-	string_append(&comando, PATH_METADATA);
-	system(comando);
+	// Si el directorio no existe, lo crea.
+	if (ENOENT == errno) {
+		char *comando = string_new();
+		string_append(&comando, "mkdir -p ");
+		string_append(&comando, PATH_METADATA);
+		system(comando);
+	}
 
 	crearDirectorioArchivos();
 	crearTablaDeDirectorios();
 	crearTablaDeNodos();
 	crearDirectorioBitmaps();
+
+	closedir(directorio);
 }
 
 void borrarDirectorioMetadata() {
@@ -989,27 +977,15 @@ void restaurarTablaDeArchivos() {
 }
 
 void agregarNodo(t_list *lista, t_nodo *nodo) {
-	if (!lista)
+	if (!lista) {
 		fprintf(stderr, "[WARNING]: La lista no esta inicializada.");
-
-	if (!existeNodo(nodo->idNodo)) {
+	} else {
 		list_add(lista, nodo);
 	}
 
-	// Se conectaron al menos
+// Se conectaron al menos
 	if (lista->elements_count >= 2)
 		sem_post(&semNodosRequeridos);
-}
-
-bool existeNodo(int idNodo) {
-	int i;
-	t_nodo *nodo;
-	for (i = 0; i < nodos->elements_count; i++) {
-		nodo = list_get(nodos, i);
-		if (nodo->idNodo == idNodo)
-			return true;
-	}
-	return false;
 }
 
 t_list* copiarListaNodos(t_list *lista) {
@@ -1658,40 +1634,38 @@ void *escucharPeticionesYama() {
 	hints.ai_socktype = SOCK_STREAM;
 	getaddrinfo(NULL, PUERTO_YAMA, &hints, &serverInfo); // Notar que le pasamos NULL como IP, ya que le indicamos que use localhost en AI_PASSIVE
 	int socketYama;
-
-	int activado = 1;
 	socketYama = socket(serverInfo->ai_family, serverInfo->ai_socktype,
 			serverInfo->ai_protocol);
-	// Permite reutilizar el socket sin que se bloquee por 2 minutos
+
+	int activado=1;
 	if (setsockopt(socketYama, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
-		perror("setsockopt");
+		perror("setsockopt socketYama");
 		exit(1);
 	}
+
+
 
 	bind(socketYama, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo); // Ya no lo vamos a necesitar
 	listen(socketYama, BACKLOG); // IMPORTANTE: listen() es una syscall BLOQUEANTE.
-
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 	int socketCliente = accept(socketYama, (struct sockaddr *) &addr, &addrlen);
-	puts("");
 	/*
 	 Cuando el cliente cierra la conexion, recv() devolvera 0.
 	 */
 //Guardo el ip del Yama para usarlo luego en otro hilo
 	struct sockaddr_in address;
-	getpeername(socketCliente, (struct sockaddr*) &address,
-			(socklen_t*) &addrlen);
+	getpeername(socketCliente, (struct sockaddr*) &address, (socklen_t*) &addrlen);
 	ipYama = inet_ntoa(address.sin_addr);
 	sem_post(&semIpYamaNodos);
 	int status = 1;		// Estructura que manjea el status de los recieve.
 	while (status != 0) {
-		status = recibirHeader(socketCliente, header);
+		status = recibirHeader(socketYama, header);
 
 		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
-		if (status != 0) {
+		if ((status != 0) &&(header->id==5)) {
 			void * peticionRecibida = malloc(header->tamanioPayload);
 			char* pathArchivo;
 			char* pathGuardadoFinal;
@@ -1907,18 +1881,17 @@ t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque) {
 }
 
 int guardarBloque(t_bloque *bloque, int idNodo) {
-	/*	int respuesta;
+	int respuesta;
 
-	 //respuesta = guardarBloqueEnNodo(bloque, 0);
-	 Si salio mal.
-	 if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
-	 printf("Se produjo un error al recibir la respuesta.\n");
-	 return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
-	 }
+	respuesta = guardarBloqueEnNodo(bloque, 0);
+// Si salio mal.
+	if (respuesta == ERROR_AL_RECIBIR_RESPUESTA) {
+		printf("Se produjo un error al recibir la respuesta.\n");
+		return ERROR_NO_SE_PUDO_GUARDAR_BLOQUE;
+	}
 
-	 // Si guardo ok. :)
-	 return GUARDO_BLOQUE_OK;*/
-	return 0;
+// Si guardo ok. :)
+	return GUARDO_BLOQUE_OK;
 }
 
 void persistirBitmaps() {
@@ -1945,39 +1918,39 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 void *esperarConexionesWorker() {
 
 	int socketFSWorkers;
-	printf("\nPuerto conexion workers: %d.\n", PUERTO_WORKERS);
+	printf("Puerto conexion workers: %d\n", PUERTO_WORKERS);
 	struct sockaddr_in direccionFSWorker;
+//struct sockaddr_in direccionDelServidorKernel;
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
 	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
-	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
+//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
 	int activado = 1;
 
 	socketFSWorkers = socket(AF_INET, SOCK_STREAM, 0);
-	// Permite reutilizar el socket sin que se bloquee por 2 minutos
+// Permite reutilizar el socket sin que se bloquee por 2 minutos
 	if (setsockopt(socketFSWorkers, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
 		perror("setsockopt");
 		exit(1);
 	}
 
-	// Se enlaza el socket al puerto
+// Se enlaza el socket al puerto
 	if (bind(socketFSWorkers, (struct sockaddr *) &direccionFSWorker,
 			sizeof(struct sockaddr)) != 0) {
 		perror("No se pudo conectar");
 		exit(1);
 	}
-	// Se pone a escuchar el servidor kernel
+// Se pone a escuchar el servidor kernel
 	if (listen(socketFSWorkers, 10) == -1) {
 		perror("listen");
 		exit(1);
 	}
 
 	fd_set readfds, auxRead;
-	socklen_t tamanioDir = sizeof(direccionFSWorker);
-	//char* buffer;
-	int maxPuerto, i, nuevoSocket;
+	int tamanioDir = sizeof(direccionFSWorker);
+	int  maxPuerto, i, nuevoSocket;
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
 	FD_SET(socketFSWorkers, &auxRead);
@@ -2010,11 +1983,13 @@ void *esperarConexionesWorker() {
 						buffer = malloc(header.tamanioPayload);
 						recibirPorSocket(nuevoSocket, buffer,
 								header.tamanioPayload);
-						//	t_infoArchivoFinal* archivo;
+						t_infoArchivoFinal* archivo;
+
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
-							//archivo = deserializarInfoArchivoFinal(buffer);
+							archivo = deserializarInfoArchivoFinal(buffer);
 							//TODO guardar archivoGlobal
 						}
+
 						if (nuevoSocket > maxPuerto)
 							maxPuerto = nuevoSocket;
 					}
@@ -2048,54 +2023,37 @@ t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 }
 
 void* obtenerSocketNodosYama() {
-	struct sockaddr_in direccionFS;
+//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	sem_wait(&semIpYamaNodos);
-	sleep(5);
-	//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
-	direccionFS.sin_family = AF_INET;
-	direccionFS.sin_port = htons(PUERTO_YAMANODOS);
-	direccionFS.sin_addr.s_addr = inet_addr(ipYama);
-	//memset(&(direccionYama.sin_zero), '\0', 8);
-
-	socketYamaNodos = nuevoSocket(); //socket(AF_INET, SOCK_STREAM, 0);
-	if (connect(socketYamaNodos, (struct sockaddr *) &direccionFS,
-			sizeof(struct sockaddr)) != 0) {
-		perror(
-				"fallo la conexion al yama para info nodos. (funcionesFileSystem 2050)");
-		exit(1);
+	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
+	if (socketPrograma <= 0) {
+		//perror(
+		//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+		//return (ERROR);
 	}
-	enviarInfoNodosAYamaInicial();
+	if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
+		perror("No se pudo conectar al yama para actualizacion de nodos");
+		return 0;
+	}
+	printf("Conectado a yama correctamente para enviar informacion de nodos");
+	socketYamaNodos = socketPrograma;
 	return NULL;
-}
-
-void enviarInfoNodosAYamaInicial() {
-	t_nodo *nodo = NULL;
-	int i;
-	for (i = 0; i < nodos->elements_count; i++) {
-		nodo = list_get(nodos, i);
-		enviarInfoNodoYama(nodo, CONEXION);
-	}
 }
 
 void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	void* paquete = NULL;
-	t_header *header;
-	header = malloc(sizeof(t_header));
+	t_header *header=malloc(sizeof(t_header));
 	if (tipo == CONEXION) {
 		header->id = 30;
 	} else {
 		header->id = 31;
 	}
+	printf("envio infonodo id:  ",nodo->idNodo);
+	puts("");
 	paquete = serializarInfoNodo(nodo, header);
+	enviarPorSocket(socketYamaNodos, paquete,
+			header->tamanioPayload + (sizeof(uint32_t) * 2));
 
-	int enviados = enviarPorSocket(socketYamaNodos, paquete,
-			header->tamanioPayload);
-	if (enviados < header->tamanioPayload + (sizeof(uint32_t) * 2)) {
-		perror("ERROR Al enviar informacion de nodos a YAMA");
-	}
-
-	free(header);
-	free(paquete);
 	return NULL;
 }
 
@@ -2164,8 +2122,8 @@ void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
 	int i, archivosTotales;
 	t_archivo_a_persistir *archivo;
 
-	archivosTotales = archivos->elements_count;
 	// Recorro la lista de archivos en memoria.
+	archivosTotales = archivos->elements_count;
 	for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
 			i++) {
 		archivo = list_get(archivos, i);
@@ -2203,3 +2161,47 @@ int contarDisponibles(t_list *bloques) {
 	}
 	return cantidadDisponibles;
 }
+
+/*int i, j, archivosTotales, bloquesTotales, bloquesDisponibles;
+ t_archivo_a_persistir *archivo;
+ t_bloque *bloque;
+
+ // Recorro la lista de archivos en memoria.
+ archivosTotales = archivos->elements_count;
+ for (i = 0; i < archivosTotales && archivosDisponibles < archivosTotales;
+ i++) {
+ archivo = list_get(archivos, i);
+ if (archivo->disponible == '1') {
+ archivosDisponibles++;
+ continue;
+ }
+
+ printf("\nArchivo: %s.\n", archivo->nombreArchivo);
+ // Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
+ bloquesTotales = archivo->bloques->elements_count;
+ bloquesDisponibles = contarDisponibles(archivo->bloques);
+ for (j = 0; j < bloquesTotales && bloquesDisponibles < bloquesTotales;
+ j++) {
+ bloque = list_get(archivo->bloques, j);
+ if (bloque->nodoCopia0->idNodo == idNodo
+ || bloque->nodoCopia1->idNodo == idNodo) {
+ bloque->disponible = '1';
+ bloquesDisponibles++;
+ printf("Bloque: %d.. disponible: %c.\n", bloque->numeroBloque,
+ bloque->disponible);
+ }
+ }
+
+ // Si hay al menos 1 copia de cada bloque, el archivo pasa a estar disponible.
+ if (bloquesDisponibles == bloquesTotales) {
+ archivo->disponible = '1';
+ archivosDisponibles++;
+ }
+ }
+
+ // Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
+ if (archivosDisponibles == archivosTotales) {
+ estadoFs = ESTABLE;
+ sem_post(&semEstadoEstable);
+ }
+ * */
