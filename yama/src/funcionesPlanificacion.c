@@ -5,6 +5,7 @@ t_worker_Disponibles workers[30];
 int algoritmo = 1;//idem anterior, 0 para clock y 1 para wclock
 //uint32_t job = 0;
 int idMaster = 1;
+uint32_t disponibilidadBase;
 
 void mostrarTablaDeEstados(int i) {
 	printf("Tabla de estados:\n");
@@ -455,7 +456,7 @@ int nodoContieneBloque(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,int* c
 void actualizarPlanificacion(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,int* clock)
 {
 	char *nombreTMP;
-	nombreTMP = string_new();
+	//nombreTMP = string_new();
 	t_transformacionMaster* bloquePlanificado;
 	bloquePlanificado = malloc(sizeof(t_transformacionMaster));
 
@@ -467,13 +468,14 @@ void actualizarPlanificacion(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,
 	bloquePlanificado->ip=malloc(bloquePlanificado->largoIp);
 	strcpy(bloquePlanificado->ip,workers[nodosInvolucrados[*clock]].ip);
 
-	nombreTMP=string_duplicate(generarNombreArchivoTemporal(job,bloquePlanificado->idNodo,bloquePlanificado->nroBloqueNodo));
+	nombreTMP=generarNombreArchivoTemporal(job,bloquePlanificado->idNodo,bloquePlanificado->nroBloqueNodo);
 	bloquePlanificado->largoArchivo = strlen(nombreTMP)+1;
 	bloquePlanificado->archivoTransformacion = malloc(bloquePlanificado->largoArchivo);
 	strcpy(bloquePlanificado->archivoTransformacion,nombreTMP);
 
 	list_add(listaPlanTransformaciones,bloquePlanificado);
 
+	free(nombreTMP);
 	return;
 }
 
@@ -524,12 +526,12 @@ void actualizarTablaEstados(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,i
 	registroEstado->bloque = cargarNroBloque(bloqueRecibido,nodosInvolucrados,clock);
 	registroEstado->etapa = 1; //ver cual va a ser la macro de etapa
 	registroEstado->estado = 1; //ver cual va a ser la macro de estado
-	char* temp = string_new();
-	temp = string_duplicate(generarNombreArchivoTemporal(job, registroEstado->nodo, registroEstado->bloque));
-
+	char* temp;// = string_new();
+	temp = generarNombreArchivoTemporal(job, registroEstado->nodo, registroEstado->bloque);
 	registroEstado->archivoTemp = malloc(strlen(temp)+1);
 	strcpy(registroEstado->archivoTemp,temp);
 	list_add(listaTablaEstados, registroEstado);
+	free(temp);
 }
 
 char* generarNombreArchivoTemporal(int job, int nodo, int bloque){
@@ -557,6 +559,9 @@ char* generarNombreArchivoTemporal(int job, int nodo, int bloque){
 			string_append_with_format(&nombre, "b%s", bloqueString);
 		}
 	}
+	free(jobString);
+	free(nodoString);
+	free(bloqueString);
 	return nombre;
 }
 
@@ -584,14 +589,14 @@ void planificacionReduccionLocal()
 
 	//transformacion = malloc(sizeof(t_transformacionMaster));
 	redLocal = malloc(sizeof(t_reduccionLocalMaster));
-	nombreTMP = string_new();
+	//nombreTMP = string_new();
 	transformacion = list_get(listaPlanTransformaciones,i);
 
 	while(i<cantTransformaciones)
 	{
 		nodoActual = transformacion->idNodo;
 
-		nombreTMP = string_duplicate(generarNombreArchivoTemporal(job, transformacion->idNodo, 8000));
+		nombreTMP = generarNombreArchivoTemporal(job, transformacion->idNodo, 8000);
 
 		while ((i<cantTransformaciones)&&(nodoActual==transformacion->idNodo))
 		{
@@ -603,9 +608,10 @@ void planificacionReduccionLocal()
 			transformacion=list_get(listaPlanTransformaciones,i);
 			redLocal = malloc(sizeof(t_reduccionLocalMaster));
 		}
+		free(nombreTMP);
 	}
 
-	free(nombreTMP);
+	//free(nombreTMP);
 
 	return;
 }
@@ -744,14 +750,13 @@ int seleccionarNodoMenorCarga(int* nodosInvolucrados,int cantNodos)
 	{
 		if (tieneReduccionesLocales(nodosInvolucrados[i]))
 		{
-			list_add(listAux,(int*)nodosInvolucrados[i]);
+			list_add(listAux,&nodosInvolucrados[i]);
 		}
 	}
 
 	list_sort(listAux,ordenarPorWorkload);
-
-	nodoMenorCarga = (int) list_get(listAux,0);
-
+	nodoMenorCarga = *((int*) list_get(listAux,0));
+	//list_destroy(listAux);
 	return nodoMenorCarga;
 
 //crear lista con nodos que tengan reducciones locales
@@ -950,30 +955,36 @@ void freeRedGlobal(void *registro)
 void actualizarConfig()
 {
 	char* path = "YAMAconfig.cfg";
+	char* clave, *sJob;
 	char cwd[1024];
-	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
+	char *pathArchConfig = string_new();
+	char* ruta = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
-	t_config *config = config_create(pathArchConfig);
-
+	string_append(&pathArchConfig,ruta);
+	//t_config *config = config_create(pathArchConfig);
+	FILE* fpConfig = fopen(pathArchConfig,"r+");
 	int estadoGuardado = 0;
 
-	if (!config) {
+	if (!fpConfig) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
 
-	if (config_has_property(config, "JOB"))
+	/*if (config_has_property(config, "JOB")) esto iria si el job lo hiciesemos local
 		{
 			job = config_get_int_value(config, "JOB");
-		}
+		}*/
 
-	if (config_has_property(config,"JOB"))
-		{
-			config_set_value(config,"JOB",string_itoa(job+1));
-			estadoGuardado = config_save(config);
-		}
-
-	if (estadoGuardado==(-1))
+	clave = "JOB=";
+	sJob = string_new();
+	job++;
+	string_append(&sJob,string_itoa(job));
+	config_set_value(config,"JOB",sJob);
+	//string_append(&sJob,"\n");
+	fputs(clave, fpConfig);
+	estadoGuardado = fputs(sJob, fpConfig);
+	
+	if (estadoGuardado==(EOF))
 	{
 		perror("[ERROR]: Fallo al guardar YAMAconfig.cfg");
 	}
@@ -981,6 +992,11 @@ void actualizarConfig()
 	if (config_has_property(config,"ALGORITMO_BALANCEO"))
 		algoritmo = config_get_int_value(config,"ALGORITMO_BALANCEO");
 
+	fclose(fpConfig);
+	free(pathArchConfig);
+	free(sJob);
+	free(ruta);
+	//config_destroy(config);
 	return;
 }
 
@@ -1097,6 +1113,7 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 	enviarPorSocket(socketFS,bufferMensaje,bytesAEnviar);
 
+	free(bufferMensaje);
 	return;
 }
 
@@ -1141,7 +1158,7 @@ void recibirComposicionArchivo(){
 		guardarEnBloqueRecibidos(bloqueRecibido);
 
 	}
-
+	free(buffer);
 	return;
 }
 
@@ -1167,6 +1184,7 @@ void enviarMensajeFalloOperacion(t_job* jobMaster)
 
 	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, 8);
 
+	free(bufferMensaje);
 	return;
 }
 
@@ -1243,7 +1261,8 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_list* lista){
 	void* buffer;
 	int i, desplazamiento = 0;
-	t_transformacionMaster* transformacion = malloc(sizeof(t_transformacionMaster));
+	t_transformacionMaster* transformacion;
+	//transformacion= malloc(sizeof(t_transformacionMaster));
 	buffer = malloc(sizeof(t_transformacionMaster));
 
 	for(i=0;i<cantTransformaciones ;i++){
@@ -1273,14 +1292,15 @@ void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_
 
 		}
 	*largoMensaje = desplazamiento;
-	free(transformacion);
+	//free(transformacion);
 	return buffer;
 }
 
 void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista){
 	void* buffer;
 	int i, desplazamiento = 0;
-	t_reduccionLocalMaster* redLocal = malloc(sizeof(t_reduccionLocalMaster));
+	t_reduccionLocalMaster* redLocal;
+	//redLocal = malloc(sizeof(t_reduccionLocalMaster));
 
 	buffer = malloc(sizeof(t_reduccionLocalMaster));
 
@@ -1310,14 +1330,15 @@ void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista
 			desplazamiento+=redLocal->largoArchivoRedLocal;
 		}
 	*largoMensaje = desplazamiento;
-	free(redLocal);
+	//free(redLocal);
 	return buffer;
 }
 
 void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* lista){
 	void* buffer;
 	int i, desplazamiento = 0;
-	t_reduccionGlobalMaster* redGlobal = malloc(sizeof(t_reduccionGlobalMaster));
+	t_reduccionGlobalMaster* redGlobal;
+	//redGlobal= malloc(sizeof(t_reduccionGlobalMaster));
 
 	buffer = malloc(sizeof(t_reduccionGlobalMaster));
 
@@ -1350,7 +1371,7 @@ void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* list
 
 		}
 	*largoMensaje = desplazamiento;
-	free(redGlobal);
+	//free(redGlobal);
 	return buffer;
 }
 

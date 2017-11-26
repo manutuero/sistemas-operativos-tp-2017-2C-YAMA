@@ -37,15 +37,17 @@ void cargarArchivoDeConfiguracion() {
 	char cwd[1024];
 	char *pathArchConfig = string_from_format("%s/%s", getcwd(cwd, sizeof(cwd)),
 			path);
-	t_config *config = config_create(pathArchConfig);
+	//t_config* config = config_create(pathArchConfig);
+	config = config_create(pathArchConfig);
 
 	if (!config) {
 		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
 
+	FS_IP = string_new();
 	if (config_has_property(config, "FS_IP")) {
-		FS_IP = config_get_string_value(config, "FS_IP");
+		string_append(&FS_IP,config_get_string_value(config, "FS_IP"));
 	}
 
 	if (config_has_property(config, "FS_PUERTO")) {
@@ -72,8 +74,9 @@ void cargarArchivoDeConfiguracion() {
 		PUERTO_MASTERS = config_get_int_value(config,"PUERTO_MASTERS");
 	}
 
-	printf("Puerto: %d\n", PUERTO);
+	printf("Puerto: %d\n", PUERTO_MASTERS);
 	printf("IP FS: %s\n", FS_IP);
+	printf("PUERTO FS: %d\n", FS_PUERTO);
 	printf("Job actual: %d\n", job);
 }
 
@@ -81,7 +84,7 @@ void yamaEscuchando() {
 
 	//struct sockaddr_in direccionDelServidorKernel;
 	direccionYama.sin_family = AF_INET;
-	direccionYama.sin_port = htons(PUERTO);
+	direccionYama.sin_port = htons(PUERTO_MASTERS);
 	direccionYama.sin_addr.s_addr = INADDR_ANY;
 	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
@@ -156,17 +159,32 @@ void escucharMasters() {
 					}
 				} else {//header
 					t_header headerResp;
-					headerResp.tamanioPayload = 0;
+					//headerResp.tamanioPayload = 0;
 					bytesRecibidos = recibirHeader(i, &headerResp);
-					if(headerResp.id == 12){
 
-						char* temporal = malloc(headerResp.tamanioPayload+1);
-						temporal[headerResp.tamanioPayload] = '\0';
-						bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
-						printf("termino la trans del temporal %s\n",temporal);
-						free(temporal);
-						uint32_t respuesta = 13;
+					if (bytesRecibidos < 0) {
+						perror("Error menor a 0");
+						shutdown(i, 2);
+						FD_CLR(i, &readfds);
+						free(buffer);
+					}
+					else if (bytesRecibidos == 0) {
+						//printf("Se desconecto del fileSystem el socket %d", i);
+						//printf("%d\n",headerResp.id);
+						FD_CLR(i, &readfds);
+						shutdown(i, 2);
+						//close(i);
+					} else {
+						if(headerResp.id == 12){
+
+							char* temporal = malloc(headerResp.tamanioPayload+1);
+							temporal[headerResp.tamanioPayload] = '\0';
+							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
+							printf("termino la trans del temporal %s\n",temporal);
+							free(temporal);
+
 						headerResp.id = 13;
+						headerResp.tamanioPayload = 0;
 						//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
 
 						enviarPorSocket(i,&headerResp,sizeof(t_header));
@@ -179,58 +197,41 @@ void escucharMasters() {
 						printf("termino la redlocal del temporal %s\n",temporal);
 						free(temporal);
 						redLocales++;
-						if(redLocales==3){
-						uint32_t respuesta = 17;
-						headerResp.id = 17;
-						//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
-						enviarPorSocket(i,&headerResp,sizeof(t_header));}
-					}if(headerResp.id == 20)
-					{
-						char* temporal = malloc(headerResp.tamanioPayload+1);
-						temporal[headerResp.tamanioPayload] = '\0';
-						bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
-						printf("termino la redglobal del temporal %s\n",temporal);
-						uint32_t respuesta = 21;
-						headerResp.id = 21;
-						enviarPorSocket(i,&headerResp,sizeof(t_header));
-						descargarWorkload(temporal);
-						free(temporal);
-						printf("%d",respuesta);
-					}
-					if(headerResp.id == 103){
-						printf("repreplanifica\n");
-						t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
-						buffer = malloc(headerResp.tamanioPayload);
-						recibirPorSocket(i,buffer,headerResp.tamanioPayload);
-						pedido = deserializarRutasArchivos(buffer);
-						t_tabla_estados* registro = encontrarRegistro(pedido->nombreArchivo);
-						t_job* jobMaster = malloc(sizeof(t_job));
-						jobMaster->job = registro->job;
-						jobMaster->idMaster = registro->master;
-						jobMaster->socketMaster = i;
-						jobMaster->replanifica = 1;
-						printf("repre2\n");
-						rePrePlanificacion("Saraza",pedido->nombreArchivoGuardadoFinal,pedido->nombreArchivo, jobMaster);
-
-					}
-
-
-				if (bytesRecibidos < 0) {
-						perror("Error");
-						//free(buffer);
-						//exit(1);
-					}
-					if (bytesRecibidos == 0) {
-						//printf("Se desconecto del fileSystem el socket %d", i);
-						FD_CLR(i, &readfds);
-						shutdown(i, 2);
-						free(buffer);
-					} else {
-						buffer[bytesRecibidos] = '\0';
-						printf(
-								"Socket: %d -- BytesRecibidos: %d -- Buffer recibido : %s\n",
-								i, bytesRecibidos, buffer);
-
+							if(redLocales%3==0){
+								headerResp.id = 17;
+								headerResp.tamanioPayload = 0;
+								//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
+								enviarPorSocket(i,&headerResp,sizeof(t_header));
+							}
+						}
+						if(headerResp.id == 20)
+						{
+							char* temporal = malloc(headerResp.tamanioPayload+1);
+							temporal[headerResp.tamanioPayload] = '\0';
+							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
+							printf("termino la redglobal del temporal %s\n",temporal);
+							uint32_t respuesta = 21;
+							headerResp.id = 21;
+							headerResp.tamanioPayload = 0;
+							enviarPorSocket(i,&headerResp,sizeof(t_header));
+							descargarWorkload(temporal);
+							free(temporal);
+						}
+						if(headerResp.id == 103){
+							printf("repreplanifica\n");
+							t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
+							buffer = malloc(headerResp.tamanioPayload);
+							recibirPorSocket(i,buffer,headerResp.tamanioPayload);
+							pedido = deserializarRutasArchivos(buffer);
+							t_tabla_estados* registro = encontrarRegistro(pedido->nombreArchivo);
+							t_job* jobMaster = malloc(sizeof(t_job));
+							jobMaster->job = registro->job;
+							jobMaster->idMaster = registro->master;
+							jobMaster->socketMaster = i;
+							jobMaster->replanifica = 1;
+							printf("repre2\n");
+							rePrePlanificacion("Saraza",pedido->nombreArchivoGuardadoFinal,pedido->nombreArchivo, jobMaster);
+						}
 					}
 				}
 			}
@@ -364,6 +365,7 @@ int recibirRutaDeArchivoAProcesar(int socketMaster, t_pedidoTransformacion** rut
 		jobMaster->idMaster = ultimoMaster;
 		jobMaster->job = job;
 		jobMaster->socketMaster = socketMaster;
+		jobMaster->replanifica = 0;
 		jobMaster->pedidoTransformacion=**ruta;
 
 		pthread_t hiloPeticionMaster;
