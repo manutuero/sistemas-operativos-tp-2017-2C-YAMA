@@ -1720,10 +1720,11 @@ void *escucharPeticionesYama() {
 			deserializarPeticionInfoArchivo(&peticionRecibida, &pathArchivo,
 					&pathGuardadoFinal);
 			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . . SI ALGUNO FALLA DEVUELVE ERROR.
-
-			t_archivo_a_persistir* archivo = abrirArchivo(pathArchivo);
+			char* path=string_substring_from(pathArchivo,7);//7= yama:
+			char *pathFinal=string_substring_from(pathGuardadoFinal,7);
+			t_archivo_a_persistir* archivo = abrirArchivo(path);
 			if ((archivo != NULL)
-					&& (existePathDirectorio(pathGuardadoFinal))) {
+					&& (existePathDirectorio(pathFinal))) {
 				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
