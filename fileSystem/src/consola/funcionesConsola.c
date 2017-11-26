@@ -36,47 +36,80 @@ char** cargarArgumentos(char* linea) {
 }
 
 void ejecutarFormat() {
-	if(nodos->elements_count >= 2) {
+	if (nodos->elements_count >= 2) {
 		crearDirectorioMetadata();
+		if (estadoFs == ESTABLE)
+			reiniciarEstructuras();
 		persistirTablaDeNodos();
 		persistirBitmaps();
 		estadoFs = ESTABLE;
 		estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS;
+		cantidad_nodos_esperados = nodos->elements_count;
 		sem_post(&semEstadoEstable);
 	}
 }
 
-char* invocarFuncionRm(char **argumentos) {
-	if (esValido(argumentos[1])) {
-		printf("Funcion de remove archivo estandar.\n");
-		printf("El archivo a remover es: %s.\n", argumentos[1]);
-	} else {
-		printf("El parametro ingresado '%s' no es valido.\n", argumentos[1]);
+void ejecutarRmArchivo(char **argumentos) {
+	int i, idNodoCopia0, idNodoCopia1, nroBloqueDataBin;
+	char *pathArchivo, *comando;
+	t_archivo_a_persistir *archivo;
+	t_list *bloques;
+	t_bloque *bloque;
+
+	// Validaciones
+	pathArchivo = argumentos[1];
+	if (!esValido(pathArchivo)) {
+		printf("La ruta '%s' no es valida.\n", pathArchivo);
+		return;
 	}
 
-	return "<default>";
+	if (!existeArchivoEnYamaFs(pathArchivo)) {
+		printf("El archivo '%s' no existe.\n", pathArchivo);
+		return;
+	}
+
+	// Libero los bloques del bitmap de cada nodo que almacena los bloques del archivo.
+	archivo = abrirArchivo(pathArchivo);
+	bloques = archivo->bloques;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+
+		idNodoCopia0 = bloque->nodoCopia0->idNodo;
+		nroBloqueDataBin = bloque->numeroBloqueCopia0;
+		liberarBloqueBitmaps(idNodoCopia0, nroBloqueDataBin);
+
+		idNodoCopia1 = bloque->nodoCopia1->idNodo;
+		nroBloqueDataBin = bloque->numeroBloqueCopia1;
+		liberarBloqueBitmaps(idNodoCopia1, nroBloqueDataBin);
+	}
+
+	comando = string_new();
+	string_append(&comando, "rm ");
+	string_append(&comando, PATH_METADATA);
+	string_append(&comando, "/archivos/");
+	string_append(&comando, string_itoa(archivo->indiceDirectorio));
+	string_append(&comando, "/");
+	string_append(&comando, obtenerNombreArchivo(pathArchivo));
+	system(comando);
+
+	free(pathArchivo);
+	free(comando);
 }
 
-char* invocarFuncionRmDirectory(char **argumentos) {
+void ejecutarRmDirectorio(char **argumentos) {
 	//revisar que directorio esta vacio primero
-
 	if ((strcmp(argumentos[1], "-d") == 0) && (esValido(argumentos[2]))) {
-
-		printf("Funcion de remove directorio.\n");
 		printf("El directorio a remover es: %s.\n", argumentos[2]);
 	} else
 		printf(
 				"La opcion: %s no es valida o el parametro: %s no es correcto.\n",
 				argumentos[1], argumentos[2]);
-
-	return "<default>";
 }
 
-char* invocarFuncionRmBloque(char **argumentos) {
+void ejecutarRmBloque(char **argumentos) {
 	//revisar que no es la ultima copia del bloque
 	if ((strcmp(argumentos[1], "-b") == 0) && (esNumero(argumentos[3]))
 			&& (esNumero(argumentos[4]))) {
-
 		printf("Funcion de remover un bloque.\n");
 		printf("Se removera del archivo: %s.\n", argumentos[2]);
 		printf("El bloque: %s de la copia: %s.\n", argumentos[3],
@@ -85,8 +118,6 @@ char* invocarFuncionRmBloque(char **argumentos) {
 		printf(
 				"La opcion: %s no es valida o uno de los parametros: %s,%s no es correcto.\n",
 				argumentos[1], argumentos[2], argumentos[3]);
-
-	return "<default>";
 }
 
 void ejecutarCat(char **argumentos) {
@@ -168,19 +199,22 @@ void ejecutarMd5(char **argumentos) {
 	string_append(&pathArchivoTemporal, "/");
 	string_append(&pathArchivoTemporal, nombreArchivo);
 
-	// Preparo el comando.
-	comando = string_new();
-	string_append(&comando, "md5sum ");
-	string_append(&comando, pathArchivoTemporal);
-	string_append(&comando, " | awk '{ print $1 }'");
+	if (access(pathArchivoTemporal, F_OK) != -1) {
+		// Preparo el comando.
+		comando = string_new();
+		string_append(&comando, "md5sum ");
+		string_append(&comando, pathArchivoTemporal);
+		string_append(&comando, " | awk '{ print $1 }'");
 
-	// Ejecuto la llamada a sistema.
-	system(comando);
+		// Ejecuto la llamada a sistema.
+		system(comando);
+
+		remove(pathArchivoTemporal); // Borra el archivo temporal.
+		free(comando);
+	}
 
 	// Libero recursos.
-	remove(pathArchivoTemporal); // Borra el archivo temporal.
 	free(nombreArchivo);
-	free(comando);
 }
 
 void ejecutarLs(char **argumentos) {
@@ -443,9 +477,10 @@ void ejecutarCpto(char **argumentos) {
 }
 
 void ejecutarCpblock(char **argumentos) {
-	int i, numeroBloque, idNodo, resultado, tamanioBitmap, indice, cantidadClaves,
-			cantidadCopias = 0;
-	char *pathArchivo, *nombreArchivo, *pathMetadataArchivo, *clave, *valor, *comando;
+	int i, numeroBloque, idNodo, resultado, tamanioBitmap, indice,
+			cantidadClaves, cantidadCopias = 0;
+	char *pathArchivo, *nombreArchivo, *pathMetadataArchivo, *clave, *valor,
+			*comando;
 	t_directorio directorio;
 	t_config *diccionario;
 	bool nodoConectado = false;
@@ -497,7 +532,8 @@ void ejecutarCpblock(char **argumentos) {
 	// Solicito al bitmap del nodo un bloque libre.
 	bloque->nodoCopia0 = nodo;
 	tamanioBitmap = strlen(bitmap);
-	bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(bitmap, tamanioBitmap);
+	bloque->numeroBloqueCopia0 = obtenerYReservarBloqueBitmap(bitmap,
+			tamanioBitmap);
 
 	// Escribo el bloque en el nodo solicitado.
 	resultado = guardarBloque(bloque, idNodo);

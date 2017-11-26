@@ -47,17 +47,15 @@ void test_existePathDirectorio_existePath(void) {
 }
 
 void test_compararBloquesLibres_Nodo1MasLibreQueNodo2(void) {
-	t_list *listaNodos = list_create();
-
 	t_nodo *nodo1 = malloc(sizeof(t_nodo));
 	nodo1->idNodo = 1;
 	nodo1->bloquesLibres = 5;
-	agregarNodo(listaNodos, nodo1);
+	agregarNodo(nodo1);
 
 	t_nodo * nodo2 = malloc(sizeof(t_nodo));
 	nodo2->idNodo = 2;
 	nodo2->bloquesLibres = 10;
-	agregarNodo(listaNodos, nodo2);
+	agregarNodo(nodo2);
 
 	// Devuelve true si el primero tiene mas bloques libres que el segundo.
 	CU_ASSERT_EQUAL(compararBloquesLibres(nodo1, nodo2), false);
@@ -73,19 +71,19 @@ void test_ordenarListaNodos_ordenaCorrectamente(void) {
 	t_nodo *nodo = malloc(sizeof(t_nodo));
 	nodo->idNodo = 1;
 	nodo->bloquesLibres = 10;
-	agregarNodo(listaNodos, nodo);
+	agregarNodo(nodo);
 
 	// Nodo 2
 	nodo = malloc(sizeof(t_nodo));
 	nodo->idNodo = 2;
 	nodo->bloquesLibres = 10;
-	agregarNodo(listaNodos, nodo);
+	agregarNodo(nodo);
 
 	// Nodo 3
 	nodo = malloc(sizeof(t_nodo));
 	nodo->idNodo = 3;
 	nodo->bloquesLibres = 15;
-	agregarNodo(listaNodos, nodo);
+	agregarNodo(nodo);
 
 	ordenarListaNodos(listaNodos);
 

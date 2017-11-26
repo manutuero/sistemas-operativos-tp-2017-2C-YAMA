@@ -223,15 +223,15 @@ void* esperarConexionesDatanodes() {
 		exit(EXIT_FAILURE);
 	}
 
+	// DTN
 	// Acceptar conexiones entrantes
 	addrlen = sizeof(address);
 	while (1) {
-		//if (nodos->elements_count < 3) {
 
 		// Limpio la lista de sockets
 		FD_ZERO(&readfds);
 
-		//Agrego el socket master a la lista, para que tambien revise si hay cambios
+		// Agrego el socket master a la lista, para que tambien revise si hay cambios
 		FD_SET(socketServidor, &readfds);
 		max_sd = socketServidor;
 
@@ -266,9 +266,8 @@ void* esperarConexionesDatanodes() {
 			if (nodos->elements_count < cantidad_nodos_esperados) {
 				// Agrego el nuevo socket al array
 				for (i = 0; i < numeroClientes; i++) {
-					//Busco una pos vacia en la lista de clientes para guardar el socket entrante
+					// Busco una pos vacia en la lista de clientes para guardar el socket entrante
 					if (socketsClientes[i] == 0) {
-						socketsClientes[i] = socketEntrante;
 						if (recibirHeader(socketEntrante, &header) != 0) {
 							buffer = malloc(header.tamanioPayload);
 							if (recibirPorSocket(socketEntrante, buffer,
@@ -292,14 +291,13 @@ void* esperarConexionesDatanodes() {
 								nodo->ip = inet_ntoa(address.sin_addr);
 
 								if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
-									agregarNodo(nodos, nodo);
-									//agregarNodo(nodosEsperados, nodo); // Tambien lo agrego a la lista de nodosEsperados por si se desconecta y se quiere volver a conectar sin tener que reiniciar el FS.
+									socketsClientes[i] = socketEntrante;
+									agregarNodo(nodo);
 								}
 
 								if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
 										&& estadoFs == NO_ESTABLE) {
-									if (esNodoAnterior(nodosEsperados,
-											nodo->idNodo)) {
+									if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
 										if (estadoAnterior) {
 											nodo->bitmap =
 													recuperarBitmapAnterior(
@@ -307,7 +305,9 @@ void* esperarConexionesDatanodes() {
 											actualizarDisponibilidadArchivos(
 													nodo->idNodo, CONEXION);
 										}
-										agregarNodo(nodos, nodo);
+
+										socketsClientes[i] = socketEntrante;
+										agregarNodo(nodo);
 									} else {
 										cerrarSocket(socketEntrante);
 									}
@@ -323,7 +323,8 @@ void* esperarConexionesDatanodes() {
 											actualizarDisponibilidadArchivos(
 													nodo->idNodo, CONEXION);
 										}
-										agregarNodo(nodos, nodo);
+										socketsClientes[i] = socketEntrante;
+										agregarNodo(nodo);
 									} else if (estadoFs == ESTABLE) {
 										socketsClientes[i] = 0;
 										cerrarSocket(socketEntrante); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
@@ -334,12 +335,13 @@ void* esperarConexionesDatanodes() {
 
 							break;
 						} else {
-							perror("Error al recibir el header para un nuevo nodo conectado");
+							perror(
+									"Error al recibir el header para un nuevo nodo conectado");
 						}
 					}
 				}
-			} else { //Rechazo el socket ya que el sistema no permite mas conexiones.
-				cerrarSocket(sd);
+			} else { // Rechazo el socket ya que el sistema no permite mas conexiones.
+				cerrarSocket(socketEntrante);
 			}
 
 		} else {
@@ -348,25 +350,25 @@ void* esperarConexionesDatanodes() {
 				sd = socketsClientes[i];
 
 				if (FD_ISSET(sd, &readfds)) {
-					// Desconexion de un nodo.
 					buffer = malloc(1);
 					if (recv(sd, buffer, sizeof(buffer),
 					MSG_PEEK | MSG_DONTWAIT) == 0) {
+						// Desconexion de un nodo.
 						cerrarSocket(sd);
 						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
 						// Actualizo la lista de nodos conectados.
 						int j;
 						t_nodo *nodoDesconectado;
 						for (j = 0; j < nodos->elements_count; j++) {
-							nodoDesconectado = list_get(nodos, i);
+							nodoDesconectado = list_get(nodos, j);
 							if (nodoDesconectado) {
 								if (nodoDesconectado->socketDescriptor == sd) {
 									//Enviar desconexion a YAMA SI estoy en estado estable y el yama esta conectado
 
-									enviarInfoNodoYama(nodoDesconectado,
-											DESCONEXION);
+									/*enviarInfoNodoYama(nodoDesconectado,
+									 DESCONEXION);*/
 
-									list_remove(nodos, i);
+									list_remove(nodos, j);
 									if (estadoAnterior) {
 										actualizarDisponibilidadArchivos(
 												nodoDesconectado->idNodo,
@@ -375,9 +377,8 @@ void* esperarConexionesDatanodes() {
 								}
 							}
 						}
-						break;
 					}
-
+					free(buffer);
 				}
 			}
 		}
@@ -497,12 +498,9 @@ void serializarHeaderTraerBloque(uint32_t id, uint32_t numBloqueDataBin,
 int traerBloqueNodo(t_bloque *bloque) {
 	int nroBloqueDatabin, rta = 0;
 	int socketNodo = obtenerSocketNodo(bloque, &nroBloqueDatabin);
-	if (socketNodo == NO_DISPONIBLE) {
-		fprintf(stderr,
-				"[ERROR]: el bloque numero '%d' no esta disponible en el sistema.\n",
-				nroBloqueDatabin);
+
+	if (socketNodo == NO_DISPONIBLE)
 		return NO_DISPONIBLE;
-	}
 
 	void *paquete = malloc(sizeof(uint32_t) * 2);
 	serializarHeaderTraerBloque(3, nroBloqueDatabin, paquete);
@@ -951,6 +949,8 @@ void restaurarTablaDeNodos() {
 
 		list_add(nodosEsperados, nodo);
 	}
+
+	cantidad_nodos_esperados = nodosEsperados->elements_count;
 }
 
 void restaurarTablaDeArchivos() {
@@ -988,13 +988,21 @@ void restaurarTablaDeArchivos() {
 	}
 }
 
-void agregarNodo(t_list *lista, t_nodo *nodo) {
-	if (!lista)
-		fprintf(stderr, "[WARNING]: La lista no esta inicializada.");
+void agregarNodo(t_nodo *nodo) {
+	int idNodo = nodo->idNodo;
 
-	if (!existeNodo(nodo->idNodo)) {
-		list_add(lista, nodo);
-	} else {
+	// El nodo se conecta por primera vez.
+	if (!existeNodo(idNodo, nodos) && !existeNodo(idNodo, nodosEsperados)) {
+		list_add(nodos, nodo);
+		list_add(nodosEsperados, nodo);
+	}
+	// El nodo ya se habia conectado antes pero se esta reconectando (por desconexion o estado anterior).
+	else if (!existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
+		list_add(nodos, nodo);
+	}
+
+	// Llego un nodo con el mismo id que otro ya conectado...rechaza e informa el error.
+	else if (existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
 		printf(
 				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
 				nodo->idNodo);
@@ -1002,15 +1010,15 @@ void agregarNodo(t_list *lista, t_nodo *nodo) {
 	}
 
 	// Se conectaron al menos
-	if (lista->elements_count >= 2)
+	if (nodos->elements_count >= 2)
 		sem_post(&semNodosRequeridos);
 }
 
-bool existeNodo(int idNodo) {
+bool existeNodo(int idNodo, t_list *lista) {
 	int i;
 	t_nodo *nodo;
-	for (i = 0; i < nodos->elements_count; i++) {
-		nodo = list_get(nodos, i);
+	for (i = 0; i < lista->elements_count; i++) {
+		nodo = list_get(lista, i);
 		if (nodo->idNodo == idNodo)
 			return true;
 	}
@@ -2216,5 +2224,17 @@ void reiniciarEstructuras() {
 		nodo = list_get(nodos, i);
 		nodo->bloquesLibres = nodo->bloquesTotales;
 		memset(nodo->bitmap, 'L', strlen(nodo->bitmap));
+	}
+}
+
+void liberarBloqueBitmaps(int idNodo, int nroBloqueDataBin) {
+	int i;
+	t_nodo *nodo;
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodo = list_get(nodos, i);
+		if (nodo->idNodo == idNodo) {
+			nodo->bitmap[nroBloqueDataBin] = 'L';
+			break;
+		}
 	}
 }

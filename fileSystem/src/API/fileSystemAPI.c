@@ -17,6 +17,7 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	archivo = abrirArchivo(pathArchivo);
 	if (!archivo) {
 		printf("El archivo '%s' no existe.\n", pathArchivo);
+		pthread_mutex_unlock(&mutex);
 		return NULL;
 	}
 
@@ -29,6 +30,7 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 		if (traerBloqueNodo(bloque) != TRAJO_BLOQUE_OK) {
 			fprintf(stderr, "[ERROR]: no se pudo traer el bloque n° '%d'.\n",
 					bloque->numeroBloque);
+			pthread_mutex_unlock(&mutex);
 			return NULL;
 		}
 	}
@@ -58,12 +60,14 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
+		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
 
 	if (estadoFs == NO_ESTABLE && !estadoAnterior) {
 		printf(
 				"El sistema no se encuentra en un estado estable, primero debe formatearlo usando el comando 'format'.\n");
+		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
 
@@ -71,6 +75,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	if (nodos->elements_count < 2) {
 		fprintf(stderr,
 				"[ERROR]: no hay nodos suficientes para realizar el almacenamiento del archivo...\n");
+		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
 
@@ -81,6 +86,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	string_append(&pathArchivo, nombreArchivo);
 	if (existeArchivoEnYamaFs(pathArchivo)) {
 		printf("El archivo '%s' ya existe.\n", pathArchivo);
+		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
 
@@ -113,6 +119,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.\n");
 
 			free(nodosAux);
+			pthread_mutex_unlock(&mutex);
 			return ERROR;
 		}
 	}
@@ -124,12 +131,14 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		respuesta = guardarBloqueEnNodo(bloque, 0);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
 				!= GUARDO_BLOQUE_OK) {
+			pthread_mutex_unlock(&mutex);
 			return ERROR;
 		}
 
 		respuesta = guardarBloqueEnNodo(bloque, 1);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
 				!= GUARDO_BLOQUE_OK) {
+			pthread_mutex_unlock(&mutex);
 			return ERROR;
 		}
 

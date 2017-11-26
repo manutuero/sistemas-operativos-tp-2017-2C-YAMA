@@ -132,19 +132,20 @@ void crearDirectorioBitmaps();
 void persistirBitmaps();
 
 /* Firmas de funciones para nodos */
-void agregarNodo(t_list *lista, t_nodo *nodo);
+void agregarNodo(t_nodo *nodo);
 void persistirTablaDeNodos();
 void actualizarTablaDeNodos();
 int totalBloquesFileSystem();
 int bloquesLibresFileSystem();
 int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin);
-bool existeNodo(int idNodo);
+bool existeNodo(int idNodo, t_list *lista);
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
 char* persistirBitmap(uint32_t idNodo, int tamanioDatabin);
 char* obtenerPathBitmap(int);
 int obtenerYReservarBloqueBitmap(t_bitmap bitmap, int tamanioBitmap);
+void liberarBloqueBitmaps(int idNodo, int nroBloqueDataBin);
 
 /* Firmas de funciones para mensajes */
 void* esperarConexionesDatanodes();

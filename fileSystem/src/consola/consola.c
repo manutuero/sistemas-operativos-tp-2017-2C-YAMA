@@ -36,7 +36,7 @@ void* levantarConsola() {
 
 		case 2:
 			if (sonIguales(argumentos[0], "rm")) {
-				invocarFuncionRm(argumentos);
+				ejecutarRmArchivo(argumentos);
 				break;
 			}
 
@@ -76,7 +76,7 @@ void* levantarConsola() {
 			}
 
 			if (sonIguales(argumentos[0], "rm")) {
-				invocarFuncionRmDirectory(argumentos);
+				ejecutarRmDirectorio(argumentos);
 				break;
 			}
 
@@ -109,7 +109,7 @@ void* levantarConsola() {
 
 		case 5:
 			if (sonIguales(argumentos[0], "rm")) {
-				invocarFuncionRmBloque(argumentos);
+				ejecutarRmBloque(argumentos);
 				break;
 			} else {
 				printf("El comando %s no es valido.\n", argumentos[0]);
