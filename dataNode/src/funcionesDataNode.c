@@ -133,7 +133,7 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	infoNodo->ip = malloc(largoIp + 1);
 	strcpy(infoNodo->ip, IP_FILESYSTEM);
 
-	infoNodo->puerto = PUERTO_FILESYSTEM;
+	infoNodo->puerto = PUERTO_WORKER;
 	infoNodo->sdNodo = 0;
 	paquete = serializarInfoNodo(infoNodo, header);
 	if (enviarPorSocket(socketPrograma, paquete, header->tamanioPayload)
