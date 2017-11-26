@@ -1109,11 +1109,12 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 	/* Mensaje para FS */
 	memcpy(bufferMensaje,header,sizeof(t_header));
-	memcpy(bufferMensaje,paquete,header->tamanioPayload);
+	memcpy(bufferMensaje+sizeof(t_header),paquete,header->tamanioPayload);
 
 	enviarPorSocket(socketFS,bufferMensaje,bytesAEnviar);
 
 	free(bufferMensaje);
+	free(paquete);
 	return;
 }
 
