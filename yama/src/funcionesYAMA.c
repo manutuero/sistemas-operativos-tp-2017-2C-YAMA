@@ -137,8 +137,7 @@ void escucharMasters() {
 			if (FD_ISSET(i, &readfds)) {
 				if (i == socketMasters) {
 
-					if ((nuevoSocket = accept(socketMasters,
-							(void*) &direccionYama, &tamanioDir)) <= 0)
+					if ((nuevoSocket = accept(socketMasters,(void*) &direccionYama, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
 
@@ -181,13 +180,13 @@ void escucharMasters() {
 							temporal[headerResp.tamanioPayload] = '\0';
 							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
 							printf("termino la trans del temporal %s\n",temporal);
+
+
+							if(cambiarEstado(temporal,COMPLETADO))
+							headerResp.id = 13;
+							headerResp.tamanioPayload=0;
+							enviarPorSocket(i,&headerResp,0);
 							free(temporal);
-
-						headerResp.id = 13;
-						headerResp.tamanioPayload=0;
-						//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
-
-						enviarPorSocket(i,&headerResp,sizeof(t_header));
 					}
 					if(headerResp.id == 16)
 					{
@@ -201,7 +200,7 @@ void escucharMasters() {
 							headerResp.id = 17;
 							headerResp.tamanioPayload=0;
 							//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
-							enviarPorSocket(i,&headerResp,sizeof(t_header));
+							enviarPorSocket(i,&headerResp,0);
 						}
 					}
 					if(headerResp.id == 20)
@@ -213,7 +212,7 @@ void escucharMasters() {
 						uint32_t respuesta = 21;
 						headerResp.id = 21;
 						headerResp.tamanioPayload=0;
-						enviarPorSocket(i,&headerResp,sizeof(t_header));
+						enviarPorSocket(i,&headerResp,0);
 						descargarWorkload(temporal);
 						free(temporal);
 						printf("%d",respuesta);
@@ -221,7 +220,7 @@ void escucharMasters() {
 					if(headerResp.id == 103){
 							printf("repreplanifica\n");
 							t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
-							char *nombreTMP;
+							char *nombreTMP=NULL;
 							buffer = malloc(headerResp.tamanioPayload);
 							recibirPorSocket(i,buffer,headerResp.tamanioPayload);
 							pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
@@ -340,8 +339,7 @@ void mandarRutaAFS(const t_header* header, void* buffer) {
 	memcpy(bufferFS + desplazamiento, &header->tamanioPayload,
 			sizeof(header->tamanioPayload));
 	memcpy(bufferFS + desplazamiento, buffer, header->tamanioPayload);
-	enviarPorSocket(socketFS, bufferFS,
-			header->tamanioPayload + desplazamiento);
+	enviarPorSocket(socketFS, bufferFS,	header->tamanioPayload);
 	free(bufferFS);
 }
 
@@ -447,7 +445,7 @@ void* obtenerBloquesDelArchivo(t_rutaArchivo* ruta) {
 
 	void* buffer;
 	buffer = serializarRutaArchivo(&header, ruta); //esta en utils ya que lo voy a usar para Yama-fs
-	int tamanioMensaje = header.tamanioPayload + sizeof(header);
+	int tamanioMensaje = header.tamanioPayload;
 	enviarPorSocket(socketFS, buffer, tamanioMensaje);
 	free(buffer);
 	/*//Envio a FS y espero que me mande los bloques de ese archivo

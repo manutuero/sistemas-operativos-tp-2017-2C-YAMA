@@ -241,7 +241,7 @@ void restarJob(t_list *listaFiltrada)
 
 
 /* 						Cambiar Estado segun informe master						*/
-void cambiarEstado(char* nombreTMP, int estado)
+int cambiarEstado(char* nombreTMP, int estado)
 {
 	int etapaCompletada=0;
 	t_tabla_estados *registro;
@@ -251,20 +251,7 @@ void cambiarEstado(char* nombreTMP, int estado)
 
 	etapaCompletada = verificarEtapa(registro->job,registro->etapa);
 
-	/*if (etapaCompletada)
-	{
-		switch (registro->etapa)
-		{
-			case 1:
-				iniciarReduccionLocales();
-				break;
-			case 2:
-				iniciarReduccionGlobal();
-				break;
-		}
-	}*/
-
-	return;
+	return etapaCompletada;
 }
 
 int verificarEtapa(int trabajo,int etapa)
@@ -1070,7 +1057,7 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	 * o no ya que hay que pasarle la ubicacion de los nuevos archivos temporales de
 	 * reduccion locales*/
 
-	planificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
+	rePlanificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
 
 	/*Limpieza*/
 
@@ -1082,6 +1069,12 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 
 	return;
 }
+
+void rePlanificacionReduccionGlobal(int cantNodosInvolucrados,int *nodosInvolucrados)
+{
+	return;
+}
+
 
 void cargarRestoTransformaciones(t_list *tareas,t_list *listaTransformacionesReplanificadas)
 {
@@ -1262,7 +1255,7 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 	paquete = serializarPeticionInfoArchivo(pedido,header);
 
-	bytesAEnviar = header->tamanioPayload+ sizeof(t_header);
+	bytesAEnviar = header->tamanioPayload;
 
 	bufferMensaje = malloc(bytesAEnviar);
 
@@ -1343,7 +1336,7 @@ void enviarMensajeFalloOperacion(t_job* jobMaster)
 	memcpy(bufferMensaje+desplazamiento, &header.tamanioPayload,sizeof(header.tamanioPayload));
 	desplazamiento += sizeof(header.tamanioPayload);
 
-	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, 8);
+	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, 0);
 
 	free(bufferMensaje);
 	return;
@@ -1404,7 +1397,7 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 	memcpy(bufferMensaje+desplazamiento, bufferRedGlobal, largoRedGlobales);
 	desplazamiento += largoRedGlobales;
 
-	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, tamanioTotalBuffer+8);
+	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, tamanioTotalBuffer);
 
 	printf("envia planificacion a master\n");
 
