@@ -5,6 +5,7 @@ int estadoFs = NO_ESTABLE; // Por defecto siempre inicia no estable.
 int estadoNodos = -1; //Depende de que estado venga el fs como se va a iniciar
 int cantidad_nodos_esperados = 99;
 int archivosDisponibles = 0;
+int yamaConectado;
 bool estadoAnterior;
 sem_t semNodosRequeridos;
 sem_t semEstadoEstable;
@@ -367,21 +368,21 @@ void* esperarConexionesDatanodes() {
 									//Enviar desconexion a YAMA SI estoy en estado estable y el yama esta conectado
 									if ((estadoFs == ESTABLE)
 											&& (yamaConectado)) {
+
 										enviarInfoNodoYama(nodoDesconectado,
 												DESCONEXION);
-									}
-
-									list_remove(nodos, j);
-									if (estadoAnterior) {
-										actualizarDisponibilidadArchivos(
-												nodoDesconectado->idNodo,
-												DESCONEXION);
+										list_remove(nodos, j);
+										if (estadoAnterior) {
+											actualizarDisponibilidadArchivos(
+													nodoDesconectado->idNodo,
+													DESCONEXION);
+										}
 									}
 								}
 							}
 						}
+						free(buffer);
 					}
-					free(buffer);
 				}
 			}
 		}
@@ -1011,8 +1012,9 @@ void agregarNodo(t_nodo *nodo) {
 				nodo->idNodo);
 		cerrarSocket(nodo->socketDescriptor);
 	}
+
 	if ((estadoFs == ESTABLE) && (yamaConectado)) {
-		enviarInfoNodoYama(nodo, DESCONEXION);
+		enviarInfoNodoYama(nodo, CONEXION);
 	}
 	// Se conectaron al menos
 	if (nodos->elements_count >= 2)
@@ -1779,7 +1781,7 @@ void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
 	int desplazamiento = 0;
 	uint32_t* largoALeer = malloc(sizeof(uint32_t));
 
-	memcpy(largoALeer, paquete, sizeof(uint32_t));	//largo de la ruta archivo
+	memcpy(largoALeer, paquete, sizeof(uint32_t)); //largo de la ruta archivo
 	desplazamiento += sizeof(uint32_t);
 
 	*rutaArchivo = malloc(sizeof(char) * (*largoALeer));
@@ -2046,7 +2048,8 @@ void *esperarConexionesWorker() {
 				if (i == socketFSWorkers) {
 
 					if ((nuevoSocket = accept(socketFSWorkers,
-							(void*) &direccionFSWorker, (socklen_t*) &tamanioDir)) <= 0)
+							(void*) &direccionFSWorker,
+							(socklen_t*) &tamanioDir)) <= 0)
 						perror("accept");
 					else {
 						printf("Entro una conexion por el puerto %d\n",
@@ -2102,31 +2105,30 @@ void* obtenerSocketNodosYama() {
 //Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	sem_wait(&semIpYamaNodos);
 	int conecto = 0;
-	int cantidadIntentos=0;
+	int cantidadIntentos = 0;
 	while (!conecto) {
 		int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
 		if (socketPrograma <= 0) {
-			//perror(
-			//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+			perror(
+				"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
 			//return (ERROR);
 		}
 		if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
-			//perror("No se pudo conectar al yama para actualizacion de nodos");
-			//return 0;
-			cantidadIntentos+=1;
-			if(cantidadIntentos==50){
-				perror("ERROR NO SE PUDO CONECTAR AL SOCKET PARA INFORMACION DE NODOS!");
+			cantidadIntentos += 1;
+			if (cantidadIntentos == 50) {
+				perror(
+						"ERROR NO SE PUDO CONECTAR AL SOCKET PARA INFORMACION DE NODOS!");
 				break;
 				exit(1);
 			}
 		} else {
 			conecto = 1;
 			printf(
-					"Conectado a yama correctamente para enviar informacion de nodos");
+					"Conectado a yama correctamente para enviar informacion de nodos \n");
 
 			socketYamaNodos = socketPrograma;
-			yamaConectado = 1;
 			enviarInfoNodosAYamaInicial();
+			yamaConectado = 1;
 		}
 
 	}
