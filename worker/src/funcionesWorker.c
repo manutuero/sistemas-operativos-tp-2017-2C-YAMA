@@ -231,9 +231,12 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	//verificarExistenciaPathTemp(pathTemporales);
 	char*rutaArchReductor;
 	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor);
+	char*rutaArchConcat=string_new();
+		string_append(&rutaArchConcat,infoReduccionLocal->rutaArchReducidoLocal);
+		string_append(&rutaArchConcat,"C");
+	FILE*archivoConcat=fopen(rutaArchConcat,"w+");
 	FILE* archivoReduccionLocal;
-	archivoReduccionLocal = fopen(infoReduccionLocal->rutaArchReducidoLocal,
-			"r+");
+	archivoReduccionLocal = fopen(infoReduccionLocal->rutaArchReducidoLocal,"w+");
 	char*lineaAEjecutar = string_new();
 	int i;
 	int resultado;
@@ -242,15 +245,19 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
 		archivo = fopen(list_get(infoReduccionLocal->archTemporales, i), "r+");
 		while (fgets(linea, LARGO_MAX_LINEA, archivo) != NULL) {
-			txt_write_in_file(archivoReduccionLocal, linea);
+			txt_write_in_file(archivoConcat, linea);
 		}
 		fclose(archivo);
 	}
 
-	string_append_with_format(&lineaAEjecutar, "echo -e %s | sort | ./%s > %s",
-			archivoReduccionLocal, rutaArchReductor,
+	string_append_with_format(&lineaAEjecutar, "cat %s | sort | %s > %s",
+			archivoConcat, rutaArchReductor,
 			infoReduccionLocal->rutaArchReducidoLocal);
+
 	resultado = system(lineaAEjecutar);
+	fclose(archivoConcat);
+	remove(rutaArchConcat);
+	fclose(archivoReduccionLocal);
 
 	notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
 	log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
@@ -262,8 +269,14 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	int i, socketDePedido, encontrado;
 	int resultado;
 	FILE* archivoReduccionGlobal;
-	FILE* archAAparear = fopen("archivoAAparear", "w+");
-	FILE*archivoApareado = fopen("archivoApareado", "w+");
+	char*rutaArchAAparear=string_new();
+	char*rutaArchApareado=string_new();
+	string_append(&rutaArchAAparear,infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaArchAAparear,"A");
+	string_append(&rutaArchApareado,infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaArchApareado,"AA");
+	FILE* archAAparear = fopen(rutaArchAAparear, "w+");
+	FILE*archivoApareado = fopen(rutaArchApareado, "w+");
 	archivoReduccionGlobal = fopen(
 			infoReduccionGlobal->rutaArchivoTemporalFinal, "r+");
 	for (i = 0; i < list_size(infoReduccionGlobal->nodosAConectar); i++) {
@@ -293,7 +306,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 
 	copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
 
-	string_append_with_format(&lineaAEjecutar, "echo -e %s | ./%s > %s",
+	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
 			archivoReduccionGlobal, infoReduccionGlobal->archivoReductor,
 			infoReduccionGlobal->rutaArchivoTemporalFinal);
 	resultado = system(lineaAEjecutar);
@@ -406,7 +419,7 @@ int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
 	int socketWorker = conectarseAWorker(puerto, ip);
 	if (socketWorker != -1) {
 		buffer = serializarSolicitudArchivo(nombreArchivoTemp, &largoBuffer);
-		tamanioMensaje = largoBuffer + sizeof(t_header);
+		tamanioMensaje = largoBuffer;
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = SOLICITUD_WORKER;
 		header.tamanioPayload = largoBuffer;
@@ -528,7 +541,7 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 				sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
 
-		enviarPorSocket(socketWorker, buffer, sizeof(t_header));
+		enviarPorSocket(socketWorker, buffer, 0);
 
 	} else {
 		string_append(&rutaArchivo, pathTemporales);
@@ -548,8 +561,7 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorker, bufferMensaje,
-				sizeof(t_header) + header.tamanioPayload);
+		enviarPorSocket(socketWorker, bufferMensaje,header.tamanioPayload);
 
 	}
 	free(buffer);
@@ -851,7 +863,7 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
 	if (socketFilesystem != -1) {
 		buffer = serializarInfoGuardadoFinal(tamanioArchTempFinal,
 				contenidoArchTempFinal, infoGuardadoFinal, &largoBuffer);
-		tamanioMensaje = largoBuffer + sizeof(t_header);
+		tamanioMensaje = largoBuffer;
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = GUARDAR_FINAL;
 		header.tamanioPayload = largoBuffer;
@@ -902,5 +914,5 @@ void notificarAMaster(int idNotificacion, int socketMaster) {
 	header.id = idNotificacion;
 	header.tamanioPayload = 0;
 
-	enviarPorSocket(socketMaster, &header, sizeof(t_header));
+	enviarPorSocket(socketMaster, &header, 0);
 }

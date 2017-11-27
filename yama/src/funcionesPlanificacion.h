@@ -212,8 +212,10 @@ int seleccionarNodoMenorCarga(int*, int);
 
 int tieneReduccionesLocales(int);
 
-/*	rePrePlanificacion de nodo caido							*/
+/*						rePrePlanificacion de nodo caido						*/
 void rePrePlanificacion(char *,char *,char *,t_job *);
+
+void rePlanificacionReduccionGlobal(int,int*);
 
 void rePrePlanificarTransformaciones(t_list *listaTareasCaidas);
 
@@ -267,7 +269,11 @@ void filtrarLista(t_list*,int);
 /* descontar el workload del job finalizado */
 void restarJob(t_list*);
 
+void* descargarWorkload(void *);
+
 /* cambio de estado de la tabla de estados y verificar etapa completa*/
+
+int cambiarEstado(char*, int estado);
 
 int verificarEtapa(int,int);
 
