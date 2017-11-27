@@ -297,7 +297,8 @@ void* esperarConexionesDatanodes() {
 
 								if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
 										&& estadoFs == NO_ESTABLE) {
-									if (esNodoAnterior(nodosEsperados, nodo->idNodo)) {
+									if (esNodoAnterior(nodosEsperados,
+											nodo->idNodo)) {
 										if (estadoAnterior) {
 											nodo->bitmap =
 													recuperarBitmapAnterior(
@@ -1704,7 +1705,7 @@ void *escucharPeticionesYama() {
 	sem_post(&semIpYamaNodos);
 	int status = 1;	// Estructura que manjea el status de los recieve.
 	while (status != 0) {
-		status = recibirHeader(socketYama, header);
+		status = recibirHeader(socketCliente, header);
 
 		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
 		if ((status != 0) && (header->id == 5)) {
@@ -1720,11 +1721,10 @@ void *escucharPeticionesYama() {
 			deserializarPeticionInfoArchivo(&peticionRecibida, &pathArchivo,
 					&pathGuardadoFinal);
 			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . . SI ALGUNO FALLA DEVUELVE ERROR.
-			char* path=string_substring_from(pathArchivo,7);//7= yama:
-			char *pathFinal=string_substring_from(pathGuardadoFinal,7);
+			char* path = string_substring_from(pathArchivo, 7);	//7= yama:
+			char *pathFinal = string_substring_from(pathGuardadoFinal, 7);
 			t_archivo_a_persistir* archivo = abrirArchivo(path);
-			if ((archivo != NULL)
-					&& (existePathDirectorio(pathFinal))) {
+			if ((archivo != NULL) && (existePathDirectorio(pathFinal))) {
 				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
@@ -2071,20 +2071,27 @@ t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 void* obtenerSocketNodosYama() {
 //Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	sem_wait(&semIpYamaNodos);
-	int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
-	if (socketPrograma <= 0) {
-		//perror(
-		//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
-		//return (ERROR);
-	}
-	if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
-		perror("No se pudo conectar al yama para actualizacion de nodos");
-		return 0;
-	}
-	printf("Conectado a yama correctamente para enviar informacion de nodos");
+	int conecto = 0;
+	while (!conecto) {
+		int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
+		if (socketPrograma <= 0) {
+			//perror(
+			//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+			//return (ERROR);
+		}
+		if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
+			perror("No se pudo conectar al yama para actualizacion de nodos");
+			//return 0;
+		} else {
+			conecto = 1;
+			printf("Conectado a yama correctamente para enviar informacion de nodos");
 
-	socketYamaNodos = socketPrograma;
-	enviarInfoNodosAYamaInicial();
+			socketYamaNodos = socketPrograma;
+
+			enviarInfoNodosAYamaInicial();
+		}
+	}
+
 
 	return NULL;
 }
