@@ -27,7 +27,7 @@ int socketMasters, socketFS;
 char* ip,*socketFSNodos;
 extern uint32_t ultimoMaster;
 uint32_t job;
-t_config* config;
+t_config *config;
 char* FS_IP;
 int FS_PUERTO,PUERTO_FS_NODOS,RETARDO_PLANIFICACION,PUERTO_MASTERS;
 
@@ -58,7 +58,8 @@ t_infoNodos deserializarActualizacion(void*);
 /* recibe el  nombre del archivo a procesar */
 int recibirRutaDeArchivoAProcesar(int,t_pedidoTransformacion**);
 t_rutaArchivo* deserializarRutaArchivo(void* buffer);
-t_pedidoTransformacion* deserializarRutasArchivos(void* buffer);
+t_pedidoTransformacion* deserializarRutasArchivos(void* buffer,int*);
+t_pedidoTransformacion* deserializarTresRutasArchivos(void *buffer,char *nombreTMP);
 void* obtenerBloquesDelArchivo(t_rutaArchivo*);
 
 /* Crea la tabla de estados */

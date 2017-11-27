@@ -276,7 +276,7 @@ int verificarEtapa(int trabajo,int etapa)
 	for(i=0;i<list_size(listaTablaEstados);i++)
 	{
 		registro = list_get(listaTablaEstados,i);
-		if(registro->job==trabajo && registro->etapa==etapa && registro->estado!=1)
+		if(registro->job==trabajo && registro->etapa==etapa && registro->estado!=ERROR_TAREA)
 			list_add(listaFiltrada,registro);
 	}
 
@@ -292,7 +292,7 @@ bool tareaOk(void *registro)
 	t_tabla_estados *reg;
 	reg = (t_tabla_estados*) registro;
 
-	if(reg->estado == 2)
+	if(reg->estado == COMPLETADO)
 		return 1;
 	else
 		return 0;
@@ -303,8 +303,9 @@ bool tareaOk(void *registro)
 /* 						all this will go in funcionesYama.c						*/
 
 
-void crearListas(){
-	listaBloquesRecibidos = list_create();
+void crearListas()
+{
+		listaBloquesRecibidos = list_create();
 		listaNodosInvolucrados= list_create();
 		listaPlanTransformaciones = list_create();
 		listaPlanRedLocal = list_create();
@@ -522,10 +523,11 @@ void actualizarTablaEstados(t_bloqueRecv bloqueRecibido,int* nodosInvolucrados,i
 	registroEstado = malloc(sizeof(t_tabla_estados));
 	registroEstado->job = job;
 	registroEstado->master = idMaster;
+	registroEstado->nroBloqueArch=bloqueRecibido.nroBloqueArch;
 	registroEstado->nodo = nodosInvolucrados[*clock];
 	registroEstado->bloque = cargarNroBloque(bloqueRecibido,nodosInvolucrados,clock);
-	registroEstado->etapa = 1; //ver cual va a ser la macro de etapa
-	registroEstado->estado = 1; //ver cual va a ser la macro de estado
+	registroEstado->etapa = TRANSFORMACION; //ver cual va a ser la macro de etapa
+	registroEstado->estado = PROCESANDO; //ver cual va a ser la macro de estado
 	char* temp;// = string_new();
 	temp = generarNombreArchivoTemporal(job, registroEstado->nodo, registroEstado->bloque);
 	registroEstado->archivoTemp = malloc(strlen(temp)+1);
@@ -587,9 +589,8 @@ void planificacionReduccionLocal()
 	t_reduccionLocalMaster *redLocal;
 	char *nombreTMP;
 
-	//transformacion = malloc(sizeof(t_transformacionMaster));
+
 	redLocal = malloc(sizeof(t_reduccionLocalMaster));
-	//nombreTMP = string_new();
 	transformacion = list_get(listaPlanTransformaciones,i);
 
 	while(i<cantTransformaciones)
@@ -642,10 +643,11 @@ void cargarReduccionLocalTablaEstado(char* nombreTMP,int idNodo)
 	registro = malloc(sizeof(t_tabla_estados));
 	registro->archivoTemp = malloc(strlen(nombreTMP)+1);
 	strcpy(registro->archivoTemp,nombreTMP);
-	registro->estado=1;// 1 en progreso
-	registro->etapa=2;// 2 para reduccion local
+	registro->estado=PROCESANDO;// 1 en progreso
+	registro->etapa=REDUCCION_LOCAL;// 2 para reduccion local
 	registro->job = job;
 	registro->master = idMaster;
+	registro->nroBloqueArch=8000;
 	registro->nodo = idNodo;
 	registro->bloque=8000;
 	list_add(listaTablaEstados,registro);
@@ -698,7 +700,6 @@ void seleccionarTransformacionLocales(t_list *lista)
 {
 	int i;
 	t_reduccionLocalMaster *registro;
-	//registro = malloc(sizeof(t_reduccionLocalMaster));
 
 	for (i=0;i<list_size(listaPlanRedLocal);i++)
 	{
@@ -707,7 +708,6 @@ void seleccionarTransformacionLocales(t_list *lista)
 		if (existeRedLocal(registro,lista))
 		{
 			list_add(lista,registro);
-			//registro = malloc(sizeof(t_reduccionLocalMaster));
 		}
 	}
 }
@@ -718,8 +718,6 @@ bool existeRedLocal(t_reduccionLocalMaster *reduccion, t_list* lista)
 	int i=0;
 
 	t_reduccionLocalMaster *elementoLista;
-
-	//elementoLista = malloc(sizeof(t_reduccionLocalMaster));
 
 	if (list_size(lista)>0)
 	{
@@ -755,8 +753,9 @@ int seleccionarNodoMenorCarga(int* nodosInvolucrados,int cantNodos)
 	}
 
 	list_sort(listAux,ordenarPorWorkload);
+
 	nodoMenorCarga = *((int*) list_get(listAux,0));
-	//list_destroy(listAux);
+
 	return nodoMenorCarga;
 
 //crear lista con nodos que tengan reducciones locales
@@ -861,9 +860,10 @@ void cargarReduccionGlobalTablaEstados(int nodoReduccion,t_reduccionGlobalMaster
 
 	registro->archivoTemp = malloc(strlen(infoRedGlobal->archivoRedGlobal)+1);
 	strcpy(registro->archivoTemp,infoRedGlobal->archivoRedGlobal);
+	registro->nroBloqueArch=9000;
 	registro->bloque = 9000;
-	registro->estado = 1;
-	registro->etapa = 3;
+	registro->estado = PROCESANDO;
+	registro->etapa = REDUCCION_GLOBAL;
 	registro->job = job;
 	registro->master = idMaster;
 	registro->nodo = infoRedGlobal->idNodo;
@@ -983,7 +983,7 @@ void actualizarConfig()
 	//string_append(&sJob,"\n");
 	fputs(clave, fpConfig);
 	estadoGuardado = fputs(sJob, fpConfig);
-	
+
 	if (estadoGuardado==(EOF))
 	{
 		perror("[ERROR]: Fallo al guardar YAMAconfig.cfg");
@@ -1006,70 +1006,217 @@ void actualizarConfig()
 
 void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *archivoTMP,t_job* jobRePlanificado)
 {
-	t_tabla_estados *registro;
-	t_transformacionMaster *transformacionReplanificada;
-	t_list *listaTareasCaidas,*listaTransformacionesCaidas,
-		   *listaRedesLocalesCaidas;
-	int largoArchivo,i;
+	t_tabla_estados *registroEstados;
+	t_transformacionMaster *transformacion;
+	t_list *listaTareas,*listaTransformacionesCaidas,
+			*listaTransformacionesReplanificadas;
+	int i,cantNodosInvolucrados;
 	t_bloqueRecv *registroBloque;
 	t_pedidoTransformacion pedidoTransformacion;
 
 	crearListas();
-	listaTareasCaidas = list_create();
+	listaTareas = list_create();
 	listaTransformacionesCaidas = list_create();
-	listaRedesLocalesCaidas = list_create();
+	listaTransformacionesReplanificadas = list_create();
 
-	registro = encontrarRegistro(archivoTMP);
+	registroEstados = encontrarRegistro(archivoTMP);
 
 	/* Prepara pedido de bloques a filesystem */
-	largoArchivo =  strlen(archivoTrabajo)+1;
+	pedidoTransformacion = prepararPedidoTransformacion(archivoTrabajo,archivoGuardadoFinal);
 
-	pedidoTransformacion.largoArchivo = largoArchivo;
-	pedidoTransformacion.nombreArchivo= malloc(largoArchivo);
-	strcpy(pedidoTransformacion.nombreArchivo,archivoTrabajo);
-
-	largoArchivo = strlen(archivoGuardadoFinal)+1;
-
-	pedidoTransformacion.largoArchivo2 = largoArchivo;
-	pedidoTransformacion.nombreArchivoGuardadoFinal = malloc(largoArchivo);
-	strcpy(pedidoTransformacion.nombreArchivoGuardadoFinal,archivoGuardadoFinal);
-
-	/* Conseguir todas las tareas caidas */
-	filtrarTareasCaidas(registro->job,registro->nodo,listaTareasCaidas);
+	/* Conseguir todas las tareas y las transformaciones del nodo caido */
+	filtrarTareas(registroEstados->job,registroEstados->nodo,listaTareas,listaTransformacionesCaidas);
 
 	/* Deshabilito nodo caido */
-	workers[registro->nodo].habilitado=0;
+	workers[registroEstados->nodo].habilitado=0;
 
+	/* Adquirir composicion del archivo*/
 	envioPedidoArchivoAFS(pedidoTransformacion);
 
-	for(i=0;i<list_size(listaTareasCaidas);i++)
+	recibirComposicionArchivo();
+
+
+	/* Ordenar lista por mayor disponibilidad */
+	list_sort(listaNodosInvolucrados,ordenarPorDisponibilidad);
+
+	/* Generar vector que sera utilizado por el clock */
+	cantNodosInvolucrados= list_size(listaNodosInvolucrados);
+	int nodosInvolucrados[cantNodosInvolucrados];
+	cargarVector(nodosInvolucrados,listaNodosInvolucrados);
+
+			/*			Inicio rePlanificacion				*/
+
+	//Planificacion de las transformaciones caidas en nodos alternos
+	//No se utiliza clock o w-clock, no tiene sentido
+	for (i=0;i<list_size(listaTransformacionesCaidas);i++)
 	{
-		registro = list_get(listaTareasCaidas,i);
-
-		if (registro->etapa == 1)
-		{
-			transformacionReplanificada = malloc(sizeof(t_transformacionMaster));
-			registroBloque = list_get(listaBloquesRecibidos,i);
-			//cargarInfoNodoAlterno(registro,registroBloque,transformacionReplanificada);
-
-		}
-
-		if (registro->etapa==3)
-		{
-
-		}
+		transformacion = malloc(sizeof(t_transformacionMaster));
+		registroEstados = list_get(listaTransformacionesCaidas,i);
+		registroBloque = obtenerInfoBloque(registroEstados);
+		cargarInfoTransformacionMaster(registroBloque,transformacion,jobRePlanificado->job);
+		list_add(listaPlanTransformaciones,transformacion);//todas para resto de planificacion
+		list_add(listaTransformacionesReplanificadas,transformacion);//solo caidas
 	}
 
+	cargarRestoTransformaciones(listaTareas,listaTransformacionesReplanificadas);
 
-	/* ejecuto hilo de planificacion */
-	//pthread_create(&planificacion,NULL,preplanificarJob(jobRePlanificado),NULL);
+	/* Si la reduccion local ya esta terminada y hay una nueva transformacion en ese nodo
+	 * la misma sera pisada cuando master informe la terminaciones de las nuevas transformaciones
+	 * caso contrario no se volvera a realizar */
+	planificacionReduccionLocal();
 
-	//pthread_join(planificacion,NULL);
+	/* La planificacion de reduccion global siempre se pisa, no importa si el nodo era el encargado
+	 * o no ya que hay que pasarle la ubicacion de los nuevos archivos temporales de
+	 * reduccion locales*/
+
+	planificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
 
 	return;
 }
 
-void filtrarTareasCaidas(int jobCaido,int nodoCaido,t_list* listaTareasCaidas){
+void cargarRestoTransformaciones(t_list *tareas,t_list *listaTransformacionesReplanificadas)
+{
+	t_transformacionMaster *transformacion;
+	t_bloqueRecv *bloqueRecibido;
+	int i;
+
+	for(i=0;i<list_size(listaBloquesRecibidos);i++)
+	{
+		bloqueRecibido = list_get(listaBloquesRecibidos,i);
+
+		if(!transformacionCargada(listaTransformacionesReplanificadas,bloqueRecibido))
+		{
+			transformacion = recuperarInformacionTransformacion(tareas,bloqueRecibido);
+			list_add(listaPlanTransformaciones,transformacion);
+		}
+	}
+	return;
+}
+
+int transformacionCargada(t_list *listaTransformacionesReplanificadas,t_bloqueRecv *bloqueRecibido)
+{
+	t_transformacionMaster *registro;
+	int i;
+
+	for(i=0;i<list_size(listaTransformacionesReplanificadas);i++)
+	{
+		registro = list_get(listaTransformacionesReplanificadas,i);
+		if(((registro->idNodo==bloqueRecibido->idNodo0)&&(registro->nroBloqueNodo==bloqueRecibido->nroBloqueNodo0))||
+				((registro->idNodo==bloqueRecibido->idNodo1)&&(registro->nroBloqueNodo==bloqueRecibido->nroBloqueNodo1)))
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void cargarInfoTransformacionMaster(t_bloqueRecv *registroBloque,t_transformacionMaster *transformacion,int jobReplanificado)
+{
+	char *nombreTMP;
+	int largoIp;
+
+	if(workers[registroBloque->idNodo0].habilitado==1)
+		{
+			transformacion->idNodo=registroBloque->idNodo0;
+			transformacion->nroBloqueNodo=registroBloque->nroBloqueNodo0;
+		}
+	else
+		{
+			transformacion->idNodo=registroBloque->idNodo1;
+			transformacion->nroBloqueNodo=registroBloque->nroBloqueNodo1;
+		}
+
+	transformacion->bytesOcupados=registroBloque->bytesOcupados;
+	transformacion->puerto=  workers[transformacion->idNodo].puerto;
+
+	nombreTMP= string_duplicate(generarNombreArchivoTemporal(jobReplanificado,transformacion->idNodo,transformacion->nroBloqueNodo));
+	transformacion->largoArchivo = strlen(nombreTMP)+1;
+	transformacion->archivoTransformacion=malloc(transformacion->largoArchivo);
+	strcpy(transformacion->archivoTransformacion,nombreTMP);
+
+	largoIp = strlen(workers[transformacion->idNodo].ip)+1;
+	transformacion->largoIp=largoIp;
+	strcpy(transformacion->ip,workers[transformacion->idNodo].ip);
+
+	workers[transformacion->idNodo].workLoad++;
+
+	return;
+
+}
+
+t_transformacionMaster *recuperarInformacionTransformacion(t_list* tareas,t_bloqueRecv *bloqueRecibido)
+{
+	t_transformacionMaster *transformacion;
+	t_tabla_estados *registro;
+	transformacion = malloc (sizeof(t_transformacionMaster));
+	int i;
+
+	for (i=0;i<list_size(tareas);i++)
+	{
+		registro = list_get(tareas,i);
+
+		if((registro->nroBloqueArch==bloqueRecibido->nroBloqueArch)&&(registro->estado!=ERROR_TAREA))
+		{
+			transformacion->idNodo = registro->nodo;
+			transformacion->nroBloqueNodo = registro->bloque;
+			transformacion->bytesOcupados=bloqueRecibido->bytesOcupados;
+
+			//nombre de archivo temporal
+			transformacion->largoArchivo = strlen(registro->archivoTemp)+1;
+			transformacion->archivoTransformacion= malloc(sizeof(transformacion->largoArchivo));
+			strcpy(transformacion->archivoTransformacion,registro->archivoTemp);
+
+			//Datos Ip y puerto
+			transformacion->puerto=workers[registro->nodo].puerto;
+			transformacion->largoIp = strlen(workers[registro->nodo].ip)+1;
+			transformacion->ip=malloc(transformacion->largoIp);
+			strcpy(transformacion->ip,workers[registro->nodo].ip);
+		}
+	}
+
+	return transformacion;
+}
+
+t_bloqueRecv* obtenerInfoBloque(t_tabla_estados *registroEstados)
+{
+	int i;
+	t_bloqueRecv *infoBloque;
+
+	for (i=0;i<list_size(listaBloquesRecibidos);i++)
+	{
+		infoBloque = list_get(listaBloquesRecibidos,i);
+
+		if(infoBloque->nroBloqueArch==registroEstados->nroBloqueArch)
+		{
+			return infoBloque;
+		}
+	}
+
+	return infoBloque;
+
+}
+
+t_pedidoTransformacion prepararPedidoTransformacion(char *original,char *guardadoFinal)
+{
+	t_pedidoTransformacion pedidoTransformacion;
+	int largoArchivo;
+
+	largoArchivo =  strlen(original)+1;
+
+	pedidoTransformacion.largoArchivo = largoArchivo;
+	pedidoTransformacion.nombreArchivo= malloc(largoArchivo);
+	strcpy(pedidoTransformacion.nombreArchivo,original);
+
+	largoArchivo = strlen(guardadoFinal)+1;
+
+	pedidoTransformacion.largoArchivo2 = largoArchivo;
+	pedidoTransformacion.nombreArchivoGuardadoFinal = malloc(largoArchivo);
+	strcpy(pedidoTransformacion.nombreArchivoGuardadoFinal,guardadoFinal);
+
+	return pedidoTransformacion;
+}
+
+void filtrarTareas(int jobCaido,int nodoCaido,t_list* listaTareas,t_list *transformacionesCaidas){
 
 	int i;
 	t_tabla_estados *registro;
@@ -1077,18 +1224,21 @@ void filtrarTareasCaidas(int jobCaido,int nodoCaido,t_list* listaTareasCaidas){
 	for (i=0;i<list_size(listaTablaEstados);i++)
 	{
 		registro = list_get(listaTablaEstados,i);
-		if((registro->nodo==nodoCaido)&&(registro->job==jobCaido))
-			registro->estado=1;//a cambiar
-			list_add(listaTareasCaidas,registro);
+
+		if(registro->job==jobCaido)
+		{
+			registro->estado=ERROR_TAREA;
+			list_add(listaTareas,registro);//todas las tareas de ese trabajo y nodo
+		}
+
+		if((registro->nodo==nodoCaido)&&(registro->job==jobCaido)&&(registro->etapa==TRANSFORMACION))
+			list_add(transformacionesCaidas,registro);//solo las transformaciones de ese nodo
 	}
 
 	return;
 }
 
-void rePrePlanificarTransformaciones(t_list *listaTareasCaidas)
-{
-	return;
-}
+
 /*          Envio peticion a FS para iniciar operacion de planificacion      */
 
 void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
@@ -1159,6 +1309,7 @@ void recibirComposicionArchivo(){
 		guardarEnBloqueRecibidos(bloqueRecibido);
 
 	}
+
 	free(buffer);
 	return;
 }
@@ -1300,8 +1451,8 @@ void* serializarTransformaciones(int cantTransformaciones, int* largoMensaje, t_
 void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista){
 	void* buffer;
 	int i, desplazamiento = 0;
-	t_reduccionLocalMaster* redLocal;
-	//redLocal = malloc(sizeof(t_reduccionLocalMaster));
+	t_reduccionLocalMaster *redLocal;
+	//t_reduccionLocalMaster* redLocal = malloc(sizeof(t_reduccionLocalMaster));
 
 	buffer = malloc(sizeof(t_reduccionLocalMaster));
 
@@ -1338,8 +1489,8 @@ void* serializarRedLocales(int cantReducciones, int* largoMensaje, t_list* lista
 void* serializarRedGlobales(int cantReducciones, int* largoMensaje, t_list* lista){
 	void* buffer;
 	int i, desplazamiento = 0;
-	t_reduccionGlobalMaster* redGlobal;
-	//redGlobal= malloc(sizeof(t_reduccionGlobalMaster));
+	t_reduccionGlobalMaster *redGlobal;
+	//t_reduccionGlobalMaster* redGlobal = malloc(sizeof(t_reduccionGlobalMaster));
 
 	buffer = malloc(sizeof(t_reduccionGlobalMaster));
 

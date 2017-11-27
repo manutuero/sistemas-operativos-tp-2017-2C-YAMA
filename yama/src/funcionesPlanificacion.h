@@ -5,6 +5,13 @@
 #include <commons/collections/list.h>
 #include "funcionesYAMA.h"
 #include <stdlib.h>
+#define PROCESANDO 1
+#define COMPLETADO 2
+#define ERROR_TAREA 3
+#define TRANSFORMACION 1
+#define REDUCCION_LOCAL 2
+#define REDUCCION_GLOBAL 3
+
 
 /* 									Estructuras									*/
 
@@ -80,6 +87,7 @@ typedef struct{
 	}t_worker_Disponibles;
 
 	typedef struct{
+		uint32_t nroBloqueArch;
 		uint32_t job;
 		uint32_t master;
 		uint32_t nodo;
@@ -210,10 +218,22 @@ void rePrePlanificacion(char *,char *,char *,t_job *);
 void rePrePlanificarTransformaciones(t_list *listaTareasCaidas);
 
 /* filtrar de la tabla de estado las tareas que tenia el nodo caido */
-void filtrarTareasCaidas(int,int,t_list*);
+void filtrarTareas(int,int,t_list*,t_list*);
+
+t_pedidoTransformacion prepararPedidoTransformacion(char*,char*);
 
 /* obtener los bloques a rePrePlanificar */
-void filtrarBloquesCaidos(int nodo, int trabajo);
+void filtrarBloquesCaidos(int, int);
+
+t_bloqueRecv* obtenerInfoBloque(t_tabla_estados*);
+
+void cargarInfoTransformacionMaster(t_bloqueRecv*,t_transformacionMaster*,int);
+
+void cargarRestoTransformaciones(t_list*,t_list*);
+
+int transformacionCargada(t_list *,t_bloqueRecv *);
+
+t_transformacionMaster *recuperarInformacionTransformacion(t_list*,t_bloqueRecv *);
 
 /* Serializacion de estructuras de planificacion */
 
