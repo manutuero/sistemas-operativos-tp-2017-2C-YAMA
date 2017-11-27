@@ -137,7 +137,8 @@ void escucharMasters() {
 			if (FD_ISSET(i, &readfds)) {
 				if (i == socketMasters) {
 
-					if ((nuevoSocket = accept(socketMasters,(void*) &direccionYama, &tamanioDir)) <= 0)
+					if ((nuevoSocket = accept(socketMasters,
+							(void*) &direccionYama, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
 
@@ -292,10 +293,13 @@ void escuchaActualizacionesNodos() {
 				workers[infoNodo.idNodo].puerto = infoNodo.puerto;
 				workers[infoNodo.idNodo].ip = malloc(infoNodo.largoIp);
 				strcpy(workers[infoNodo.idNodo].ip, infoNodo.IP);
-				printf("Recibida info nodo:   %d", infoNodo.idNodo);
+				printf("Recibida info nodo:   %d\n", infoNodo.idNodo);
 				puts("");
 			} else {
 				workers[infoNodo.idNodo].habilitado = 0;
+				printf("desconexion info nodo:   %d\n", infoNodo.idNodo);
+
+
 			}
 
 		}
@@ -397,7 +401,7 @@ t_pedidoTransformacion* deserializarRutasArchivos(void* buffer, int *idMaster){
 	memcpy(rutaArchivos->nombreArchivo, buffer+desplazamiento, rutaArchivos->largoArchivo);
 	desplazamiento += rutaArchivos->largoArchivo;
 
-	memcpy(&rutaArchivos->largoArchivo2, buffer, sizeof(uint32_t));
+	memcpy(&rutaArchivos->largoArchivo2, buffer+desplazamiento, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 	rutaArchivos->nombreArchivoGuardadoFinal= malloc(rutaArchivos->largoArchivo2);
 	memcpy(rutaArchivos->nombreArchivoGuardadoFinal, buffer+desplazamiento, rutaArchivos->largoArchivo2);

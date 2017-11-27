@@ -26,7 +26,7 @@ void mostrarTablaDeEstados(int i) {
 //esta funcion va a recibir por parametro una estructura que tenga el job, el idMaster y el socket de ese master.
 void *preplanificarJob(t_job* jobMaster){
 
-	t_bloqueRecv* bloqueRecibido;
+	//t_bloqueRecv* bloqueRecibido;
 	int i,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
 
 
@@ -65,10 +65,10 @@ void *preplanificarJob(t_job* jobMaster){
 
 	/*PNIN   			  Preparar Nodos Involucrados					   */
 
-	t_bloqueRecv* bloque;
+	t_bloqueRecv* bloqueRecibido;
 	for(i=0;i<list_size(listaBloquesRecibidos);i++){
-			bloque = (t_bloqueRecv*)list_get(listaBloquesRecibidos,i);
-			printf("bloque  %d  nodo0: %d    nodo1: %d\n",bloque->nroBloqueArch, bloque->idNodo0, bloque->idNodo1);
+		bloqueRecibido = (t_bloqueRecv*)list_get(listaBloquesRecibidos,i);
+			printf("bloque  %d  nodo0: %d    nodo1: %d\n",bloqueRecibido->nroBloqueArch, bloqueRecibido->idNodo0, bloqueRecibido->idNodo1);
 		}
 
 	//Preguntar a tocayo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -324,20 +324,22 @@ void guardarEnBloqueRecibidos(t_bloqueRecv* recibido)
 	list_add(listaBloquesRecibidos,recibido);
 }
 
-void nodosCargados(int idNodo0,int idNodo1)
+void nodosCargados(uint32_t idNodo0,uint32_t idNodo1)
 {
-	int *nodoACargar1,*nodoACargar2;
+	//int *nodoACargar1,*nodoACargar2;
 
 	if ((!existeIdNodo(idNodo0)) && (workers[idNodo0].habilitado == 1))
 	{
-		nodoACargar1 = malloc(sizeof(int));
+		uint32_t* nodoACargar1 = malloc(sizeof(uint32_t));
 		*nodoACargar1 = idNodo0;
-		list_add(listaNodosInvolucrados,nodoACargar1);
+		//uint32_t nodoACargar1 = idNodo0;
+		list_add(listaNodosInvolucrados, nodoACargar1);
 	}
 	if ((!existeIdNodo(idNodo1)) && (workers[idNodo1].habilitado == 1))
 	{
-		nodoACargar2 = malloc(sizeof(int));
+		uint32_t* nodoACargar2 = malloc(sizeof(uint32_t));
 		*nodoACargar2 = idNodo1;
+		//uint32_t nodoACargar2 = idNodo1;
 		list_add(listaNodosInvolucrados,nodoACargar2);
 	}
 }
@@ -1255,25 +1257,26 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 	paquete = serializarPeticionInfoArchivo(pedido,header);
 
-	bytesAEnviar = header->tamanioPayload;
+	bytesAEnviar = header->tamanioPayload+ sizeof(t_header);
 
 	bufferMensaje = malloc(bytesAEnviar);
 
 	/* Mensaje para FS */
-	memcpy(bufferMensaje,header,sizeof(t_header));
+	memcpy(bufferMensaje,&header->id,sizeof(uint32_t));
+	memcpy(bufferMensaje+sizeof(uint32_t),&header->tamanioPayload,sizeof(uint32_t));
 	memcpy(bufferMensaje+sizeof(t_header),paquete,header->tamanioPayload);
 
-	enviarPorSocket(socketFS,bufferMensaje,bytesAEnviar);
+	enviarPorSocket(socketFS,bufferMensaje,header->tamanioPayload);
 
 	free(bufferMensaje);
 	free(paquete);
+	free(header);
 	return;
 }
 
 /*  						Recibir composicion de archivo   				*/
 
-void recibirComposicionArchivo(){
-
+void recibirComposicionArchivo() {
 	t_header *header;
 	void *buffer;
 	int cantidadDeBloques,i,desplazamiento=0;
@@ -1282,7 +1285,7 @@ void recibirComposicionArchivo(){
 	header = malloc(sizeof(t_header));
 	recibirHeader(socketFS,header);
 
-	buffer = malloc(sizeof(header->tamanioPayload));
+	buffer = malloc(header->tamanioPayload);
 	recibirPorSocket(socketFS,buffer,header->tamanioPayload);
 
 	memcpy(&cantidadDeBloques,buffer,sizeof(uint32_t));
@@ -1291,21 +1294,22 @@ void recibirComposicionArchivo(){
 	for (i=0;i<cantidadDeBloques;i++)
 	{
 		bloqueRecibido = malloc(sizeof(t_bloqueRecv));
-		bloqueRecibido->nroBloqueArch = i;
-
-		memcpy(&bloqueRecibido->idNodo0,buffer,sizeof(uint32_t));
+		memcpy(&bloqueRecibido->nroBloqueArch,buffer+desplazamiento,sizeof(uint32_t));
 		desplazamiento+=sizeof(uint32_t);
 
-		memcpy(&bloqueRecibido->nroBloqueNodo0,buffer,sizeof(uint32_t));
+		memcpy(&bloqueRecibido->idNodo0,buffer+desplazamiento,sizeof(uint32_t));
 		desplazamiento+=sizeof(uint32_t);
 
-		memcpy(&bloqueRecibido->idNodo1,buffer,sizeof(uint32_t));
+		memcpy(&bloqueRecibido->nroBloqueNodo0,buffer+desplazamiento,sizeof(uint32_t));
 		desplazamiento+=sizeof(uint32_t);
 
-		memcpy(&bloqueRecibido->nroBloqueNodo1,buffer,sizeof(uint32_t));
+		memcpy(&bloqueRecibido->idNodo1,buffer+desplazamiento,sizeof(uint32_t));
 		desplazamiento+=sizeof(uint32_t);
 
-		memcpy(&bloqueRecibido->bytesOcupados,buffer,sizeof(uint32_t));
+		memcpy(&bloqueRecibido->nroBloqueNodo1,buffer+desplazamiento,sizeof(uint32_t));
+		desplazamiento+=sizeof(uint32_t);
+
+		memcpy(&bloqueRecibido->bytesOcupados,buffer+desplazamiento,sizeof(uint32_t));
 		desplazamiento+=sizeof(uint32_t);
 
 		guardarEnBloqueRecibidos(bloqueRecibido);
