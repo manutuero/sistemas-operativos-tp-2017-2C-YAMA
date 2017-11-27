@@ -94,7 +94,7 @@ void* levantarConsola() {
 				ejecutarCpto(argumentos);
 				break;
 			} else {
-				printf("El comando %s no es valido.\n", argumentos[0]);
+				printf("El comando '%s' no es valido.\n", argumentos[0]);
 				break;
 			}
 
@@ -103,7 +103,7 @@ void* levantarConsola() {
 				ejecutarCpblock(argumentos);
 				break;
 			} else {
-				printf("El comando %s no es valido.\n", argumentos[0]);
+				printf("El comando '%s' no es valido.\n", argumentos[0]);
 				break;
 			}
 
@@ -112,7 +112,7 @@ void* levantarConsola() {
 				ejecutarRmBloque(argumentos);
 				break;
 			} else {
-				printf("El comando %s no es valido.\n", argumentos[0]);
+				printf("El comando '%s' no es valido.\n", argumentos[0]);
 				break;
 			}
 

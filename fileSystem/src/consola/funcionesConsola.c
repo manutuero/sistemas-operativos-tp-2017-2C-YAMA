@@ -37,13 +37,17 @@ char** cargarArgumentos(char* linea) {
 
 void ejecutarFormat() {
 	if (nodos->elements_count >= 2) {
-		crearDirectorioMetadata();
-		if (estadoFs == ESTABLE)
+		// Inicio el fs por primera vez o con el flag --clean.
+		if (estadoFs == NO_ESTABLE) {
+			crearDirectorioMetadata();
+			persistirTablaDeNodos();
+			persistirBitmaps();
+			estadoFs = ESTABLE;
+			estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS;
+		} else if (estadoFs == ESTABLE) { // Ejecute format desde un estado estable
 			reiniciarEstructuras();
-		persistirTablaDeNodos();
-		persistirBitmaps();
-		estadoFs = ESTABLE;
-		estadoNodos = ACEPTANDO_NODOS_YA_CONECTADOS;
+		}
+
 		cantidad_nodos_esperados = nodos->elements_count;
 		sem_post(&semEstadoEstable);
 	}
@@ -97,13 +101,63 @@ void ejecutarRmArchivo(char **argumentos) {
 }
 
 void ejecutarRmDirectorio(char **argumentos) {
-	//revisar que directorio esta vacio primero
-	if ((strcmp(argumentos[1], "-d") == 0) && (esValido(argumentos[2]))) {
-		printf("El directorio a remover es: %s.\n", argumentos[2]);
-	} else
-		printf(
-				"La opcion: %s no es valida o el parametro: %s no es correcto.\n",
-				argumentos[1], argumentos[2]);
+	int i, indiceDirectorio, numeroResultados, cantidadArchivos = 0;
+	char *pathDirectorioYama, *opcion, *pathDirectorioLocal, *comando;
+	t_directorio directorio;
+	struct dirent **resultados = NULL;
+
+	// Validaciones
+	pathDirectorioYama = argumentos[2];
+	if (!esValido(pathDirectorioYama)) {
+		printf("La ruta '%s' no es valida.\n", pathDirectorioYama);
+		return;
+	}
+
+	opcion = argumentos[1];
+	if (!sonIguales(opcion, "-d")) {
+		printf("La opcion '%s' no es valida.\n", opcion);
+		return;
+	}
+
+	if (sonIguales(pathDirectorioYama, "/root")) {
+		printf("No se puede eliminar el directorio raiz...abortando.\n");
+		return;
+	}
+
+	if (!existePathDirectorio(pathDirectorioYama)) {
+		printf("El directorio '%s' no existe.\n", pathDirectorioYama);
+		return;
+	}
+
+	// Preparo la ruta del directorio a borrar.
+	indiceDirectorio = obtenerIndice(pathDirectorioYama);
+
+	pathDirectorioLocal = string_new();
+	string_append(&pathDirectorioLocal, PATH_METADATA);
+	string_append(&pathDirectorioLocal, "/archivos/");
+	string_append(&pathDirectorioLocal, string_itoa(indiceDirectorio));
+
+	// Verifico si el directorio no esta vacio
+	numeroResultados = scandir(pathDirectorioLocal, &resultados, NULL,
+			alphasort);
+	for (i = 2; i < numeroResultados; i++)
+		cantidadArchivos++;
+
+	directorio = directorios[indiceDirectorio].nombre;
+	if (cantidadArchivos > 0 || esDirectorioPadre(indiceDirectorio)) {
+		printf("El directorio '%s' no esta vacio...abortando.\n",
+				pathDirectorioYama);
+		return;
+	} else {
+		memset(directorio, 0, strlen(directorio));
+		directorios[indiceDirectorio].padre = 0; // Todos los directorios son hijos de root.
+
+		comando = string_new();
+		string_append(&comando, "rmdir ");
+		string_append(&comando, pathDirectorioLocal);
+		system(comando);
+		free(comando);
+	}
 }
 
 void ejecutarRmBloque(char **argumentos) {

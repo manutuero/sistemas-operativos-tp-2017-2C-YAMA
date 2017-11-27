@@ -907,7 +907,7 @@ void restaurarTablaDeNodos() {
 	// Validaciones
 	if (!diccionario) {
 		fprintf(stderr, "[Error]: no se encontro la tabla de nodos.\n");
-		exit(EXIT_FAILURE);
+		return;
 	}
 
 	nodos = list_create();
@@ -2225,6 +2225,11 @@ int contarDisponibles(t_list *bloques) {
 }
 
 void reiniciarEstructuras() {
+	reiniciarDirectorios();
+	reiniciarNodos();
+}
+
+void reiniciarNodos() {
 	int i;
 	t_nodo *nodo;
 
@@ -2233,6 +2238,9 @@ void reiniciarEstructuras() {
 		nodo->bloquesLibres = nodo->bloquesTotales;
 		memset(nodo->bitmap, 'L', strlen(nodo->bitmap));
 	}
+
+	persistirTablaDeNodos();
+	persistirBitmaps();
 }
 
 void liberarBloqueBitmaps(int idNodo, int nroBloqueDataBin) {
@@ -2245,4 +2253,60 @@ void liberarBloqueBitmaps(int idNodo, int nroBloqueDataBin) {
 			break;
 		}
 	}
+}
+
+bool esDirectorioPadre(int indiceDirectorio) {
+	int i;
+	for (i = 0; i < CANTIDAD_DIRECTORIOS; i++) {
+		if (indiceDirectorio == directorios[i].padre)
+			return true;
+	}
+	return false;
+}
+
+void reiniciarDirectorios() {
+	int i;
+	char *pathTablaDeDirectorios, *comando;
+	FILE *archivo;
+
+	pathTablaDeDirectorios = string_new();
+	string_append(&pathTablaDeDirectorios, PATH_METADATA);
+	string_append(&pathTablaDeDirectorios, "/directorios.dat");
+
+	archivo = fopen(pathTablaDeDirectorios, "r+b");
+	if (!archivo) {
+		fprintf(stderr, "[ERROR]: no se encontro la tabla de nodos.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	for (i = 0; i < CANTIDAD_DIRECTORIOS; i++)
+		memset(&directorios[i], 0, sizeof(t_directory)); // Limpio los directorios en memoria.
+
+	// Vuelvo a cargar a root
+	directorios[0].index = 0;
+	strcpy(directorios[0].nombre, "root");
+	directorios[0].padre = -1;
+
+	// Actualizo la tabla de directorios
+	for (i = 0; i < CANTIDAD_DIRECTORIOS; i++)
+		fwrite(&directorios[i], sizeof(t_directory), 1, archivo);
+
+	fclose(archivo);
+	free(pathTablaDeDirectorios);
+
+	// Elimino el directorio de ../metadata/archivos (para eliminar todos los directorios de yamafs del fs local)
+	comando = string_new();
+	string_append(&comando, "rm -rf ");
+	string_append(&comando, PATH_METADATA);
+	string_append(&comando, "/archivos");
+	system(comando);
+	free(comando);
+
+	// Lo vuelvo a crear y ademas creo el directorio de root (0)
+	comando = string_new();
+	string_append(&comando, "mkdir -p ");
+	string_append(&comando, PATH_METADATA);
+	string_append(&comando, "/archivos/0");
+	system(comando);
+	free(comando);
 }

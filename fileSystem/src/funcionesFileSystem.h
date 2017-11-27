@@ -139,6 +139,7 @@ int totalBloquesFileSystem();
 int bloquesLibresFileSystem();
 int obtenerSocketNodo(t_bloque *bloque, int *nroBloqueDatabin);
 bool existeNodo(int idNodo, t_list *lista);
+void reiniciarNodos();
 
 /* Firmas de funciones para bitmaps */
 // Crea un array de tipo t_bitmap y lo carga al archivo.
@@ -174,6 +175,8 @@ bool existePathDirectorio(char *path);
 int obtenerIndice(char *directorio);
 t_directorio obtenerPathDirectorio(char *path);
 void moverDirectorio(t_directorio pathOriginal, t_directorio pathFinal);
+bool esDirectorioPadre(int indiceDirectorio);
+void reiniciarDirectorios();
 
 /* Firmas de funciones para tabla de archivos */
 void persistirTablaDeArchivos(char *path);
