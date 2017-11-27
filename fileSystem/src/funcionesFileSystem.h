@@ -70,6 +70,7 @@ extern int estadoNodos;
 extern bool estadoAnterior;
 char* ipYama;
 int socketYamaNodos;
+int yamaConectado;
 
 /*********************** Estructuras ************************/
 

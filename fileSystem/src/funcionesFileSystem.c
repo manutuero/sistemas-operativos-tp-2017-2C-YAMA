@@ -365,9 +365,11 @@ void* esperarConexionesDatanodes() {
 							if (nodoDesconectado) {
 								if (nodoDesconectado->socketDescriptor == sd) {
 									//Enviar desconexion a YAMA SI estoy en estado estable y el yama esta conectado
-
-									/*enviarInfoNodoYama(nodoDesconectado,
-									 DESCONEXION);*/
+									if ((estadoFs == ESTABLE)
+											&& (yamaConectado)) {
+										enviarInfoNodoYama(nodoDesconectado,
+												DESCONEXION);
+									}
 
 									list_remove(nodos, j);
 									if (estadoAnterior) {
@@ -1009,7 +1011,9 @@ void agregarNodo(t_nodo *nodo) {
 				nodo->idNodo);
 		cerrarSocket(nodo->socketDescriptor);
 	}
-
+	if ((estadoFs == ESTABLE) && (yamaConectado)) {
+		enviarInfoNodoYama(nodo, DESCONEXION);
+	}
 	// Se conectaron al menos
 	if (nodos->elements_count >= 2)
 		sem_post(&semNodosRequeridos);
@@ -1718,17 +1722,31 @@ void *escucharPeticionesYama() {
 			status = recv(socketCliente, (void*) peticionRecibida,
 					header->tamanioPayload, 0);	//Recibo el path del archivo que yama me pide informacion
 
-			deserializarPeticionInfoArchivo(&peticionRecibida, &pathArchivo,
+			deserializarPeticionInfoArchivo(peticionRecibida, &pathArchivo,
 					&pathGuardadoFinal);
 			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . . SI ALGUNO FALLA DEVUELVE ERROR.
 			char* path = string_substring_from(pathArchivo, 7);	//7= yama:
 			char *pathFinal = string_substring_from(pathGuardadoFinal, 7);
+			puts("");
 			t_archivo_a_persistir* archivo = abrirArchivo(path);
-			if ((archivo != NULL) && (existePathDirectorio(pathFinal))) {
-				void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
+
+			if ((archivo != NULL) && !existeArchivoEnYamaFs(pathFinal)
+					&& existePathDirectorio(obtenerPathDirectorio(pathFinal))) { //&& (existePathDirectorio(pathFinal))
+					//void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
+				void*paqueteRespuesta = malloc(
+						((archivo->bloques->elements_count * 6)
+								* sizeof(uint32_t)) + sizeof(uint32_t)
+								+ (sizeof(t_header))); //6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
+
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
 				serializarInfoArchivo(archivo, paqueteRespuesta, headerRta);
+				int enviados = enviarPorSocket(socketCliente, paqueteRespuesta,
+						headerRta->tamanioPayload);
+				printf(
+						"Bytes enviados a yama con peticion archivo: %d  tamanio payload :  %d \n",
+						enviados, headerRta->tamanioPayload);
+				puts("");
 
 			} else {
 				//Enviar respuesta con error al yama. Solo con el header alcanza.
@@ -1759,7 +1777,7 @@ int esArchivoRegular(char *path) {
 void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
 		char ** rutaGuardadoFinal) {
 	int desplazamiento = 0;
-	uint32_t * largoALeer = malloc(sizeof(uint32_t));
+	uint32_t* largoALeer = malloc(sizeof(uint32_t));
 
 	memcpy(largoALeer, paquete, sizeof(uint32_t));	//largo de la ruta archivo
 	desplazamiento += sizeof(uint32_t);
@@ -1768,7 +1786,6 @@ void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
 
 	memcpy(*rutaArchivo, paquete + desplazamiento, *largoALeer); //ruta del archivo que se va a procesar en el sistema
 	desplazamiento += *largoALeer;
-
 	memcpy(largoALeer, paquete + desplazamiento, sizeof(uint32_t)); //largo de la ruta archivo
 	desplazamiento += sizeof(uint32_t);
 
@@ -1781,9 +1798,11 @@ void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
 }
 
 void serializarInfoArchivo(t_archivo_a_persistir *archivo,
-		void* paqueteRespuesta, t_header *header) {
-	paqueteRespuesta = malloc(
-			((archivo->bloques->elements_count * 6) * sizeof(uint32_t))); //Falta agregar la cantidad de bloques.6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
+		void* paqueteRespuestaF, t_header *header) {
+
+	void *paqueteRespuesta = malloc(
+			((archivo->bloques->elements_count * 6) * sizeof(uint32_t))
+					+ sizeof(uint32_t)); //6  =   numBloque + idNodoCopia0+numBloqueCopia0+idNodoCopia1+numBloqueCopia1+tamanioBloque
 
 	/*Estructura del paquete:
 	 * header + tamanioPayload
@@ -1816,10 +1835,10 @@ void serializarInfoArchivo(t_archivo_a_persistir *archivo,
 				sizeof(int)); //numero bloque copia 0
 		desplazamiento += sizeof(int);
 
-		memcpy(paqueteRespuesta + desplazamiento, &bloque->nodoCopia0->idNodo,
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->nodoCopia1->idNodo,
 				sizeof(uint32_t)); //idNodoCopia1
 		desplazamiento += sizeof(uint32_t);
-		memcpy(paqueteRespuesta + desplazamiento, &bloque->numeroBloqueCopia0,
+		memcpy(paqueteRespuesta + desplazamiento, &bloque->numeroBloqueCopia1,
 				sizeof(int)); //numero bloque copia 1
 		desplazamiento += sizeof(int);
 
@@ -1827,6 +1846,18 @@ void serializarInfoArchivo(t_archivo_a_persistir *archivo,
 				sizeof(size_t));
 		desplazamiento += sizeof(size_t);
 	}
+	header->id = 8;
+	header->tamanioPayload = desplazamiento;
+	desplazamiento = 0;
+	memcpy(paqueteRespuestaF, &header->id, sizeof(uint32_t));
+	desplazamiento += sizeof(sizeof(uint32_t));
+	memcpy(paqueteRespuestaF + desplazamiento, &header->tamanioPayload,
+			sizeof(uint32_t));
+	desplazamiento += sizeof(sizeof(uint32_t));
+	memcpy(paqueteRespuestaF + desplazamiento, paqueteRespuesta,
+			header->tamanioPayload);
+
+	free(paqueteRespuesta);
 }
 
 // Devuelve un bloque del archivo que se encuentra en 'pathArchivo' o NULL si algo fallo.
@@ -1965,7 +1996,6 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 void *esperarConexionesWorker() {
 
 	int socketFSWorkers;
-	printf("Puerto conexion workers: %d\n", PUERTO_WORKERS);
 	struct sockaddr_in direccionFSWorker;
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
@@ -2016,7 +2046,7 @@ void *esperarConexionesWorker() {
 				if (i == socketFSWorkers) {
 
 					if ((nuevoSocket = accept(socketFSWorkers,
-							(void*) &direccionFSWorker, &tamanioDir)) <= 0)
+							(void*) &direccionFSWorker, (socklen_t*) &tamanioDir)) <= 0)
 						perror("accept");
 					else {
 						printf("Entro una conexion por el puerto %d\n",
@@ -2072,6 +2102,7 @@ void* obtenerSocketNodosYama() {
 //Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	sem_wait(&semIpYamaNodos);
 	int conecto = 0;
+	int cantidadIntentos=0;
 	while (!conecto) {
 		int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
 		if (socketPrograma <= 0) {
@@ -2080,18 +2111,25 @@ void* obtenerSocketNodosYama() {
 			//return (ERROR);
 		}
 		if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
-			perror("No se pudo conectar al yama para actualizacion de nodos");
+			//perror("No se pudo conectar al yama para actualizacion de nodos");
 			//return 0;
+			cantidadIntentos+=1;
+			if(cantidadIntentos==50){
+				perror("ERROR NO SE PUDO CONECTAR AL SOCKET PARA INFORMACION DE NODOS!");
+				break;
+				exit(1);
+			}
 		} else {
 			conecto = 1;
-			printf("Conectado a yama correctamente para enviar informacion de nodos");
+			printf(
+					"Conectado a yama correctamente para enviar informacion de nodos");
 
 			socketYamaNodos = socketPrograma;
-
+			yamaConectado = 1;
 			enviarInfoNodosAYamaInicial();
 		}
-	}
 
+	}
 
 	return NULL;
 }
@@ -2112,8 +2150,6 @@ void* enviarInfoNodoYama(t_nodo *nodo, int tipo) {
 	} else {
 		header->id = 31;
 	}
-	printf("envio infonodo id: %d ", nodo->idNodo);
-	puts("");
 	paquete = serializarInfoNodo(nodo, header);
 	enviarPorSocket(socketYamaNodos, paquete, header->tamanioPayload);
 

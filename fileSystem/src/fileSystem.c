@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
 
 	ARCHCONFIG = "fsConfig.cfg";
 	cargarArchivoDeConfiguracionFS(ARCHCONFIG);
-
+	yamaConectado=0;
 	// Opcion para correr tests.
 	if (argc > 1 && sonIguales(argv[1], "--tests")) {
 		return correrTests();
