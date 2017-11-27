@@ -27,8 +27,8 @@ void mostrarTablaDeEstados(int i) {
 void *preplanificarJob(t_job* jobMaster){
 
 	t_bloqueRecv* bloqueRecibido;
-	int nodo,i,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
-	void* buffer;
+	int i,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
+
 
 	crearListas();
 
@@ -71,11 +71,12 @@ void *preplanificarJob(t_job* jobMaster){
 			printf("bloque  %d  nodo0: %d    nodo1: %d\n",bloque->nroBloqueArch, bloque->idNodo0, bloque->idNodo1);
 		}
 
-	printf("nodos involucrados: \n");
+	//Preguntar a tocayo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	/*printf("nodos involucrados: \n");
 		for(i=0;i<list_size(listaNodosInvolucrados);i++){
 			nodo = *(int*)list_get(listaNodosInvolucrados,i);
 			printf("nodo %d\n",*(int*)list_get(listaNodosInvolucrados,i));
-		}
+		}*/
 
 	/* Ordenar lista por mayor disponibilidad */
 	list_sort(listaNodosInvolucrados,ordenarPorDisponibilidad);
@@ -1070,6 +1071,14 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	 * reduccion locales*/
 
 	planificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
+
+	/*Limpieza*/
+
+	destruir_listas();
+
+	list_destroy(listaTareas);
+	list_destroy(listaTransformacionesCaidas);
+	list_destroy(listaTransformacionesReplanificadas);
 
 	return;
 }
