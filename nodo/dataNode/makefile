@@ -1,5 +1,5 @@
 clean:
-	 rm dataNode
+	 rm -f DataNode
 all: dataNode
 
 dataNode:

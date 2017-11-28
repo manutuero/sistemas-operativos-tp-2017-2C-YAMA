@@ -38,7 +38,7 @@ worker: $(OBJS) $(USER_OBJS) /home/utnso/workspace/utils/Debug/libutils.so
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) worker
+	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) Worker
 	-@echo ' '
 
 .PHONY: all clean dependents
