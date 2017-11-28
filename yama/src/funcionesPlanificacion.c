@@ -1401,7 +1401,7 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 	memcpy(bufferMensaje+desplazamiento, bufferRedGlobal, largoRedGlobales);
 	desplazamiento += largoRedGlobales;
 
-	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, tamanioTotalBuffer);
+	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, header.tamanioPayload);
 
 	printf("envia planificacion a master\n");
 

@@ -283,8 +283,8 @@ void escuchaActualizacionesNodos() {
 
 			void * actualizacionRecibida = malloc(header->tamanioPayload);
 
-			status = recv(socketCliente, (void*) actualizacionRecibida,
-					header->tamanioPayload, 0);
+			status = recibirPorSocket(socketCliente,actualizacionRecibida,
+					header->tamanioPayload);
 
 			infoNodo = deserializarActualizacion(actualizacionRecibida);
 
@@ -311,26 +311,25 @@ void escuchaActualizacionesNodos() {
 
 t_infoNodos deserializarActualizacion(void* mensaje) {
 
-	int desplazamiento = 0, bytesACopiar = 0, tamanioIp = 0;
-	t_infoNodos infoNodo;
+	int desplazamiento = 0, bytesACopiar = 0;
+	t_infoNodos* infoNodo = malloc(sizeof(t_infoNodos));
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(&infoNodo.idNodo, mensaje + desplazamiento, bytesACopiar);
+	memcpy(&infoNodo->idNodo, mensaje + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	memcpy(&infoNodo.puerto, mensaje + desplazamiento, bytesACopiar);
+	memcpy(&infoNodo->puerto, mensaje + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t); // recibimos longitud IP
-	memcpy(&infoNodo.largoIp, mensaje + desplazamiento, bytesACopiar);
+	memcpy(&infoNodo->largoIp, mensaje + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	bytesACopiar = tamanioIp;
-	infoNodo.IP = malloc(tamanioIp + 1);
-	memcpy(infoNodo.IP, mensaje + desplazamiento, bytesACopiar);
-
-	return infoNodo;
+	bytesACopiar = infoNodo->largoIp;
+	infoNodo->IP = malloc(infoNodo->largoIp);
+	memcpy(infoNodo->IP, mensaje + desplazamiento, bytesACopiar);
+	return *infoNodo;
 }
 
 void mandarRutaAFS(const t_header* header, void* buffer) {
