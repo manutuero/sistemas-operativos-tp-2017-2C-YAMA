@@ -1062,6 +1062,8 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 
 	rePlanificacionReduccionGlobal(listaTareas,cantNodosInvolucrados,nodosInvolucrados);
 
+	enviarPlanificacionAMaster(jobRePlanificado);
+
 	/*Limpieza*/
 
 	destruir_listas();
