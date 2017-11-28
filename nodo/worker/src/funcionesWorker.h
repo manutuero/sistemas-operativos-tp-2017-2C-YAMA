@@ -22,11 +22,12 @@ char* ID_NODO;
 int PUERTO_WORKER;
 int PUERTO_DATANODE;
 char* RUTA_DATABIN;
+char* RUTA_TEMPORALES;
 FILE *filePointer;
 int fileDescriptor;
 extern char* pathTemporales;
 struct sockaddr_in direccionWorker;
-int socketWorker;
+int socketMaster;
 
 #define UN_MEGABYTE 1048576
 #define UN_BLOQUE sizeof(char)*UN_MEGABYTE
@@ -133,8 +134,8 @@ void cerrarDatabin();
 void realizarTransformacion(t_infoTransformacion*,int);
 void realizarReduccionLocal(t_infoReduccionLocal*,int);
 void realizarReduccionGlobal(t_infoReduccionGlobal*,int);
-char* armarNombreConPathTemp(char*);
-char *guardarArchScript(char*);
+char* armarRutaGuardadoTemp(char*);
+char *guardarArchScript(char*,char*);
 
 int solicitarArchivoAWorker(char*, int,char*);
 void* serializarSolicitudArchivo(char*,int*);
@@ -154,5 +155,6 @@ void copiarContenidoDeArchivo(FILE*,FILE*);
 void* serializarInfoGuardadoFinal(int,char*,t_infoGuardadoFinal*,int*);
 void guardadoFinalEnFilesystem(t_infoGuardadoFinal*);
 void notificarAMaster(int , int);
+
 
 #endif

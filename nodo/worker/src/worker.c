@@ -16,24 +16,25 @@ int main(void) {
 	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
 	int activado = 1;
+	int socketMaster;
 	int pid;
 
-	socketWorker = socket(AF_INET, SOCK_STREAM, 0);
+	socketMaster= socket(AF_INET, SOCK_STREAM, 0);
 	// Permite reutilizar el socket sin que se bloquee por 2 minutos
-	if (setsockopt(socketWorker, SOL_SOCKET, SO_REUSEADDR, &activado,
+	if (setsockopt(socketMaster, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
 		perror("setsockopt");
 		exit(1);
 	}
 
 	// Se enlaza el socket al puerto
-	if (bind(socketWorker, (struct sockaddr *) &direccionWorker,
+	if (bind(socketMaster, (struct sockaddr *) &direccionWorker,
 			sizeof(struct sockaddr)) != 0) {
 		perror("No se pudo conectar");
 		exit(1);
 	}
 	// Se pone a escuchar el servidor kernel
-	if (listen(socketWorker, 10) == -1) {
+	if (listen(socketMaster, 10) == -1) {
 		perror("listen");
 		exit(1);
 	}
@@ -44,9 +45,9 @@ int main(void) {
 	int bytesRecibidos, maxPuerto, i, nuevoSocket;
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
-	FD_SET(socketWorker, &auxRead);
+	FD_SET(socketMaster, &auxRead);
 
-	maxPuerto = socketWorker;
+	maxPuerto = socketMaster;
 
 	printf("escuchando masters\n");
 	while (1) {
@@ -59,12 +60,11 @@ int main(void) {
 
 		for (i = 0; i <= maxPuerto; i++) {
 			if (FD_ISSET(i, &readfds)) {
-				if (i == socketWorker) {
+				if (i == socketMaster) {
 
-					if ((nuevoSocket = accept(socketWorker,(void*) &direccionWorker, &tamanioDir)) <= 0)
+					if ((nuevoSocket = accept(socketMaster,(struct soccaddr*) &direccionWorker, &tamanioDir)) <= 0)
 						perror("accept");
 					else {
-						//Le envia el archivo apenas se conecta con un puerto
 						printf("Entro una conexion por el puerto %d\n",
 								nuevoSocket);
 						FD_SET(nuevoSocket, &auxRead);

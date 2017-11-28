@@ -46,6 +46,10 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 	if (config_has_property(config, "RUTA_DATABIN")) {
 		RUTA_DATABIN = config_get_string_value(config, "RUTA_DATABIN");
 	}
+	if (config_has_property(config, "RUTA_DATABIN")) {
+		RUTA_TEMPORALES = config_get_string_value(config, "RUTA_TEMPORALES");
+	}
+
 
 	printf("\nIP Filesystem: %s\n", IP_FILESYSTEM);
 	printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
@@ -175,32 +179,37 @@ char* getBloque(int numero) {
 
 void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketMaster) {
 	int respuesta;
+	char*rutaGuardadoTemp=string_new();
 	char* rutaArchTransformador;
-	char*rutaDataBLoque=string_new();
-	string_append(&rutaDataBLoque,infoTransformacion->nombreArchTemp);
-	string_append(&rutaDataBLoque,"D");
-	FILE* dataBloque=fopen(rutaDataBLoque,"w+");
+	char*rutaDataBloque=string_new();
+	string_append(&rutaDataBloque,"/home/utnso/thePonchos");
+	string_append(&rutaDataBloque,infoTransformacion->nombreArchTemp);
+	string_append(&rutaDataBloque,"D");
+	FILE* dataBloque=fopen(rutaDataBloque,"w+");
 	FILE*archivoTemp;
 	rutaArchTransformador = guardarArchScript(
-			infoTransformacion->archTransformador);
-	archivoTemp = fopen(infoTransformacion->nombreArchTemp, "w+");
-	char* bloque;
-	char*data;
+			infoTransformacion->archTransformador,infoTransformacion->nombreArchTemp);
+	char* bloque=malloc(UN_BLOQUE);
+	char*data=malloc(infoTransformacion->bytesOcupados);
 	bloque = getBloque(infoTransformacion->numBloque);
 	data = memcpy(data, bloque, infoTransformacion->bytesOcupados);
 	txt_write_in_file(dataBloque,data);
 	char* lineaAEjecutar = string_new();
 	string_append(&data, "\0");
-	string_append_with_format(&lineaAEjecutar, "cat %s | ./%s | sort > %s",
-			dataBloque, rutaArchTransformador, infoTransformacion->nombreArchTemp);
+	rutaGuardadoTemp=armarRutaGuardadoTemp(infoTransformacion->nombreArchTemp);
+	archivoTemp = fopen(rutaGuardadoTemp, "w+");
+	string_append_with_format(&lineaAEjecutar, "cat %s | %s | sort > %s",
+			rutaDataBloque, rutaArchTransformador, rutaGuardadoTemp);
 
 	respuesta = system(lineaAEjecutar);
 
 	//registrarOperacionEnLogs(repuesta)
 	fclose(dataBloque);
 	fclose(archivoTemp);
-
-	remove(rutaDataBLoque);
+	remove(rutaArchTransformador);
+	remove(rutaDataBloque);
+	//free(bloque);
+	//free(data);
 	notificarAMaster(TRANSFORMACION_OK, socketMaster);
 
 	if(respuesta!=-1){
@@ -210,11 +219,24 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	}
 }
 
-char *guardarArchScript(char*contenidoArchivoScript) {
+char* armarRutaGuardadoTemp(char*nombreTemp) {
+	char*rutaGuardadoTemp=string_new();
+	string_append(&rutaGuardadoTemp,RUTA_TEMPORALES);
+	string_append(&rutaGuardadoTemp,nombreTemp);
+	return rutaGuardadoTemp;
+
+}
+
+char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
 	char*rutaArchScritp = string_new();
+	char modo[]="0777";
+	int permiso;
 	string_append(&rutaArchScritp,
-			"/home/utnso/thePonchos/scriptsGuardados/archScript");
-	FILE*arch = fopen(rutaArchScritp, "w");
+			"/home/utnso/thePonchos/scripts");
+	string_append(&rutaArchScritp,nombreArchTemp);
+	FILE*arch = fopen(rutaArchScritp, "w+");
+	permiso=strtol(modo,0,8);
+	chmod(rutaArchScritp,permiso);
 	txt_write_in_file(arch, contenidoArchivoScript);
 	fclose(arch);
 	return rutaArchScritp;
@@ -230,7 +252,7 @@ char *guardarArchScript(char*contenidoArchivoScript) {
 void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketMaster) {
 	//verificarExistenciaPathTemp(pathTemporales);
 	char*rutaArchReductor;
-	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor);
+	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor,infoReduccionLocal->rutaArchReducidoLocal);
 	char*rutaArchConcat=string_new();
 		string_append(&rutaArchConcat,infoReduccionLocal->rutaArchReducidoLocal);
 		string_append(&rutaArchConcat,"C");
@@ -680,11 +702,12 @@ t_infoTransformacion* deserializarInfoTransformacion(void* buffer) {
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	bytesACopiar = infoTransformacion->largoArchTransformador;
-	infoTransformacion->archTransformador = malloc(
-			infoTransformacion->largoArchTransformador);
+	bytesACopiar = infoTransformacion->largoArchTransformador+1;
+	infoTransformacion->archTransformador = malloc(infoTransformacion->largoArchTransformador);
 	memcpy(infoTransformacion->archTransformador, buffer + desplazamiento,
-			bytesACopiar);
+			infoTransformacion->largoArchTransformador);
+	string_append(&infoTransformacion->archTransformador,"\0");
+
 	desplazamiento += bytesACopiar;
 
 	return infoTransformacion;
