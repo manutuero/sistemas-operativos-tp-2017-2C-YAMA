@@ -224,7 +224,7 @@ void mandarArchivosAYama(int socketYama, char* archivoAprocesar) {
 	desplazamiento += header.tamanioPayload;
 
 	int tamanioMensaje = header.tamanioPayload + sizeof(t_header);
-	enviarPorSocket(socketYama, buffer, tamanioMensaje);
+	enviarPorSocket(socketYama, buffer, header.tamanioPayload);
 	free(bufferStruct);
 	free(buffer);
 	log_info(masterLogger, "Se envio la ruta del archivo a procesar a YAMA");
@@ -234,12 +234,15 @@ void* serializarArchivos(int* largoBuffer) {
 	void* buffer;
 	int desplazamiento = 0, tamanioBuffer;
 	t_pedidoTransformacion pedido;
-	pedido.largoArchivo = strlen(archivoAprocesar);
-	pedido.largoArchivo2 = strlen(direccionDeResultado);
+	pedido.largoArchivo = strlen(archivoAprocesar)+1;
+	pedido.largoArchivo2 = strlen(direccionDeResultado)+1;
 	pedido.nombreArchivo = string_duplicate(archivoAprocesar);
+	//pedido.nombreArchivo[pedido.largoArchivo] = "\0";
+	printf("%s %d\n",pedido.nombreArchivo, pedido.largoArchivo);
 	pedido.nombreArchivoGuardadoFinal = string_duplicate(direccionDeResultado);
-
-	tamanioBuffer = strlen(archivoAprocesar) + strlen(direccionDeResultado)
+	//pedido.nombreArchivoGuardadoFinal[pedido.largoArchivo2] = "\0";
+	printf("%s %d\n",pedido.nombreArchivoGuardadoFinal, pedido.largoArchivo2);
+	tamanioBuffer = pedido.largoArchivo + pedido.largoArchivo2
 			+ 2 * sizeof(uint32_t);
 	//tamanioBuffer = strlen(archivoAprocesar) + strlen(direccionDeResultado) + 2 * sizeof(uint32_t) + sizeof(idMaster);
 	buffer = malloc(tamanioBuffer);
@@ -320,21 +323,22 @@ void deserializarTransformaciones(int cantTransformaciones, void* buffer,
 		memcpy(&transformaciones->largoIp, buffer + *desplazamiento,
 				sizeof(transformaciones->largoIp));
 		*desplazamiento += sizeof(transformaciones->largoIp);
-		transformaciones->ip = malloc(transformaciones->largoIp + 1);
+		transformaciones->ip = malloc(transformaciones->largoIp);
 		memcpy(transformaciones->ip, buffer + *desplazamiento,
 				transformaciones->largoIp);
 		*desplazamiento += transformaciones->largoIp;
-		transformaciones->ip[transformaciones->largoIp] = '\0';
+		transformaciones->ip[transformaciones->largoIp];
 		memcpy(&transformaciones->largoArchivo, buffer + *desplazamiento,
 				sizeof(transformaciones->largoArchivo));
 		*desplazamiento += sizeof(transformaciones->largoArchivo);
 
 		transformaciones->archivoTransformacion = malloc(
-				transformaciones->largoArchivo + 1);
+				transformaciones->largoArchivo);
 		memcpy(transformaciones->archivoTransformacion,
 				buffer + *desplazamiento, transformaciones->largoArchivo);
 		*desplazamiento += transformaciones->largoArchivo;
-		transformaciones->archivoTransformacion[transformaciones->largoArchivo] ='\0';
+		transformaciones->archivoTransformacion[transformaciones->largoArchivo];
+		printf("ip nodo: %s\n",transformaciones->ip);
 		list_add(listaTransformaciones, transformaciones);
 	}
 }
@@ -653,7 +657,7 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
+		enviarPorSocket(socketWorker, bufferMensaje, largoBuffer);
 		free(buffer);
 		free(bufferMensaje);
 		printf("enviado a worker la reduccion local\n");
@@ -758,7 +762,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorkerEncargado, bufferMensaje, tamanioMensaje);
+		enviarPorSocket(socketWorkerEncargado, bufferMensaje, largoBuffer);
 		free(buffer);
 		free(bufferMensaje);
 
@@ -811,7 +815,7 @@ void avisarAYama(t_transformacionMaster* transformacion, t_header headerResp) {
 			headerResp.tamanioPayload);
 	desplazamiento += headerResp.tamanioPayload;
 
-	enviarPorSocket(socketYama, buffer, desplazamiento);
+	enviarPorSocket(socketYama, buffer, headerResp.tamanioPayload);
 	free(buffer);
 }
 
@@ -831,7 +835,7 @@ void avisarAYamaRedLocal(t_infoReduccionesLocales reduccionWorker,
 			headerResp.tamanioPayload);
 	desplazamiento += headerResp.tamanioPayload;
 
-	enviarPorSocket(socketYama, buffer, desplazamiento);
+	enviarPorSocket(socketYama, buffer, headerResp.tamanioPayload);
 	free(buffer);
 }
 
@@ -850,7 +854,7 @@ void avisarAYamaRedGlobal(t_infoReduccionGlobal redGlobalWorker,
 			headerResp.tamanioPayload);
 	desplazamiento += headerResp.tamanioPayload;
 
-	enviarPorSocket(socketYama, buffer, desplazamiento);
+	enviarPorSocket(socketYama, buffer, headerResp.tamanioPayload);
 	free(buffer);
 }
 
@@ -892,7 +896,7 @@ void avisarAlmacenadoFinal() {
 		memcpy(buffer, &header, sizeof(t_header));
 		memcpy(buffer+sizeof(t_header),bufferStruct, tamanioBuffer);
 
-		enviarPorSocket(socketWorker, buffer, tamanioBuffer+sizeof(t_header));
+		enviarPorSocket(socketWorker, buffer, tamanioBuffer);
 		printf("se avisa al worker encargado (nodo %d) para almacenar el resultado del job\n",nodoEncargado);
 		log_info(masterLogger,"Se avisa al worker encargado (nodo %d) para almacenar el resultado del job.",
 				nodoEncargado);
@@ -985,7 +989,7 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
+		enviarPorSocket(socketWorker, bufferMensaje, largoBuffer);
 		free(buffer);
 		free(bufferMensaje);
 		printf("enviado a worker %d\n", transformacion->idNodo);
@@ -1067,7 +1071,7 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	memcpy(buffer + desplazamiento, fallo.rutaArchivoDestino,fallo.largoRutaArchivoDestino);
 	desplazamiento += fallo.largoRutaArchivoDestino;
 
-	enviarPorSocket(socketYama, buffer, tamanioBuffer);
+	enviarPorSocket(socketYama, buffer, header->tamanioPayload);
 	pthread_mutex_lock(&mutexTotalFallos);
 	fallos++;
 	pthread_mutex_unlock(&mutexTotalFallos);
@@ -1116,6 +1120,11 @@ int conectarseAWorker(int puerto, char* ip) {
 	int socketWorker;
 
 	socketWorker = socket(AF_INET, SOCK_STREAM, 0);
+	if(socketWorker <= 0){
+		printf("error en la conexion del worker\n");
+		return -1;
+	}
+
 	if (connect(socketWorker, (struct sockaddr *) &direccionWorker,sizeof(struct sockaddr)) != 0) {
 		perror("fallo la conexion al worker");
 		return -1;
@@ -1170,22 +1179,17 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 	memcpy(buffer + desplazamiento, &redLocalWorker->etapa, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 
-	memcpy(buffer + desplazamiento,
-			&redLocalWorker->largoRutaArchivoReductorLocal, sizeof(uint32_t));
+	memcpy(buffer + desplazamiento, &redLocalWorker->largoRutaArchivoReductorLocal, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, redLocalWorker->rutaArchivoReductorLocal,
-			redLocalWorker->largoRutaArchivoReductorLocal);
+	memcpy(buffer + desplazamiento, redLocalWorker->rutaArchivoReductorLocal,redLocalWorker->largoRutaArchivoReductorLocal);
 	desplazamiento += redLocalWorker->largoRutaArchivoReductorLocal;
 
-	memcpy(buffer + desplazamiento, &redLocalWorker->largoArchivoReductor,
-			sizeof(uint32_t));
+	memcpy(buffer + desplazamiento, &redLocalWorker->largoArchivoReductor,sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, redLocalWorker->archivoReductor,
-			redLocalWorker->largoArchivoReductor);
+	memcpy(buffer + desplazamiento, redLocalWorker->archivoReductor,redLocalWorker->largoArchivoReductor);
 	desplazamiento += redLocalWorker->largoArchivoReductor;
 
-	memcpy(buffer + desplazamiento, &redLocalWorker->cantidadTransformaciones,
-			sizeof(uint32_t));
+	memcpy(buffer + desplazamiento, &redLocalWorker->cantidadTransformaciones,sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 
 	for (i = 0; i < redLocalWorker->cantidadTransformaciones; i++) {
@@ -1195,11 +1199,9 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 				+ sizeof(uint32_t);
 		buffer = realloc(buffer, tamanioBuffer);
 
-		memcpy(buffer + desplazamiento,
-				&temporales.largoRutaTemporalTransformacion, sizeof(uint32_t));
+		memcpy(buffer + desplazamiento,&temporales.largoRutaTemporalTransformacion, sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
-		memcpy(buffer + desplazamiento, temporales.rutaTemporalTransformacion,
-				temporales.largoRutaTemporalTransformacion);
+		memcpy(buffer + desplazamiento, temporales.rutaTemporalTransformacion,temporales.largoRutaTemporalTransformacion);
 		desplazamiento += temporales.largoRutaTemporalTransformacion;
 	}
 
