@@ -32,7 +32,7 @@ dependents:
 worker: $(OBJS) $(USER_OBJS) /home/utnso/workspace/utils/Debug/libutils.so
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -L"/home/utnso/workspace/utils/Debug" -o "worker" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -L"/home/utnso/workspace/utils/Debug" -o "Worker" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

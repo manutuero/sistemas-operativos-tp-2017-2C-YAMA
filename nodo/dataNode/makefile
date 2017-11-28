@@ -4,7 +4,7 @@ all: dataNode
 
 dataNode:
 	@echo 'Building dataNode'
-	gcc src/*.c -o dataNode -lcommons -lutils
+	gcc src/*.c -o DataNode -lcommons -lutils
 
 
 install:
