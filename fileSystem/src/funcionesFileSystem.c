@@ -125,10 +125,9 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	largoIp = strlen(nodo->ip);
+	largoIp = strlen(nodo->ip)+1;
 	memcpy(payload + desplazamiento, &largoIp, bytesACopiar); // le agrego el largo de la cadena ip como parte del mensaje
 	desplazamiento += sizeof(uint32_t);
-
 	payload = realloc(payload, desplazamiento + largoIp); // Hacemos apuntar al nuevo espacio de memoria redimensionado.
 	memcpy(payload + desplazamiento, nodo->ip, largoIp);
 	desplazamiento += largoIp;
@@ -289,7 +288,8 @@ void* esperarConexionesDatanodes() {
 								getpeername(socketEntrante,
 										(struct sockaddr*) &address,
 										(socklen_t*) &addrlen);
-								nodo->ip = inet_ntoa(address.sin_addr);
+								nodo->ip=string_new();
+								nodo->ip =string_duplicate(inet_ntoa(address.sin_addr));
 
 								if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 									socketsClientes[i] = socketEntrante;
@@ -1745,10 +1745,6 @@ void *escucharPeticionesYama() {
 				serializarInfoArchivo(archivo, paqueteRespuesta, headerRta);
 				int enviados = enviarPorSocket(socketCliente, paqueteRespuesta,
 						headerRta->tamanioPayload);
-				printf(
-						"Bytes enviados a yama con peticion archivo: %d  tamanio payload :  %d \n",
-						enviados, headerRta->tamanioPayload);
-				puts("");
 
 			} else {
 				//Enviar respuesta con error al yama. Solo con el header alcanza.
@@ -2066,6 +2062,8 @@ void *esperarConexionesWorker() {
 
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
 							archivo = deserializarInfoArchivoFinal(buffer);
+
+
 							//TODO guardar archivoGlobal
 						}
 
