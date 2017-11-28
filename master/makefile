@@ -30,12 +30,14 @@ master: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
 	gcc  -o "master" $(OBJS) $(USER_OBJS) $(LIBS)
+	mkdir logs
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
 	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) master
+	rm -rf logs
 	-@echo ' '
 
 .PHONY: all clean dependents
