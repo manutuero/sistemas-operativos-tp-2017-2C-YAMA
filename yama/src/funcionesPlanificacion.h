@@ -141,7 +141,7 @@ void inicializarWorkers(void);
 void guardarEnBloqueRecibidos(t_bloqueRecv* );
 
 /*Verifica la existencia de los nodos del bloque en la lista de nodos involucrados */
-void nodosCargados(uint32_t,uint32_t);
+void nodosCargados(int,int);
 int existeIdNodo(int );
 
 /* Funcion a utilizar en el list_sort */
@@ -215,7 +215,7 @@ int tieneReduccionesLocales(int);
 /*						rePrePlanificacion de nodo caido						*/
 void rePrePlanificacion(char *,char *,char *,t_job *);
 
-void rePlanificacionReduccionGlobal(int,int*);
+void rePlanificacionReduccionGlobal(t_list*,int,int*);
 
 void rePrePlanificarTransformaciones(t_list *listaTareasCaidas);
 

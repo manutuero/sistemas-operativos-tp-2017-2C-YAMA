@@ -646,6 +646,7 @@ void cargarReduccionLocalTablaEstado(char* nombreTMP,int idNodo)
 }
 
 /*  							Reduccion global 							*/
+
 void planificacionReduccionGlobal(int cantNodos,int *nodosInvolucrados)
 {
 	int nodoReduccionGlobal,i,cantRedLocales;
@@ -1059,7 +1060,7 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	 * o no ya que hay que pasarle la ubicacion de los nuevos archivos temporales de
 	 * reduccion locales*/
 
-	rePlanificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
+	rePlanificacionReduccionGlobal(listaTareas,cantNodosInvolucrados,nodosInvolucrados);
 
 	/*Limpieza*/
 
@@ -1072,8 +1073,22 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	return;
 }
 
-void rePlanificacionReduccionGlobal(int cantNodosInvolucrados,int *nodosInvolucrados)
+void rePlanificacionReduccionGlobal(t_list *tareas, int cantNodosInvolucrados,int *nodosInvolucrados)
 {
+	t_tabla_estados *registro;
+	int i;
+
+	for(i=0;i<list_size(tareas);i++)
+	{
+		registro= list_get(tareas,i);
+
+		if (registro->etapa==REDUCCION_GLOBAL)
+		{
+			registro->estado=ERROR_TAREA;
+		}
+	}
+
+	planificacionReduccionGlobal(cantNodosInvolucrados,nodosInvolucrados);
 	return;
 }
 
@@ -1133,7 +1148,7 @@ void cargarInfoTransformacionMaster(t_bloqueRecv *registroBloque,t_transformacio
 	transformacion->bytesOcupados=registroBloque->bytesOcupados;
 	transformacion->puerto=  workers[transformacion->idNodo].puerto;
 
-	nombreTMP= string_duplicate(generarNombreArchivoTemporal(jobReplanificado,transformacion->idNodo,transformacion->nroBloqueNodo));
+	nombreTMP= generarNombreArchivoTemporal(jobReplanificado,transformacion->idNodo,transformacion->nroBloqueNodo);
 	transformacion->largoArchivo = strlen(nombreTMP)+1;
 	transformacion->archivoTransformacion=malloc(transformacion->largoArchivo);
 	strcpy(transformacion->archivoTransformacion,nombreTMP);
@@ -1257,26 +1272,25 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 	paquete = serializarPeticionInfoArchivo(pedido,header);
 
-	bytesAEnviar = header->tamanioPayload+ sizeof(t_header);
+	bytesAEnviar = header->tamanioPayload;
 
 	bufferMensaje = malloc(bytesAEnviar);
 
 	/* Mensaje para FS */
-	memcpy(bufferMensaje,&header->id,sizeof(uint32_t));
-	memcpy(bufferMensaje+sizeof(uint32_t),&header->tamanioPayload,sizeof(uint32_t));
+	memcpy(bufferMensaje,header,sizeof(t_header));
 	memcpy(bufferMensaje+sizeof(t_header),paquete,header->tamanioPayload);
 
-	enviarPorSocket(socketFS,bufferMensaje,header->tamanioPayload);
+	enviarPorSocket(socketFS,bufferMensaje,bytesAEnviar);
 
 	free(bufferMensaje);
 	free(paquete);
-	free(header);
 	return;
 }
 
 /*  						Recibir composicion de archivo   				*/
 
-void recibirComposicionArchivo() {
+void recibirComposicionArchivo(){
+
 	t_header *header;
 	void *buffer;
 	int cantidadDeBloques,i,desplazamiento=0;
@@ -1401,7 +1415,7 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 	memcpy(bufferMensaje+desplazamiento, bufferRedGlobal, largoRedGlobales);
 	desplazamiento += largoRedGlobales;
 
-	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, header.tamanioPayload);
+	enviarPorSocket(jobMaster->socketMaster,bufferMensaje, tamanioTotalBuffer);
 
 	printf("envia planificacion a master\n");
 
