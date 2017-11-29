@@ -231,9 +231,11 @@ char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
 	char*rutaArchScritp = string_new();
 	char modo[]="0777";
 	int permiso;
+	char* nombreSolo=string_new();
+	nombreSolo=string_substring_from(nombreArchTemp,4);
 	string_append(&rutaArchScritp,
-			"/home/utnso/thePonchos/scripts");
-	string_append(&rutaArchScritp,nombreArchTemp);
+			"/home/utnso/thePonchos/tmp/scripts");
+	string_append(&rutaArchScritp,nombreSolo);
 	FILE*arch = fopen(rutaArchScritp, "w+");
 	permiso=strtol(modo,0,8);
 	chmod(rutaArchScritp,permiso);
@@ -251,10 +253,11 @@ char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
 
 void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketMaster) {
 	//verificarExistenciaPathTemp(pathTemporales);
+	char*rutaGuardadoTemp=string_new();
 	char*rutaArchReductor;
 	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor,infoReduccionLocal->rutaArchReducidoLocal);
 	char*rutaArchConcat=string_new();
-		string_append(&rutaArchConcat,infoReduccionLocal->rutaArchReducidoLocal);
+		rutaArchConcat=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
 		string_append(&rutaArchConcat,"C");
 	FILE*archivoConcat=fopen(rutaArchConcat,"w+");
 	FILE* archivoReduccionLocal;
@@ -272,13 +275,15 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 		fclose(archivo);
 	}
 
+	rutaGuardadoTemp=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
 	string_append_with_format(&lineaAEjecutar, "cat %s | sort | %s > %s",
-			archivoConcat, rutaArchReductor,
-			infoReduccionLocal->rutaArchReducidoLocal);
+			rutaArchConcat, rutaArchReductor,
+			rutaGuardadoTemp);
 
 	resultado = system(lineaAEjecutar);
 	fclose(archivoConcat);
 	remove(rutaArchConcat);
+	remove(rutaArchReductor);
 	fclose(archivoReduccionLocal);
 
 	notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
@@ -544,7 +549,7 @@ char* deserializarSolicitudArchivo(void* buffer) {
 }
 
 void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
-	char* pathTemporales = "/home/utnso/temp/";
+	char* pathTemporales =RUTA_TEMPORALES;
 	char* rutaArchivo = string_new();
 	int validacion, desplazamiento = 0;
 	int tamanioBuffer;
