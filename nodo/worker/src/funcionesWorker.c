@@ -215,8 +215,9 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	if(respuesta!=-1){
 	log_info(workerLogger,"Transformacion del bloque d% realizada",infoTransformacion->numBloque);
 	}else {
-		log_info(workerLogger,"No se pudo realizar la transformacion en el bloque",infoTransformacion->numBloque);
+	log_info(workerLogger,"No se pudo realizar la transformacion en el bloque",infoTransformacion->numBloque);
 	}
+
 }
 
 char* armarRutaGuardadoTemp(char*nombreTemp) {
@@ -253,32 +254,32 @@ char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
 
 void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketMaster) {
 	//verificarExistenciaPathTemp(pathTemporales);
-	char*rutaGuardadoTemp=string_new();
-	char*rutaArchReductor;
+	char*rutaReducidoLocal=string_new();
+	char*rutaArchReductor=string_new();
 	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor,infoReduccionLocal->rutaArchReducidoLocal);
 	char*rutaArchConcat=string_new();
 		rutaArchConcat=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
 		string_append(&rutaArchConcat,"C");
 	FILE*archivoConcat=fopen(rutaArchConcat,"w+");
 	FILE* archivoReduccionLocal;
-	archivoReduccionLocal = fopen(infoReduccionLocal->rutaArchReducidoLocal,"w+");
+	rutaReducidoLocal=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
+	archivoReduccionLocal = fopen(rutaReducidoLocal,"w+");
 	char*lineaAEjecutar = string_new();
 	int i;
 	int resultado;
 	FILE* archivo;
 	char linea[LARGO_MAX_LINEA];
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
-		archivo = fopen(list_get(infoReduccionLocal->archTemporales, i), "r+");
+		archivo = fopen((char*)list_get(infoReduccionLocal->archTemporales, i), "r+");
 		while (fgets(linea, LARGO_MAX_LINEA, archivo) != NULL) {
 			txt_write_in_file(archivoConcat, linea);
 		}
 		fclose(archivo);
 	}
 
-	rutaGuardadoTemp=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
 	string_append_with_format(&lineaAEjecutar, "cat %s | sort | %s > %s",
 			rutaArchConcat, rutaArchReductor,
-			rutaGuardadoTemp);
+			rutaReducidoLocal);
 
 	resultado = system(lineaAEjecutar);
 	fclose(archivoConcat);
@@ -286,9 +287,13 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	remove(rutaArchReductor);
 	fclose(archivoReduccionLocal);
 
-	notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
-	log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
-}
+	if(resultado!=-1) {
+		notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
+		log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
+
+	}
+		notificarAMaster(ERROR_REDUCCION,socketMaster);
+	}
 
 void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int socketMaster) {
 	char* lineaAEjecutar = string_new();
@@ -723,6 +728,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 			sizeof(t_infoReduccionLocal));
 	uint32_t bytesACopiar, desplazamiento = 0, i = 0;
 
+	puts("llegue a deserializar");
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(&infoReduccionLocal->largoRutaArchReducidoLocal,
 			buffer + desplazamiento, bytesACopiar);
@@ -733,6 +739,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 			infoReduccionLocal->largoRutaArchReducidoLocal);
 	memcpy(infoReduccionLocal->rutaArchReducidoLocal, buffer + desplazamiento,
 			bytesACopiar);
+	string_append(&infoReduccionLocal->rutaArchReducidoLocal,"\0");
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
@@ -745,6 +752,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 			infoReduccionLocal->largoArchivoReductor);
 	memcpy(infoReduccionLocal->archReductor, buffer + desplazamiento,
 			bytesACopiar);
+	string_append(&infoReduccionLocal->archReductor,"\0");
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
@@ -761,7 +769,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 				buffer + desplazamiento, bytesACopiar);
 		desplazamiento += bytesACopiar;
 
-		bytesACopiar = sizeof(temporal->largoRutaTemporalTransformacion);
+		bytesACopiar = temporal->largoRutaTemporalTransformacion;
 		temporal->rutaTemporalTransformacion = malloc(
 				temporal->largoRutaTemporalTransformacion);
 		memcpy(temporal->rutaTemporalTransformacion, buffer + desplazamiento,
@@ -770,6 +778,16 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 
 		list_add(infoReduccionLocal->archTemporales,
 				temporal->rutaTemporalTransformacion);
+	}
+	int j;
+	printf("%d\n",infoReduccionLocal->largoRutaArchReducidoLocal);
+	printf("%s\n",infoReduccionLocal->rutaArchReducidoLocal);
+	printf("%d\n",infoReduccionLocal->largoArchivoReductor);
+	//printf("%s\n",infoReduccionLocal->archReductor);
+
+	printf("%d\n",infoReduccionLocal->cantidadTransformaciones);
+	for(j=0;j<infoReduccionLocal->cantidadTransformaciones;j++){
+		printf("%s\n",(char*)list_get(infoReduccionLocal->archTemporales,j));
 	}
 
 	return infoReduccionLocal;

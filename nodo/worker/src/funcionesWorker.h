@@ -117,6 +117,7 @@ typedef struct {
 #define ERROR_ARCHIVO_NO_ENCONTRADO 105
 #define LARGO_MAX_LINEA 1048576
 #define LARGO_MAX_LINEA 1048576
+#define ERROR_REDUCCION 107
 
 /* Firmas de funciones */
 void crearLogger();

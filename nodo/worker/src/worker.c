@@ -17,9 +17,9 @@ int main(void) {
 
 	int activado = 1;
 	int socketMaster;
-	int pid;
+	pid_t pid;
 
-	socketMaster= socket(AF_INET, SOCK_STREAM, 0);
+	socketMaster = socket(AF_INET, SOCK_STREAM, 0);
 	// Permite reutilizar el socket sin que se bloquee por 2 minutos
 	if (setsockopt(socketMaster, SOL_SOCKET, SO_REUSEADDR, &activado,
 			sizeof(activado)) == -1) {
@@ -34,109 +34,75 @@ int main(void) {
 		exit(1);
 	}
 	// Se pone a escuchar el servidor kernel
-	if (listen(socketMaster, 10) == -1) {
+	if (listen(socketMaster, 100) == -1) {
 		perror("listen");
 		exit(1);
 	}
 
-	fd_set readfds, auxRead;
 	int tamanioDir = sizeof(direccionWorker);
-	char* buffer;
-	int bytesRecibidos, maxPuerto, i, nuevoSocket;
-	FD_ZERO(&readfds);
-	FD_ZERO(&auxRead);
-	FD_SET(socketMaster, &auxRead);
+	//char* buffer;
+	int bytesRecibidos, nuevoSocket;
 
-	maxPuerto = socketMaster;
 
 	printf("escuchando masters\n");
 	while (1) {
 
-		readfds = auxRead;
-		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
-			perror("select");
-			exit(1);
-		}
+		if ((nuevoSocket = accept(socketMaster,
+				(struct soccaddr*) &direccionWorker, &tamanioDir)) <= 0)
+			perror("accept");
+		else {
+			printf("Entro una conexion por el puerto %d\n", nuevoSocket);
 
-		for (i = 0; i <= maxPuerto; i++) {
-			if (FD_ISSET(i, &readfds)) {
-				if (i == socketMaster) {
-
-					if ((nuevoSocket = accept(socketMaster,(struct soccaddr*) &direccionWorker, &tamanioDir)) <= 0)
-						perror("accept");
-					else {
-						printf("Entro una conexion por el puerto %d\n",
-								nuevoSocket);
-						FD_SET(nuevoSocket, &auxRead);
-
-						void* buffer;
-						t_infoTransformacion* infoTransformacion;
-						t_infoReduccionLocal* infoReduccionLocal;
-						t_infoReduccionGlobal* infoReduccionGlobal;
-						t_infoGuardadoFinal* infoGuardadoFinal;
-						char* nombreArchTempPedido;
-						t_header header;
-						recibirHeader(nuevoSocket, &header);
-						buffer = malloc(header.tamanioPayload);
-						recibirPorSocket(nuevoSocket, buffer,header.tamanioPayload);
-						pid=fork();
-						switch (header.id) {
-
-						case TRANSFORMACION:
-							infoTransformacion=deserializarInfoTransformacion(buffer);
-							realizarTransformacion(infoTransformacion,nuevoSocket);
-							break;
-						case REDUCCION_LOCAL:
-							infoReduccionLocal=deserializarInfoReduccionLocal(buffer);
-							realizarReduccionLocal(infoReduccionLocal,nuevoSocket);
-							break;
-						case REDUCCION_GLOBAL:
-							infoReduccionGlobal=deserializarInfoReduccionGlobal(buffer);
-							realizarReduccionGlobal(infoReduccionGlobal,nuevoSocket);
-							break;
-						case ORDEN_GUARDADO_FINAL:
-							infoGuardadoFinal=deserializarInfoGuardadoFinal(buffer);
-							guardadoFinalEnFilesystem(infoGuardadoFinal);
-							break;
-						case SOLICITUD_WORKER:
-							nombreArchTempPedido=deserializarSolicitudArchivo(buffer);
-							responderSolicitudArchivoWorker(nombreArchTempPedido,nuevoSocket);
-							break;
-
-						}
-						wait(NULL);
-							//t_rutaArchivo* ruta;
-							//ruta = malloc(sizeof(t_rutaArchivo));
-
-							//recibirRutaDeArchivoAProcesar(nuevoSocket,&ruta);
-							//recive la ruta del archivo
-							if (nuevoSocket > maxPuerto)
-								maxPuerto = nuevoSocket;
-						}
-					}
-				else {
-					buffer = malloc(1000);
-
-					bytesRecibidos = recibirPorSocket(i, buffer, 1000);
-					if (bytesRecibidos < 0) {
-						perror("Error");
-						free(buffer);
-						//exit(1);
-					}
-					if (bytesRecibidos == 0) {
-						//printf("Se desconecto del fileSystem el socket %d", i);
-						FD_CLR(i, &readfds);
-						shutdown(i, 2);
-						free(buffer);
-					} else {
-						buffer[bytesRecibidos] = '\0';
-						printf(
-								"Socket: %d -- BytesRecibidos: %d -- Buffer recibido : %s\n",
-								i, bytesRecibidos, buffer);
-
-					}
-				}
+			void* buffer;
+			t_infoTransformacion* infoTransformacion;
+			t_infoReduccionLocal* infoReduccionLocal;
+			t_infoReduccionGlobal* infoReduccionGlobal;
+			t_infoGuardadoFinal* infoGuardadoFinal;
+			char* nombreArchTempPedido;
+			t_header header;
+			recibirHeader(nuevoSocket, &header);
+			buffer = malloc(header.tamanioPayload);
+			bytesRecibidos=recibirPorSocket(nuevoSocket, buffer, header.tamanioPayload);
+			if(bytesRecibidos<=0){
+				printf("Error conexion con master entrante");
+				continue;
 			}
+			pid = fork();
+			if (pid == 0) {
+				switch (header.id) {
+
+				case TRANSFORMACION:
+					infoTransformacion = deserializarInfoTransformacion(buffer);
+					realizarTransformacion(infoTransformacion, nuevoSocket);
+					break;
+				case REDUCCION_LOCAL:
+					infoReduccionLocal = deserializarInfoReduccionLocal(buffer);
+					realizarReduccionLocal(infoReduccionLocal, nuevoSocket);
+					break;
+				case REDUCCION_GLOBAL:
+					infoReduccionGlobal = deserializarInfoReduccionGlobal(
+							buffer);
+					realizarReduccionGlobal(infoReduccionGlobal, nuevoSocket);
+					break;
+				case ORDEN_GUARDADO_FINAL:
+					infoGuardadoFinal = deserializarInfoGuardadoFinal(buffer);
+					guardadoFinalEnFilesystem(infoGuardadoFinal);
+					break;
+				case SOLICITUD_WORKER:
+					nombreArchTempPedido = deserializarSolicitudArchivo(buffer);
+					responderSolicitudArchivoWorker(nombreArchTempPedido,
+							nuevoSocket);
+					break;
+				}
+				close(nuevoSocket);
+				kill(pid,SIGUSR1);
+			}
+			//else{
+			//waitpid(pid,0,0);
+			//}
+
 		}
+
 	}
+
 }
