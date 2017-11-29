@@ -12,6 +12,9 @@ make
 make install
 cd ..
 
+#instalacion readline
+apt-get install libreadline6-dev
+
 #instalacion master
 cd master/
 make clean
