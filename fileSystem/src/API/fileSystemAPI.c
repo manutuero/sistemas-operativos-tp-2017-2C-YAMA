@@ -43,7 +43,7 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 		offset += bloque->bytesOcupados;
 	}
 
-	contenido[archivo->tamanio] = '\0';
+	//contenido[archivo->tamanio] = '\0';
 
 	// LIBERAR ARCHIVO CUANDO LA FUNCION QUE LLAMA TERMINA!...para que no hayan leaks despues de cada llamado.
 	pthread_mutex_unlock(&mutex);
@@ -118,8 +118,12 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 			fprintf(stderr,
 					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.\n");
 
-			free(nodosAux);
+			// Libero recursos
+			list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+			list_destroy_and_destroy_elements(nodosAux, (void*) liberarNodo);
+
 			pthread_mutex_unlock(&mutex);
+
 			return ERROR;
 		}
 	}
@@ -131,6 +135,10 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		respuesta = guardarBloqueEnNodo(bloque, 0);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia0)
 				!= GUARDO_BLOQUE_OK) {
+
+			// Libero recursos
+			list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+
 			pthread_mutex_unlock(&mutex);
 			return ERROR;
 		}
@@ -138,6 +146,10 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 		respuesta = guardarBloqueEnNodo(bloque, 1);
 		if (validarGuardado(respuesta, bloque, bloque->nodoCopia1)
 				!= GUARDO_BLOQUE_OK) {
+
+			// Libero recursos
+			list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+
 			pthread_mutex_unlock(&mutex);
 			return ERROR;
 		}
@@ -154,6 +166,10 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	crearTablaDeArchivo(
 			nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques));
 	actualizarTablaDeNodos();
+
+	// Libero recursos
+	list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+
 	pthread_mutex_unlock(&mutex);
 	return EXITO;
 }
@@ -183,11 +199,7 @@ void escribirStreamConFormato(FILE *stream, char *format, ...) {
 	va_end(args);
 }
 
-void liberarBLoque(t_bloque* bloque) {
-	free(bloque->nodoCopia0);
-	free(bloque->nodoCopia1);
-	free(bloque);
-}
+
 
 int proximoRegistro(FILE *datos, char *registro) {
 	int largo = 0;
@@ -217,6 +229,7 @@ t_bloque* nuevoBloque(uint32_t numeroBloque) {
 	bloque->bytesOcupados = 0;
 	bloque->numeroBloque = numeroBloque;
 	return bloque;
+
 }
 
 t_list* obtenerBloques(FILE *datos, int tipo) {
@@ -266,6 +279,7 @@ t_list* parsearArchivoDeTexto(FILE *datos) {
 			 */
 			numeroBloque++;
 			bytesDisponibles = UN_MEGABYTE;
+
 			bloque = nuevoBloque(numeroBloque);
 			list_add(bloques, bloque);
 			bloque->bytesOcupados = tamanioRegistro; // Lo que voy a escribir en el nuevo bloque
@@ -331,8 +345,6 @@ void destruirNodo(t_nodo *nodo) {
 
 void destruirBloque(t_bloque *bloque) {
 	free(bloque->contenido);
-	free(bloque->nodoCopia0);
-	free(bloque->nodoCopia1);
 	free(bloque);
 }
 
@@ -385,7 +397,7 @@ t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
 }
 
 void liberarArchivo(t_archivo_a_persistir *archivo) {
-	list_destroy_and_destroy_elements(archivo->bloques, (void*) liberarBLoque);
+	list_destroy_and_destroy_elements(archivo->bloques, (void*) destruirBloque);
 	free(archivo->nombreArchivo);
 	free(archivo);
 }
@@ -469,4 +481,11 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 
 	// Cierro recursos.
 	fclose(filePointer);
+}
+
+
+void liberarNodo(t_nodo *nodo) {
+	free(nodo->bitmap);
+	free(nodo->ip);
+	free(nodo);
 }

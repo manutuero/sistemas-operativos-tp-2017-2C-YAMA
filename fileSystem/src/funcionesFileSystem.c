@@ -275,9 +275,11 @@ void* esperarConexionesDatanodes() {
 								perror(
 										"Error. El payload no se pudo recibir correctamente.");
 								break;
+								free(buffer);
 							} else {
 								t_infoNodo infoNodo = deserializarInfoNodo(
 										buffer, header.tamanioPayload);
+								free(buffer);
 
 								t_nodo *nodo = malloc(sizeof(t_nodo));
 								nodo->socketDescriptor = socketEntrante;
@@ -290,7 +292,7 @@ void* esperarConexionesDatanodes() {
 										(socklen_t*) &addrlen);
 								nodo->ip=string_new();
 								nodo->ip =string_duplicate(inet_ntoa(address.sin_addr));
-
+								free(infoNodo.ip);
 								if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 									socketsClientes[i] = socketEntrante;
 									agregarNodo(nodo);
@@ -380,10 +382,15 @@ void* esperarConexionesDatanodes() {
 									}
 								}
 							}
+
+							free(nodoDesconectado->bitmap);
+							free(nodoDesconectado->ip);
+							free(nodoDesconectado);
 						}
-						free(buffer);
+
 					}
 				}
+				free(buffer);
 			}
 		}
 	}
@@ -1747,14 +1754,23 @@ void *escucharPeticionesYama() {
 						headerRta->tamanioPayload);
 
 			} else {
-				//Enviar respuesta con error al yama. Solo con el header alcanza.
-				perror(
-						"ERROR al recibir header en peticion de informacion de yama");
+				t_header* headerRta=malloc(sizeof(t_header));
+				header->id=100;
+				header->tamanioPayload=0;
+				enviarPorSocket(socketYama,headerRta,0);
+
+
+				free(headerRta);
 
 			}
 			free(peticionRecibida);
 			free(pathArchivo);
 			free(pathGuardadoFinal);
+		} else {
+			//Enviar respuesta con error al yama. Solo con el header alcanza.
+			perror(
+					"ERROR al recibir header en peticion de informacion de yama");
+
 		}
 	}
 	close(socketCliente);
@@ -2346,3 +2362,7 @@ void reiniciarDirectorios() {
 	system(comando);
 	free(comando);
 }
+
+/*void liberarArchivo(t_archivo_a_persistir *archivo) {
+
+}*/

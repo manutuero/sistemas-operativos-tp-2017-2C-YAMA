@@ -88,7 +88,10 @@ t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
 		int tamanio, t_list *bloques);
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo);
 void liberarArchivo(t_archivo_a_persistir *archivo);
-void destruirBloque(t_bloque *bloque);
 int validarGuardado(int respuesta, t_bloque *bloque, t_nodo *nodo);
+
+// Liberar memoria.
+void destruirBloque(t_bloque *bloque);
+void liberarNodo(t_nodo *nodo);
 
 #endif

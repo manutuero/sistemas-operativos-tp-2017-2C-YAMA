@@ -372,7 +372,7 @@ void ejecutarInfo(char **argumentos) {
 
 	// Libero recursos.
 	free(archivo->nombreArchivo);
-	list_destroy_and_destroy_elements(archivo->bloques, (void*) liberarBLoque);
+	list_destroy_and_destroy_elements(archivo->bloques, (void*) destruirBloque);
 	free(archivo);
 }
 
@@ -528,6 +528,7 @@ void ejecutarCpto(char **argumentos) {
 	free(pathArchivoYamaFs);
 	free(pathDirectorioLocalFs);
 	free(pathNuevoArchivo);
+	//liberarArchivo(archivo);
 }
 
 void ejecutarCpblock(char **argumentos) {
