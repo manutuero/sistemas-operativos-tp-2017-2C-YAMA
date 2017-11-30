@@ -119,7 +119,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.\n");
 
 			// Libero recursos
-			list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+			destruirListaYBloques(bloques);
 			list_destroy_and_destroy_elements(nodosAux, (void*) liberarNodo);
 
 			pthread_mutex_unlock(&mutex);
@@ -137,7 +137,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 				!= GUARDO_BLOQUE_OK) {
 
 			// Libero recursos
-			list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+			destruirListaYBloques(bloques);
 
 			pthread_mutex_unlock(&mutex);
 			return ERROR;
@@ -148,7 +148,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 				!= GUARDO_BLOQUE_OK) {
 
 			// Libero recursos
-			list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+			destruirListaYBloques(bloques);
 
 			pthread_mutex_unlock(&mutex);
 			return ERROR;
@@ -168,7 +168,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	actualizarTablaDeNodos();
 
 	// Libero recursos
-	list_destroy_and_destroy_elements(bloques, (void*) destruirBloque);
+	destruirListaYBloques(bloques);
 
 	pthread_mutex_unlock(&mutex);
 	return EXITO;
@@ -198,8 +198,6 @@ void escribirStreamConFormato(FILE *stream, char *format, ...) {
 	vfprintf(stream, format, args); // Similar a fprintf pero con la va_list.
 	va_end(args);
 }
-
-
 
 int proximoRegistro(FILE *datos, char *registro) {
 	int largo = 0;
@@ -402,6 +400,14 @@ void liberarArchivo(t_archivo_a_persistir *archivo) {
 	free(archivo);
 }
 
+void destruirListaYBloques(t_list *bloques) {
+	int i;
+	for (i = 0; i < bloques->elements_count; i++)
+		destruirBloque(list_get(bloques, i));
+
+	list_destroy(bloques);
+}
+
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	int i;
 	t_bloque *bloque;
@@ -482,7 +488,6 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	// Cierro recursos.
 	fclose(filePointer);
 }
-
 
 void liberarNodo(t_nodo *nodo) {
 	free(nodo->bitmap);
