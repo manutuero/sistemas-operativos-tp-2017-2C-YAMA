@@ -43,7 +43,7 @@ void *preplanificarJob(t_job* jobMaster){
 
 	/* RBFS    Recibir de FS la composicion completa del archivo          */
 
-	recibirComposicionArchivo();
+	recibirComposicionArchivo(jobMaster);
 
 
 	/*for (i=0;i<header.tamanioPayload;i++)
@@ -70,13 +70,6 @@ void *preplanificarJob(t_job* jobMaster){
 		bloqueRecibido = (t_bloqueRecv*)list_get(listaBloquesRecibidos,i);
 			printf("bloque  %d  nodo0: %d    nodo1: %d\n",bloqueRecibido->nroBloqueArch, bloqueRecibido->idNodo0, bloqueRecibido->idNodo1);
 		}
-
-	//Preguntar a tocayo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	/*printf("nodos involucrados: \n");
-		for(i=0;i<list_size(listaNodosInvolucrados);i++){
-			nodo = *(int*)list_get(listaNodosInvolucrados,i);
-			printf("nodo %d\n",*(int*)list_get(listaNodosInvolucrados,i));
-		}*/
 
 	/* Ordenar lista por mayor disponibilidad */
 	list_sort(listaNodosInvolucrados,ordenarPorDisponibilidad);
@@ -1024,7 +1017,7 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	/* Adquirir composicion del archivo*/
 	envioPedidoArchivoAFS(pedidoTransformacion);
 
-	recibirComposicionArchivo();
+	recibirComposicionArchivo(jobRePlanificado);
 
 
 	/* Ordenar lista por mayor disponibilidad */
@@ -1276,7 +1269,7 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 	bytesAEnviar = header->tamanioPayload;
 
-	bufferMensaje = malloc(bytesAEnviar);
+	bufferMensaje = malloc(bytesAEnviar+sizeof(t_header));
 
 	/* Mensaje para FS */
 	memcpy(bufferMensaje,header,sizeof(t_header));
@@ -1291,7 +1284,7 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 /*  						Recibir composicion de archivo   				*/
 
-void recibirComposicionArchivo(){
+void recibirComposicionArchivo(t_job *jobMaster){
 
 	t_header *header;
 	void *buffer;
@@ -1301,6 +1294,7 @@ void recibirComposicionArchivo(){
 	header = malloc(sizeof(t_header));
 	recibirHeader(socketFS,header);
 
+	if (header->id==8){
 	buffer = malloc(header->tamanioPayload);
 	recibirPorSocket(socketFS,buffer,header->tamanioPayload);
 
@@ -1333,6 +1327,12 @@ void recibirComposicionArchivo(){
 	}
 
 	free(buffer);
+	}
+	else
+	{
+		enviarMensajeFalloOperacion(jobMaster);
+	}
+
 	return;
 }
 

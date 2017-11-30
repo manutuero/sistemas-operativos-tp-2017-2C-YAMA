@@ -48,30 +48,58 @@ void cargarArchivoDeConfiguracion() {
 	FS_IP = string_new();
 	if (config_has_property(config, "FS_IP")) {
 		FS_IP = config_get_string_value(config, "FS_IP");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad FS_IP");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "FS_PUERTO")) {
 		FS_PUERTO = config_get_int_value(config, "FS_PUERTO");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad FS_PUERTO");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "JOB")) {
 		job = config_get_int_value(config, "JOB");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad JOB");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "RETARDO_PLANIFICACION")) {
 		RETARDO_PLANIFICACION = config_get_int_value(config, "RETARDO_PLANIFICACION");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad RETARDO_PLANIFICACION");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "DISPONIBILIDAD_BASE")) {
 		disponibilidadBase = config_get_int_value(config,"DISPONIBILIDAD_BASE");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad DISPONIBILIDAD_BASE");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO_FS_NODOS")) {
 		PUERTO_FS_NODOS = config_get_int_value(config,"PUERTO_FS_NODOS");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad PUERTOS_FS_NODOS");
+		exit(EXIT_FAILURE);
 	}
 
 	if (config_has_property(config, "PUERTO_MASTERS")) {
 		PUERTO_MASTERS = config_get_int_value(config,"PUERTO_MASTERS");
+	}else
+	{
+		perror("[ERROR]: No se encontro la propiedad PUERTO_MASTERS");
+		exit(EXIT_FAILURE);
 	}
 
 	printf("Puerto: %d\n", PUERTO_MASTERS);

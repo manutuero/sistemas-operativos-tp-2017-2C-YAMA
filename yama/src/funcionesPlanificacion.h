@@ -132,7 +132,7 @@ void crearListas();
 /* Obtener bloques de un archivo  */
 void envioPedidoArchivoAFS(t_pedidoTransformacion);
 
-void recibirComposicionArchivo();
+void recibirComposicionArchivo(t_job *);
 
 /* Inicializa el array de workers suponiendo que todos estan deshabilitados inicialmente */
 void inicializarWorkers(void);

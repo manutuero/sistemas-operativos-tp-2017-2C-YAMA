@@ -19,6 +19,8 @@ apt-get install libreadline6-dev
 cd master/
 make clean
 make
+mkdir logs
+chmod 0777 logs
 cd ..
 
 #instalacion fileSystem
@@ -57,7 +59,14 @@ cd ..
 cd ..
 
 cp -a scripts/. /home/utnso/thePonchos
-
+cd ..
+chmod 0777 thePonchos
+cd thePonchos
+mkdir tmp
+chmod 0777 tmp
+cd tmp
+mkdir scripts
+chmod 0777 scripts
 
 
 
