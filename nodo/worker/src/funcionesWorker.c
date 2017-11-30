@@ -270,7 +270,7 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	FILE* archivo;
 	char linea[LARGO_MAX_LINEA];
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
-		archivo = fopen((char*)list_get(infoReduccionLocal->archTemporales, i), "r+");
+		archivo = fopen(armarRutaGuardadoTemp((char*)list_get(infoReduccionLocal->archTemporales, i)), "r+");
 		while (fgets(linea, LARGO_MAX_LINEA, archivo) != NULL) {
 			txt_write_in_file(archivoConcat, linea);
 		}

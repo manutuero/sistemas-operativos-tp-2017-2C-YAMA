@@ -95,7 +95,8 @@ int main(void) {
 					break;
 				}
 				close(nuevoSocket);
-				kill(pid,SIGUSR1);
+				exit(1);
+				//kill(pid,SIGTERM);
 			}
 			//else{
 			//waitpid(pid,0,0);
