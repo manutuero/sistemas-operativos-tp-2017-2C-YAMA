@@ -327,7 +327,7 @@ void deserializarTransformaciones(int cantTransformaciones, void* buffer,
 		memcpy(transformaciones->ip, buffer + *desplazamiento,
 				transformaciones->largoIp);
 		*desplazamiento += transformaciones->largoIp;
-		transformaciones->ip[transformaciones->largoIp];
+		//transformaciones->ip[transformaciones->largoIp];
 		memcpy(&transformaciones->largoArchivo, buffer + *desplazamiento,
 				sizeof(transformaciones->largoArchivo));
 		*desplazamiento += sizeof(transformaciones->largoArchivo);
@@ -337,7 +337,7 @@ void deserializarTransformaciones(int cantTransformaciones, void* buffer,
 		memcpy(transformaciones->archivoTransformacion,
 				buffer + *desplazamiento, transformaciones->largoArchivo);
 		*desplazamiento += transformaciones->largoArchivo;
-		transformaciones->archivoTransformacion[transformaciones->largoArchivo];
+		//transformaciones->archivoTransformacion[transformaciones->largoArchivo];
 		printf("ip nodo: %s\n",transformaciones->ip);
 		list_add(listaTransformaciones, transformaciones);
 	}
@@ -603,9 +603,9 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 	pthread_mutex_unlock(&mutexMaximasTareas);
 
 	redLocalWorker.etapa = 2;
-	redLocalWorker.largoRutaArchivoReductorLocal = strlen(
+	redLocalWorker.largoRutaArchivoReducidoLocal = strlen(
 			nodoReduccion->archivoRedLocal);
-	redLocalWorker.rutaArchivoReductorLocal = nodoReduccion->archivoRedLocal;
+	redLocalWorker.rutaArchivoReducidoLocal = nodoReduccion->archivoRedLocal;
 	redLocalWorker.largoArchivoReductor = devolverTamanioArchivo(reductor);
 	redLocalWorker.archivoReductor = obtenerContenidoArchivo(reductor);
 	redLocalWorker.temporalesTranformacion = list_create();
@@ -665,7 +665,8 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 				"Se envia operacion de reduccion local al worker %d.",
 				nodoReduccion->idNodo);
 
-		if (respuestaTransformacion(socketWorker) == REDUCCIONLOCALOKWORKER) {
+		int respuesta = respuestaWorker(socketWorker);
+		if (respuesta == REDUCCIONLOCALOKWORKER) {
 				printf("reduccion Local OK worker %d\n",nodoReduccion->idNodo);
 				header.id = REDUCCIONLOCALOKYAMA;
 				pthread_mutex_lock(&mutexTotalReduccionesLocales);
@@ -673,6 +674,13 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 				pthread_mutex_unlock(&mutexTotalReduccionesLocales);
 				avisarAYamaRedLocal(redLocalWorker, header);
 			}
+		if (respuesta == 107){
+			header.id = ERRORREDUCCION;
+			pthread_mutex_lock(&mutexTotalReduccionesLocales);
+			reduccionesLocalesPendientes--;
+			pthread_mutex_unlock(&mutexTotalReduccionesLocales);
+			avisarAYamaRedLocal(redLocalWorker, header);
+		}
 
 		for (i = 0; i < list_size(redLocalWorker.temporalesTranformacion);i++) {
 			free(((t_temporalesTransformacionWorker*) list_get(redLocalWorker.temporalesTranformacion, i))->rutaTemporalTransformacion);
@@ -766,7 +774,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		free(buffer);
 		free(bufferMensaje);
 
-		if(respuestaTransformacion(socketWorkerEncargado) == REDUCCIONGLOBALOKWORKER){
+		if(respuestaWorker(socketWorkerEncargado) == REDUCCIONGLOBALOKWORKER){
 			header.id = REDUCCIONGLOBALOKYAMA;
 			printf("enviado a worker la reduccion global\n");
 			log_info(masterLogger,"Se envia la operacion de reduccion global al worker %d",nodoEncargado);
@@ -822,8 +830,8 @@ void avisarAYama(t_transformacionMaster* transformacion, t_header headerResp) {
 void avisarAYamaRedLocal(t_infoReduccionesLocales reduccionWorker,
 		t_header headerResp) {
 	int desplazamiento;
-	printf("%s\n",reduccionWorker.rutaArchivoReductorLocal);
-	headerResp.tamanioPayload = reduccionWorker.largoRutaArchivoReductorLocal;
+	printf("%s\n",reduccionWorker.rutaArchivoReducidoLocal);
+	headerResp.tamanioPayload = reduccionWorker.largoRutaArchivoReducidoLocal;
 	void* buffer = malloc(sizeof(t_header) + headerResp.tamanioPayload);
 	desplazamiento = 0;
 	memcpy(buffer, &headerResp.id, sizeof(headerResp.id));
@@ -831,7 +839,7 @@ void avisarAYamaRedLocal(t_infoReduccionesLocales reduccionWorker,
 	memcpy(buffer + desplazamiento, &headerResp.tamanioPayload,
 			sizeof(headerResp.tamanioPayload));
 	desplazamiento += sizeof(headerResp.tamanioPayload);
-	memcpy(buffer + desplazamiento, reduccionWorker.rutaArchivoReductorLocal,
+	memcpy(buffer + desplazamiento, reduccionWorker.rutaArchivoReducidoLocal,
 			headerResp.tamanioPayload);
 	desplazamiento += headerResp.tamanioPayload;
 
@@ -995,7 +1003,7 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 		printf("enviado a worker %d\n", transformacion->idNodo);
 		log_info(masterLogger, "Enviado transformacion a worker %d",transformacion->idNodo);
 
-		if (respuestaTransformacion(socketWorker) == TRANSFORMACIONOKWORKER) {
+		if (respuestaWorker(socketWorker) == TRANSFORMACIONOKWORKER) {
 			printf("transformacion OK\n");
 			pthread_mutex_lock(&mutexTotalTransformaciones);
 			disminuirTransformacionesDeNodo(transformacion->idNodo);
@@ -1006,6 +1014,7 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 			avisarAYama(transformacion, header);
 		}
 		else{
+			printf("error en nodo %d",transformacion->idNodo);
 			enviarFalloTransformacionAYama(transformacion, &header);
 			log_error(masterLogger, "El worker %d no pudo terminar la ejecucion de la tarea de transformacion.\n",
 							transformacion->idNodo);
@@ -1077,7 +1086,7 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	pthread_mutex_unlock(&mutexTotalFallos);
 	free(fallo.rutaArchivoAProcesar);
 	free(fallo.rutaTemporalTransformacion);
-	free(buffer);
+	//free(buffer); //todo
 }
 
 void borrarTemporalesDeNodo(int nodo){
@@ -1171,18 +1180,25 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 	void* buffer;
 	t_temporalesTransformacionWorker temporales;
 
-	tamanioBuffer = 4 * sizeof(uint32_t) + redLocalWorker->largoArchivoReductor
-			+ redLocalWorker->largoRutaArchivoReductorLocal;
+	tamanioBuffer = 3 * sizeof(uint32_t) + redLocalWorker->largoArchivoReductor
+			+ redLocalWorker->largoRutaArchivoReducidoLocal;
 
 	buffer = malloc(tamanioBuffer);
 
-	memcpy(buffer + desplazamiento, &redLocalWorker->etapa, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
+	//memcpy(buffer + desplazamiento, &redLocalWorker->etapa, sizeof(uint32_t));
+	//desplazamiento += sizeof(uint32_t);
 
-	memcpy(buffer + desplazamiento, &redLocalWorker->largoRutaArchivoReductorLocal, sizeof(uint32_t));
+
+	printf("%d\n",redLocalWorker->largoRutaArchivoReducidoLocal);
+	printf("%s\n",redLocalWorker->rutaArchivoReducidoLocal);
+	printf("%d\n",redLocalWorker->largoArchivoReductor);
+	//printf("%s\n",redLocalWorker->archivoReductor);
+
+
+	memcpy(buffer + desplazamiento, &redLocalWorker->largoRutaArchivoReducidoLocal, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, redLocalWorker->rutaArchivoReductorLocal,redLocalWorker->largoRutaArchivoReductorLocal);
-	desplazamiento += redLocalWorker->largoRutaArchivoReductorLocal;
+	memcpy(buffer + desplazamiento, redLocalWorker->rutaArchivoReducidoLocal,redLocalWorker->largoRutaArchivoReducidoLocal);
+	desplazamiento += redLocalWorker->largoRutaArchivoReducidoLocal;
 
 	memcpy(buffer + desplazamiento, &redLocalWorker->largoArchivoReductor,sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -1203,7 +1219,9 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 		desplazamiento += sizeof(uint32_t);
 		memcpy(buffer + desplazamiento, temporales.rutaTemporalTransformacion,temporales.largoRutaTemporalTransformacion);
 		desplazamiento += temporales.largoRutaTemporalTransformacion;
+		printf("%s\n",temporales.rutaTemporalTransformacion);
 	}
+
 
 	*largoBuffer = tamanioBuffer;
 	return buffer;
@@ -1264,12 +1282,13 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 	return buffer;
 }
 
-int respuestaTransformacion(int socketWorker) {
+int respuestaWorker(int socketWorker) {
 
 	char* buffer = malloc(sizeof(int));
 	t_header header;
 	int respuesta;
-	int bytesRecibidos = recibirPorSocket(socketWorker, &header, sizeof(int));
+	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, 0);
+	int bytesRecibidos = recibirHeader(socketWorker, &header);
 	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, sizeof(int));
 	printf("%d\n", bytesRecibidos);
 	free(buffer);

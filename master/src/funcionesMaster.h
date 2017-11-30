@@ -121,8 +121,8 @@
 
 	typedef struct{
 		uint32_t etapa;
-		uint32_t largoRutaArchivoReductorLocal;
-		char* rutaArchivoReductorLocal;
+		uint32_t largoRutaArchivoReducidoLocal;
+		char* rutaArchivoReducidoLocal;
 		uint32_t largoArchivoReductor;
 		char* archivoReductor;
 		uint32_t cantidadTransformaciones;
@@ -248,7 +248,7 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,int
 
 void* serializarInfoGuardadoFinal(t_infoGuardadoFinal*,int*);
 
-int respuestaTransformacion(int);
+int respuestaWorker(int);
 
 void disminuirTransformacionesDeNodo(int);
 
