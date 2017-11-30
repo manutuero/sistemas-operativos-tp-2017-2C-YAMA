@@ -95,11 +95,11 @@ int main(void) {
 					break;
 				}
 				close(nuevoSocket);
-				exit(1);
+				exit(0);
 				//kill(pid,SIGTERM);
 			}
 			//else{
-			//waitpid(pid,0,0);
+
 			//}
 
 		}

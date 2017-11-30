@@ -301,17 +301,22 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	int i, socketDePedido, encontrado;
 	int resultado;
 	FILE* archivoReduccionGlobal;
+	char*rutaArchReducidoFinal;
 	char*rutaArchAAparear=string_new();
 	char*rutaArchApareado=string_new();
-	string_append(&rutaArchAAparear,infoReduccionGlobal->rutaArchivoTemporalFinal);
+	char*rutaArchReductor=string_new();
+	rutaArchReductor=guardarArchScript(infoReduccionGlobal->archivoReductor,infoReduccionGlobal->rutaArchivoTemporalFinal);
+	rutaArchAAparear=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	string_append(&rutaArchAAparear,"A");
-	string_append(&rutaArchApareado,infoReduccionGlobal->rutaArchivoTemporalFinal);
-	string_append(&rutaArchApareado,"AA");
+
+	rutaArchApareado=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaArchApareado,"AP");
 	FILE* archAAparear = fopen(rutaArchAAparear, "w+");
 	FILE*archivoApareado = fopen(rutaArchApareado, "w+");
+	rutaArchReducidoFinal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	archivoReduccionGlobal = fopen(
-			infoReduccionGlobal->rutaArchivoTemporalFinal, "r+");
-	for (i = 0; i < list_size(infoReduccionGlobal->nodosAConectar); i++) {
+			rutaArchReducidoFinal, "r+");
+	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
 		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
 				infoReduccionGlobal->nodosAConectar, i);
 		FILE* archivoRecibido = fopen("tempRecibido", "w+");
@@ -324,30 +329,41 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 			if (encontrado != 0) {
 
 				aparearArchivos(archAAparear, archivoRecibido, archivoApareado);
-				exit(1);
+				//exit(1);
 			} else {
-				notificarAMaster(ERROR_REDUCCION_GLOBAL,socketMaster);
-				exit(1);
+				notificarAMaster(ERROR_REDUCCION,socketMaster);
+				//exit(1);
 			}
 		} else {
-			notificarAMaster(ERROR_REDUCCION_GLOBAL,socketMaster);
+			notificarAMaster(ERROR_REDUCCION,socketMaster);
 		}
 
 		fclose(archivoRecibido);
 	}
 
-	copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
+	//copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
 
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
-			archivoReduccionGlobal, infoReduccionGlobal->archivoReductor,
-			infoReduccionGlobal->rutaArchivoTemporalFinal);
+			rutaArchApareado, rutaArchReductor,
+			rutaArchReducidoFinal);
+
 	resultado = system(lineaAEjecutar);
 
+	if(resultado!=-1){
 	notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
+	log_info(workerLogger,"Reduccion Global realizada, archivo %s generado",infoReduccionGlobal->rutaArchivoTemporalFinal);
+	}else{
+	notificarAMaster(ERROR_REDUCCION, socketMaster);
+	log_info(workerLogger,"Error en reduccion global");
+	}
+
+
 	fclose(archAAparear);
 	fclose(archivoApareado);
-
-	log_info(workerLogger,"Reduccion Global realizada, archivo %s generado",infoReduccionGlobal->rutaArchivoTemporalFinal);
+	fclose(archivoReduccionGlobal);
+	remove(rutaArchAAparear);
+	remove(rutaArchApareado);
+	remove(rutaArchReductor);
 }
 
 void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
