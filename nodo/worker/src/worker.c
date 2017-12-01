@@ -51,7 +51,7 @@ int main(void) {
 				(struct soccaddr*) &direccionWorker, &tamanioDir)) <= 0)
 			perror("accept");
 		else {
-			printf("Entro una conexion por el puerto %d\n", nuevoSocket);
+			printf("Entro una conexion por el sd %d\n", nuevoSocket);
 
 			void* buffer;
 			t_infoTransformacion* infoTransformacion;
