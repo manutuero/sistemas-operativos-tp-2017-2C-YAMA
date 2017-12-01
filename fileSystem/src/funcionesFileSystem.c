@@ -293,6 +293,7 @@ void* esperarConexionesDatanodes() {
 								nodo->ip = string_duplicate(
 										inet_ntoa(address.sin_addr));
 								free(infoNodo.ip);
+
 								if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 									socketsClientes[i] = socketEntrante;
 									agregarNodo(nodo);
@@ -358,36 +359,9 @@ void* esperarConexionesDatanodes() {
 					if (recv(sd, buffer, sizeof(buffer),
 					MSG_PEEK | MSG_DONTWAIT) == 0) {
 						// Desconexion de un nodo.
-						cerrarSocket(sd);
 						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
-						// Actualizo la lista de nodos conectados.
-						int j;
-						t_nodo *nodoDesconectado;
-						for (j = 0; j < nodos->elements_count; j++) {
-							nodoDesconectado = list_get(nodos, j);
-							if (nodoDesconectado) {
-								if (nodoDesconectado->socketDescriptor == sd) {
-									//Enviar desconexion a YAMA SI estoy en estado estable y el yama esta conectado
-									if ((estadoFs == ESTABLE)
-											&& (yamaConectado)) {
-
-										enviarInfoNodoYama(nodoDesconectado,
-												DESCONEXION);
-										list_remove(nodos, j);
-										if (estadoAnterior) {
-											actualizarDisponibilidadArchivos(
-													nodoDesconectado->idNodo,
-													DESCONEXION);
-										}
-									}
-								}
-							}
-
-							//free(nodoDesconectado->bitmap);
-							//free(nodoDesconectado->ip); EL UNICO QUE PUEDE HACER ESTE TIPO DE ERRORES PELOTUDOS SOY YO (NICO.G)
-							//free(nodoDesconectado);
-						}
-
+						cerrarSocket(sd);
+						sacarNodo(sd);
 					}
 				}
 				//free(buffer);
@@ -997,35 +971,6 @@ void restaurarTablaDeArchivos() {
 		// Libero recursos.
 		free(directorio);
 	}
-}
-
-void agregarNodo(t_nodo *nodo) {
-	int idNodo = nodo->idNodo;
-
-	// El nodo se conecta por primera vez.
-	if (!existeNodo(idNodo, nodos) && !existeNodo(idNodo, nodosEsperados)) {
-		list_add(nodos, nodo);
-		list_add(nodosEsperados, nodo);
-	}
-	// El nodo ya se habia conectado antes pero se esta reconectando (por desconexion o estado anterior).
-	else if (!existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
-		list_add(nodos, nodo);
-	}
-
-	// Llego un nodo con el mismo id que otro ya conectado...rechaza e informa el error.
-	else if (existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
-		printf(
-				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
-				nodo->idNodo);
-		cerrarSocket(nodo->socketDescriptor);
-	}
-
-	if ((estadoFs == ESTABLE) && (yamaConectado)) {
-		enviarInfoNodoYama(nodo, CONEXION);
-	}
-	// Se conectaron al menos
-	if (nodos->elements_count >= 2)
-		sem_post(&semNodosRequeridos);
 }
 
 bool existeNodo(int idNodo, t_list *lista) {
@@ -2289,6 +2234,10 @@ void reiniciarNodos() {
 		memset(nodo->bitmap, 'L', strlen(nodo->bitmap));
 	}
 
+	// Actualizo la lista de nodosEsperados.
+	list_clean_and_destroy_elements(nodosEsperados, (void*) destruirNodo);
+	list_add_all(nodosEsperados, nodos);
+
 	persistirTablaDeNodos();
 	persistirBitmaps();
 }
@@ -2361,6 +2310,62 @@ void reiniciarDirectorios() {
 	free(comando);
 }
 
-/*void liberarArchivo(t_archivo_a_persistir *archivo) {
+void agregarNodo(t_nodo *nodo) {
+	int idNodo = nodo->idNodo;
 
- }*/
+	// El nodo se conecta por primera vez.
+	if (!existeNodo(idNodo, nodos) && !existeNodo(idNodo, nodosEsperados)) {
+		list_add(nodos, nodo);
+		list_add(nodosEsperados, nodo);
+	}
+
+	// El nodo ya se habia conectado antes pero se esta reconectando (por desconexion o estado anterior).
+	else if (!existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
+		list_add(nodos, nodo);
+	}
+
+	// Llego un nodo con el mismo id que otro ya conectado...rechaza e informa el error.
+	else if (existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)
+			&& estadoFs == ESTABLE) {
+		printf(
+				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
+				nodo->idNodo);
+		cerrarSocket(nodo->socketDescriptor);
+	}
+
+	if ((estadoFs == ESTABLE) && (yamaConectado)) {
+		enviarInfoNodoYama(nodo, CONEXION);
+	}
+	// Se conectaron al menos
+	if (nodos->elements_count >= 2)
+		sem_post(&semNodosRequeridos);
+}
+
+void sacarNodo(int sd) {
+	int i;
+	t_nodo *nodoDesconectado;
+
+	// Actualizo la lista de nodos conectados.
+	for (i = 0; i < nodos->elements_count; i++) {
+		nodoDesconectado = list_get(nodos, i);
+		if (nodoDesconectado->socketDescriptor == sd) {
+			// Envia la desconexion a YAMA si estoy en estado estable y si el yama esta conectado.
+			if (estadoFs == ESTABLE && yamaConectado) {
+				enviarInfoNodoYama(nodoDesconectado, DESCONEXION);
+				list_remove(nodos, i);
+			}
+
+			// Si estamos en un estado estable solo lo sacamos de la lista de nodos conectados, quedando en la de esperados por si se desea volver a conectar.
+			else if (estadoFs == ESTABLE) {
+				list_remove(nodos, i);
+			}
+
+			// Este escenario se produce cuando nunca se corre el fs por primera vez y nunca se hizo format.
+			else if (estadoFs == NO_ESTABLE
+					&& estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
+				list_remove(nodos, i);
+				list_remove(nodosEsperados, i);
+			}
+		}
+	}
+}

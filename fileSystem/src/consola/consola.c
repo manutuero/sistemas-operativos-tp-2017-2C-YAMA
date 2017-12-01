@@ -17,7 +17,6 @@ void* levantarConsola() {
 		case 1:
 			if (sonIguales(argumentos[0], "format")) {
 				ejecutarFormat(argumentos);
-				printf("Formateando sistema... hecho.\n");
 				break;
 			}
 			if (sonIguales(argumentos[0], "exit")) {

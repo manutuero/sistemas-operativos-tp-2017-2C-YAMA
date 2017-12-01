@@ -48,8 +48,11 @@ void ejecutarFormat() {
 			reiniciarEstructuras();
 		}
 
+		printf("Formateando sistema... hecho.\n");
 		cantidad_nodos_esperados = nodos->elements_count;
 		sem_post(&semEstadoEstable);
+	} else {
+		printf("No se puede formatear el sistema, se necesitan al menos 2 nodos conectados.\n");
 	}
 }
 

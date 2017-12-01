@@ -43,7 +43,7 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 		offset += bloque->bytesOcupados;
 	}
 
-	//contenido[archivo->tamanio] = '\0';
+	contenido[archivo->tamanio] = '\0';
 
 	// LIBERAR ARCHIVO CUANDO LA FUNCION QUE LLAMA TERMINA!...para que no hayan leaks despues de cada llamado.
 	pthread_mutex_unlock(&mutex);
