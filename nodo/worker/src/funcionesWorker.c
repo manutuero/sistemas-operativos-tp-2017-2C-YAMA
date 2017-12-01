@@ -452,7 +452,7 @@ char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 
 char* deserializarRecepcionArchivoTemp(void* buffer) {
 
-	char* archTemporal = string_new();
+	char* archTemporal;
 	int desplazamiento = 0;
 	int bytesACopiar;
 	int largoArchTemporal;
@@ -461,6 +461,7 @@ char* deserializarRecepcionArchivoTemp(void* buffer) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = largoArchTemporal;
+	archTemporal=malloc(largoArchTemporal);
 	memcpy(archTemporal, buffer + desplazamiento, largoArchTemporal);
 	desplazamiento += bytesACopiar;
 	return archTemporal;
@@ -592,7 +593,7 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 	void*bufferMensaje;
 	t_header header;
 	validacion = verificarExistenciaArchTemp(nombreArchTemp, pathTemporales);
-	if (validacion == 1) {
+	if (validacion == 2) {
 		printf("archivo no encontrado\n");
 		header.id = ERROR_ARCHIVO_NO_ENCONTRADO;
 		header.tamanioPayload = 0;
