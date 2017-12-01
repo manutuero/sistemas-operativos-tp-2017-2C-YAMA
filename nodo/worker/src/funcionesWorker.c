@@ -468,7 +468,7 @@ int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
 	int socketWorker = conectarseAWorker(puerto, ip);
 	if (socketWorker != -1) {
 		buffer = serializarSolicitudArchivo(nombreArchivoTemp, &largoBuffer);
-		tamanioMensaje = largoBuffer + size(t_header);
+		tamanioMensaje = largoBuffer + sizeof(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = SOLICITUD_WORKER;
 		header.tamanioPayload = largoBuffer;

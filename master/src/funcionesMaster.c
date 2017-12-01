@@ -767,7 +767,8 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorkerEncargado, bufferMensaje, largoBuffer);
+		enviarPorSocket(socketWorkerEncargado, bufferMensaje, header.tamanioPayload);
+		printf("envio mensaje de reduccion global a worker\n");
 		free(buffer);
 		free(bufferMensaje);
 
@@ -1233,8 +1234,8 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 			+ redGlobalWorker->largoRutaArchivoTemporal;
 	buffer = malloc(tamanioBuffer);
 
-	memcpy(buffer + desplazamiento, &redGlobalWorker->etapa, sizeof(uint32_t));
-	desplazamiento += sizeof(uint32_t);
+	//memcpy(buffer + desplazamiento, &redGlobalWorker->etapa, sizeof(uint32_t));
+	//desplazamiento += sizeof(uint32_t);
 	memcpy(buffer + desplazamiento, &redGlobalWorker->largoRutaArchivoTemporal,
 			sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -1287,7 +1288,7 @@ int respuestaWorker(int socketWorker) {
 	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, 0);
 	int bytesRecibidos = recibirHeader(socketWorker, &header);
 	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, sizeof(int));
-	printf("%d\n", bytesRecibidos);
+	//printf("%d\n", bytesRecibidos);
 	free(buffer);
 	if(bytesRecibidos == 0)
 		return 0;
