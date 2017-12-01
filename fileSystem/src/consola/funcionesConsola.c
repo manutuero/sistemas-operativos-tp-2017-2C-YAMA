@@ -223,6 +223,7 @@ void ejecutarMkdir(char **argumentos) {
 		printf(
 				"mkdir: no se puede crear el directorio «%s»: La ruta ingresada no es valida.\n",
 				path);
+	free(path);
 }
 
 void ejecutarMd5(char **argumentos) {
@@ -233,11 +234,13 @@ void ejecutarMd5(char **argumentos) {
 	pathArchivoYamaFs = argumentos[1];
 	if (!esValido(pathArchivoYamaFs)) {
 		printf("La ruta '%s' no es valida.\n", pathArchivoYamaFs);
+		free(pathArchivoYamaFs);
 		return;
 	}
 
 	if (!existeArchivoEnYamaFs(pathArchivoYamaFs)) {
 		printf("El archivo '%s' no existe.\n", pathArchivoYamaFs);
+		free(pathArchivoYamaFs);
 		return;
 	}
 
@@ -269,6 +272,7 @@ void ejecutarMd5(char **argumentos) {
 
 	// Libero recursos.
 	free(nombreArchivo);
+	free(pathArchivoTemporal);
 }
 
 void ejecutarLs(char **argumentos) {
@@ -528,7 +532,7 @@ void ejecutarCpto(char **argumentos) {
 	free(pathArchivoYamaFs);
 	free(pathDirectorioLocalFs);
 	free(pathNuevoArchivo);
-	//liberarArchivo(archivo);
+	liberarArchivo(archivo);
 }
 
 void ejecutarCpblock(char **argumentos) {
