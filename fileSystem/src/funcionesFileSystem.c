@@ -125,7 +125,7 @@ void* serializarInfoNodo(t_nodo *nodo, t_header *header) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
-	largoIp = strlen(nodo->ip)+1;
+	largoIp = strlen(nodo->ip) + 1;
 	memcpy(payload + desplazamiento, &largoIp, bytesACopiar); // le agrego el largo de la cadena ip como parte del mensaje
 	desplazamiento += sizeof(uint32_t);
 	payload = realloc(payload, desplazamiento + largoIp); // Hacemos apuntar al nuevo espacio de memoria redimensionado.
@@ -274,12 +274,11 @@ void* esperarConexionesDatanodes() {
 									header.tamanioPayload) <= 0) {
 								perror(
 										"Error. El payload no se pudo recibir correctamente.");
-								break;
 								free(buffer);
+								break;
 							} else {
 								t_infoNodo infoNodo = deserializarInfoNodo(
 										buffer, header.tamanioPayload);
-								free(buffer);
 
 								t_nodo *nodo = malloc(sizeof(t_nodo));
 								nodo->socketDescriptor = socketEntrante;
@@ -290,8 +289,9 @@ void* esperarConexionesDatanodes() {
 								getpeername(socketEntrante,
 										(struct sockaddr*) &address,
 										(socklen_t*) &addrlen);
-								nodo->ip=string_new();
-								nodo->ip =string_duplicate(inet_ntoa(address.sin_addr));
+								nodo->ip = string_new();
+								nodo->ip = string_duplicate(
+										inet_ntoa(address.sin_addr));
 								free(infoNodo.ip);
 								if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 									socketsClientes[i] = socketEntrante;
@@ -334,7 +334,7 @@ void* esperarConexionesDatanodes() {
 										cerrarSocket(socketEntrante); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
 									}
 								}
-								free(buffer);
+								//free(buffer);
 							}
 
 							break;
@@ -383,14 +383,14 @@ void* esperarConexionesDatanodes() {
 								}
 							}
 
-							free(nodoDesconectado->bitmap);
-							free(nodoDesconectado->ip);
-							free(nodoDesconectado);
+							//free(nodoDesconectado->bitmap);
+							//free(nodoDesconectado->ip); EL UNICO QUE PUEDE HACER ESTE TIPO DE ERRORES PELOTUDOS SOY YO (NICO.G)
+							//free(nodoDesconectado);
 						}
 
 					}
 				}
-				free(buffer);
+				//free(buffer);
 			}
 		}
 	}
@@ -1754,11 +1754,10 @@ void *escucharPeticionesYama() {
 						headerRta->tamanioPayload);
 
 			} else {
-				t_header* headerRta=malloc(sizeof(t_header));
-				header->id=100;
-				header->tamanioPayload=0;
-				enviarPorSocket(socketYama,headerRta,0);
-
+				t_header* headerRta = malloc(sizeof(t_header));
+				header->id = 100;
+				header->tamanioPayload = 0;
+				enviarPorSocket(socketYama, headerRta, 0);
 
 				free(headerRta);
 
@@ -2079,7 +2078,6 @@ void *esperarConexionesWorker() {
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
 							archivo = deserializarInfoArchivoFinal(buffer);
 
-
 							//TODO guardar archivoGlobal
 						}
 
@@ -2124,7 +2122,7 @@ void* obtenerSocketNodosYama() {
 		int socketPrograma = socket(AF_INET, SOCK_STREAM, 0);
 		if (socketPrograma <= 0) {
 			perror(
-				"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+					"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
 			//return (ERROR);
 		}
 		if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
@@ -2365,4 +2363,4 @@ void reiniciarDirectorios() {
 
 /*void liberarArchivo(t_archivo_a_persistir *archivo) {
 
-}*/
+ }*/

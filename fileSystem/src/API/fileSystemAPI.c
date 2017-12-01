@@ -395,7 +395,7 @@ t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
 }
 
 void liberarArchivo(t_archivo_a_persistir *archivo) {
-	list_destroy_and_destroy_elements(archivo->bloques, (void*) destruirBloque);
+	destruirListaYBloques(archivo->bloques);
 	free(archivo->nombreArchivo);
 	free(archivo);
 }
