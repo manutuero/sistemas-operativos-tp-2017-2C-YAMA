@@ -23,16 +23,13 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: worker
-
-dependents:
-	-cd /home/utnso/workspace/utils/Debug && $(MAKE) clean all
+all: Worker
 
 # Tool invocations
-worker: $(OBJS) $(USER_OBJS) /home/utnso/workspace/utils/Debug/libutils.so
+Worker: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -L"/home/utnso/workspace/utils/Debug" -o "Worker" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc  -o "Worker" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -40,5 +37,8 @@ worker: $(OBJS) $(USER_OBJS) /home/utnso/workspace/utils/Debug/libutils.so
 clean:
 	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) Worker
 	-@echo ' '
+
+.PHONY: all clean dependents
+.SECONDARY:
 
 -include ../makefile.targets
