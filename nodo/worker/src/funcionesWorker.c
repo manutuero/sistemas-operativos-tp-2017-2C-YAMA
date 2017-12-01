@@ -317,10 +317,13 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	rutaArchReducidoFinal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	archivoReduccionGlobal = fopen(
 			rutaArchReducidoFinal, "r+");
+	char*rutaTempRecibido=string_new();
+	rutaTempRecibido=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaTempRecibido,"recibido");
 	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
 		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
 				infoReduccionGlobal->nodosAConectar, i);
-		FILE* archivoRecibido = fopen("tempRecibido", "w+");
+		FILE* archivoRecibido = fopen(rutaTempRecibido, "w+");
 		socketDePedido = solicitarArchivoAWorker(infoArchivo.ip,
 				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal);
 		if (socketDePedido != -1) {
