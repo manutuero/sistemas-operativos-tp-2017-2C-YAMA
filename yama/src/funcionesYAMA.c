@@ -342,7 +342,7 @@ void escucharMasters() {
 void escuchaActualizacionesNodos() {
 
 	t_header *header;
-	t_infoNodos *infoNodo;
+	t_infoNodos infoNodo;
 	header = malloc(sizeof(t_header));
 	struct addrinfo hints;
 	struct addrinfo *serverInfo;
@@ -383,22 +383,22 @@ void escuchaActualizacionesNodos() {
 			status = recv(socketCliente, (void*) actualizacionRecibida,
 					header->tamanioPayload, 0);
 
-			infoNodo = malloc(sizeof(t_infoNodos));
-			*infoNodo = deserializarActualizacion(actualizacionRecibida);
+			
+			infoNodo = deserializarActualizacion(actualizacionRecibida);
 
 			if (header->id == 30) {
-				workers[infoNodo->idNodo].habilitado = 1;
-				workers[infoNodo->idNodo].puerto = infoNodo->puerto;
-				workers[infoNodo->idNodo].ip = malloc(infoNodo->largoIp);
-				strcpy(workers[infoNodo->idNodo].ip, infoNodo->IP);
-				printf("Recibida info nodo:   %d", infoNodo->idNodo);
+				workers[infoNodo.idNodo].habilitado = 1;
+				workers[infoNodo.idNodo].puerto = infoNodo.puerto;
+				workers[infoNodo.idNodo].ip = malloc(infoNodo.largoIp);
+				strcpy(workers[infoNodo.idNodo].ip, infoNodo.IP);
+				printf("Recibida info nodo:   %d", infoNodo.idNodo);
 				puts("");
 			} else {
-				workers[infoNodo->idNodo].habilitado = 0;
+				workers[infoNodo.idNodo].habilitado = 0;
 			}
 
-			free(infoNodo->IP);
-			free(infoNodo);
+		
+			
 
 		}
 	}
@@ -424,8 +424,8 @@ t_infoNodos deserializarActualizacion(void* mensaje) {
 	memcpy(&infoNodo.largoIp, mensaje + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	bytesACopiar = tamanioIp;
-	infoNodo.IP = malloc(tamanioIp + 1);
+	bytesACopiar = infoNodo.largoIp;
+	infoNodo.IP = malloc(infoNodo.largoIp);
 	memcpy(infoNodo.IP, mensaje + desplazamiento, bytesACopiar);
 
 	return infoNodo;
