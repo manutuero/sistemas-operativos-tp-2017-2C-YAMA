@@ -210,10 +210,11 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	remove(rutaDataBloque);
 	//free(bloque);
 	//free(data);
-	notificarAMaster(TRANSFORMACION_OK, socketMaster);
+
 
 	if(respuesta!=-1){
-	log_info(workerLogger,"Transformacion del bloque d% realizada",infoTransformacion->numBloque);
+	notificarAMaster(TRANSFORMACION_OK, socketMaster);
+	log_info(workerLogger,"Transformacion del bloque %d realizada",infoTransformacion->numBloque);
 	}else {
 	log_info(workerLogger,"No se pudo realizar la transformacion en el bloque",infoTransformacion->numBloque);
 	}
@@ -467,10 +468,11 @@ int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
 	int socketWorker = conectarseAWorker(puerto, ip);
 	if (socketWorker != -1) {
 		buffer = serializarSolicitudArchivo(nombreArchivoTemp, &largoBuffer);
-		tamanioMensaje = largoBuffer;
+		tamanioMensaje = largoBuffer + size(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = SOLICITUD_WORKER;
 		header.tamanioPayload = largoBuffer;
+		printf("largo buffer a mandar: %d",largoBuffer);
 
 		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
@@ -479,10 +481,12 @@ int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorker, bufferMensaje, tamanioMensaje);
+		enviarPorSocket(socketWorker, bufferMensaje, largoBuffer);
+		printf("envie mensaje\n");
 		free(buffer);
 		free(bufferMensaje);
 
+		printf("libero memoria\n");
 		return socketWorker;
 	} else {
 		return socketWorker;
@@ -545,7 +549,7 @@ void* serializarSolicitudArchivo(char* nombreArchTemp, int* largoBuffer) {
 	memcpy(buffer + desplazamiento, &largoNombreArchTemp, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
 
-	memcpy(buffer + desplazamiento, &nombreArchTemp, largoNombreArchTemp);
+	memcpy(buffer + desplazamiento, nombreArchTemp, largoNombreArchTemp);
 	desplazamiento += largoNombreArchTemp;
 
 	*largoBuffer = desplazamiento;
@@ -832,7 +836,7 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	bytesACopiar = sizeof(infoReduccionGlobal->largoArchivoReductor);
+	bytesACopiar = infoReduccionGlobal->largoArchivoReductor;
 	infoReduccionGlobal->archivoReductor = malloc(
 			infoReduccionGlobal->largoArchivoReductor);
 	memcpy(infoReduccionGlobal->archivoReductor, buffer + desplazamiento,
@@ -845,7 +849,7 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 	desplazamiento += bytesACopiar;
 
 	infoReduccionGlobal->nodosAConectar = list_create();
-	for (i = 0; i > infoReduccionGlobal->cantidadNodos; i++) {
+	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
 		t_datosNodoAEncargado* nodo = malloc(sizeof(t_datosNodoAEncargado));
 		bytesACopiar = sizeof(uint32_t);
 		memcpy(&nodo->puerto, buffer + desplazamiento, bytesACopiar);
@@ -873,6 +877,21 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 		desplazamiento += bytesACopiar;
 
 		list_add(infoReduccionGlobal->nodosAConectar, nodo);
+	}
+	int j;
+	printf("%d\n",infoReduccionGlobal->largoRutaArchivoTemporalFinal);
+	printf("%s\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
+	printf("%d\n",infoReduccionGlobal->largoArchivoReductor);
+	printf("%d\n",infoReduccionGlobal->cantidadNodos);
+
+	for(j=0;j<infoReduccionGlobal->cantidadNodos;j++) {
+		t_datosNodoAEncargado* reg=(t_datosNodoAEncargado*)list_get(infoReduccionGlobal->nodosAConectar,j);
+		printf("%d\n",reg->puerto);
+		printf("%d\n",reg->largoIp);
+		printf("%s\n",reg->ip);
+		printf("%d\n",reg->largoRutaArchivoReduccionLocal);
+		printf("%s\n",reg->rutaArchivoReduccionLocal);
+
 	}
 	return infoReduccionGlobal;
 }

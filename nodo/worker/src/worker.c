@@ -61,6 +61,9 @@ int main(void) {
 			char* nombreArchTempPedido;
 			t_header header;
 			recibirHeader(nuevoSocket, &header);
+			if(header.id !=TRANSFORMACION){
+				printf("header reduccion %d\n",header.id);
+			}
 			buffer = malloc(header.tamanioPayload);
 			bytesRecibidos=recibirPorSocket(nuevoSocket, buffer, header.tamanioPayload);
 			if(bytesRecibidos<=0){
@@ -68,7 +71,8 @@ int main(void) {
 				continue;
 			}
 			pid = fork();
-			if (pid == 0) {
+			if(pid == 0){
+			   //if (fork() == 0) {//pid nieto
 				switch (header.id) {
 
 				case TRANSFORMACION:
@@ -94,13 +98,20 @@ int main(void) {
 							nuevoSocket);
 					break;
 				}
-				close(nuevoSocket);
-				exit(0);
-				//kill(pid,SIGTERM);
-			}
-			//else{
 
-			//}
+				close(nuevoSocket);
+				printf("Realice la tarea\n");
+				exit(0);
+				//waitpid(pid,0,WNOHANG);
+				//kill(pid,SIGTERM);
+
+			   //else{ //pid hijo
+				   //exit(0);
+			   //}
+			}
+			else{
+				   waitpid(pid,0,WNOHANG);
+			}
 
 		}
 
