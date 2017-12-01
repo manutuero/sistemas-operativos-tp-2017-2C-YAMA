@@ -329,9 +329,8 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 		if (socketDePedido != -1) {
 			contenidoArchRecibido = recibirArchivoTemp(socketDePedido,
 					&encontrado);
-			txt_write_in_file(archivoRecibido, contenidoArchRecibido);
 			if (encontrado != 0) {
-
+				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
 				aparearArchivos(archAAparear, archivoRecibido, archivoApareado);
 				//exit(1);
 			} else {
@@ -344,6 +343,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 
 		fclose(archivoRecibido);
 	}
+	printf("archivo apareado\n");
 
 	//copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
 
@@ -355,9 +355,11 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 
 	if(resultado!=-1){
 	notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
+	printf("Reduccion Global realizada, archivo %s generado\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
 	log_info(workerLogger,"Reduccion Global realizada, archivo %s generado",infoReduccionGlobal->rutaArchivoTemporalFinal);
 	}else{
 	notificarAMaster(ERROR_REDUCCION, socketMaster);
+	printf("Error en reduccion global");
 	log_info(workerLogger,"Error en reduccion global");
 	}
 
@@ -434,17 +436,18 @@ char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 	void*buffer;
 	t_header header;
 	recibirHeader(socketDePedido, &header);
-	buffer = malloc(header.tamanioPayload);
-	recibirPorSocket(socketDePedido, buffer, header.tamanioPayload);
-	char*archTemporal = malloc(header.tamanioPayload);
-
-	if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
-		encontrado = 0;
-	} else {
+	if(header.id == RECIBIR_ARCH_TEMP){
+		buffer = malloc(header.tamanioPayload);
+		recibirPorSocket(socketDePedido, buffer, header.tamanioPayload);
+		char*archTemporal = malloc(header.tamanioPayload);
 		archTemporal = deserializarRecepcionArchivoTemp(buffer);
+		return archTemporal;
+		free(archTemporal);
 	}
-	return archTemporal;
-	free(archTemporal);
+	else if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
+		*encontrado = 0;
+	}
+	return "";
 }
 
 char* deserializarRecepcionArchivoTemp(void* buffer) {
@@ -492,6 +495,7 @@ int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
 		printf("libero memoria\n");
 		return socketWorker;
 	} else {
+		printf("no conecto al worker\n");
 		return socketWorker;
 	}
 
@@ -561,18 +565,20 @@ void* serializarSolicitudArchivo(char* nombreArchTemp, int* largoBuffer) {
 }
 
 char* deserializarSolicitudArchivo(void* buffer) {
-	int* largoNombreArchTemp;
-	char*nombreArchTemp = string_new();
+	int largoNombreArchTemp;
+	char*nombreArchTemp;
 	int desplazamiento = 0, bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(&largoNombreArchTemp, buffer + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
+	nombreArchTemp = malloc(largoNombreArchTemp);
 
-	bytesACopiar = *largoNombreArchTemp;
+	bytesACopiar = largoNombreArchTemp;
 	memcpy(nombreArchTemp, buffer + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
+	printf("%s\n",nombreArchTemp);
 	return nombreArchTemp;
 }
 
@@ -587,6 +593,7 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 	t_header header;
 	validacion = verificarExistenciaArchTemp(nombreArchTemp, pathTemporales);
 	if (validacion == 1) {
+		printf("archivo no encontrado\n");
 		header.id = ERROR_ARCHIVO_NO_ENCONTRADO;
 		header.tamanioPayload = 0;
 		buffer = malloc(sizeof(uint32_t) * 2);
@@ -599,8 +606,10 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 		enviarPorSocket(socketWorker, buffer, 0);
 
 	} else {
+		printf("archivo encontrado\n");
 		string_append(&rutaArchivo, pathTemporales);
 		string_append(&rutaArchivo, nombreArchTemp);
+
 		contenidoArch = obtenerContenidoArchivo(rutaArchivo);
 		tamanioBuffer = devolverTamanioArchivo(rutaArchivo);
 		header.id = RECIBIR_ARCH_TEMP;
@@ -617,7 +626,7 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
 		enviarPorSocket(socketWorker, bufferMensaje,header.tamanioPayload);
-
+		printf("respondo a worker\n");
 	}
 	free(buffer);
 	free(bufferMensaje);
@@ -671,7 +680,8 @@ char* obtenerContenidoArchivo(char*rutaArchivo) {
 
 int verificarExistenciaArchTemp(char* nombreArchTemp, char* pathTemporales) {
 
-	if (access(nombreArchTemp, F_OK) != -1) {
+	char* pathArchTemp = armarRutaGuardadoTemp(nombreArchTemp);
+	if (access(pathArchTemp, F_OK) != -1) {
 		return 1;
 	}
 
