@@ -1,13 +1,44 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+-include ../makefile.init
+
+RM := rm -rf
+
+# All of the sources participating in the build are defined here
+-include sources.mk
+-include src/subdir.mk
+-include subdir.mk
+-include objects.mk
+
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(strip $(C_DEPS)),)
+-include $(C_DEPS)
+endif
+endif
+
+-include ../makefile.defs
+
+# Add inputs and outputs from these tool invocations to the build variables 
+
+# All Target
+all: DataNode
+
+# Tool invocations
+DataNode: $(OBJS) $(USER_OBJS)
+	@echo 'Building target: $@'
+	@echo 'Invoking: GCC C Linker'
+	gcc  -o "DataNode" $(OBJS) $(USER_OBJS) $(LIBS)
+	@echo 'Finished building target: $@'
+	@echo ' '
+
+# Other Targets
 clean:
-	 rm -f DataNode
-all: dataNode
+	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) DataNode
+	-@echo ' '
 
-dataNode:
-	@echo 'Building dataNode'
-	gcc src/*.c -o DataNode -lcommons -lutils
+.PHONY: all clean dependents
+.SECONDARY:
 
-
-install:
-	mkdir -p /home/utnso/thePonchos/
-	touch /home/utnso/thePonchos/data.bin
-	truncate -s 314572800 /home/utnso/thePonchos/data.bin
+-include ../makefile.targets

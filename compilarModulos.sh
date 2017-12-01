@@ -1,15 +1,15 @@
 !#/bin/bash
 
-git clone https://github.com/sisoputnfrba/so-commons-library.git
-cd  so-commons-library
-make install
-cd ..
+#git clone https://github.com/sisoputnfrba/so-commons-library.git
+#cd  so-commons-library
+#sudo make install
+#cd ..
 
 #instalacion utils
 cd utils/
 make clean
 make 
-make install
+sudo make install
 cd ..
 
 #instalacion readline
@@ -44,7 +44,6 @@ rm -rf Worker
 cd dataNode/
 make clean
 make all
-make install
 cp DataNode ../
 rm DataNode
 
@@ -60,13 +59,10 @@ cd ..
 
 cp -a scripts/. /home/utnso/thePonchos
 cd ..
-chmod 0777 thePonchos
-cd thePonchos
+cd /home/utnso/thePonchos
 mkdir tmp
-chmod 0777 tmp
 cd tmp
 mkdir scripts
-chmod 0777 scripts
 
 
 

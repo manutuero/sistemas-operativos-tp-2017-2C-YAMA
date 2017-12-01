@@ -41,8 +41,4 @@ clean:
 	-$(RM) $(OBJS)$(C_DEPS)$(EXECUTABLES) Worker
 	-@echo ' '
 
-.PHONY: all clean dependents
-.SECONDARY:
-/home/utnso/workspace/utils/Debug/libutils.so:
-
 -include ../makefile.targets

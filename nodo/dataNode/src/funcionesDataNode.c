@@ -116,11 +116,15 @@ int conectarAfilesystem(char *IP_FILESYSTEM, int PUERTO_FILESYSTEM) {
 	t_header *header = malloc(sizeof(t_header));
 	header->id = 1;
 	if (socketPrograma <= 0) {
-		//perror(
-		//	"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
-		//return (ERROR);
+		puts(
+			"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
+		exit(1);
 	}
-	if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) != FAIL) {
+	printf("Intentando conectar a fileSystem con Ip:  %s \n", IP_FILESYSTEM);
+        if (conectarSocket(socketPrograma, IP_FILESYSTEM, PUERTO_FILESYSTEM) != FAIL) {
+		printf("Error intentar conexion a fileSystem. Verificar ip y puerto. \n");
+		puts("");
+		exit(1);
 		return 0;
 	}
 
