@@ -713,13 +713,10 @@ void enviarReduccionGlobalAWorkerEncargado() {
 	redGlobalWorker.archivoReductor = obtenerContenidoArchivo(reductor);
 	redGlobalWorker.nodosAConectar = list_create();
 
-	printf("glob\n");
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
-		printf("%d\n",i);
 		redGlobalMaster = list_get(listaRedGloblales, i);
-		printf("%d\n",redGlobalMaster->idNodo);
 		if (redGlobalMaster->encargado == 1) {
-			printf("encargado\n");
+			printf("nodo encargado: %d\n",redGlobalMaster->idNodo);
 			redGlobalWorker.largoRutaArchivoTemporal =	redGlobalMaster->largoArchivoRedGlobal;
 			redGlobalWorker.rutaArchivoTemporal = malloc(redGlobalWorker.largoRutaArchivoTemporal);
 			strcpy(redGlobalWorker.rutaArchivoTemporal,	redGlobalMaster->archivoRedGlobal);
