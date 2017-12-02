@@ -106,6 +106,7 @@ int main(void) {
 				//kill(pid,SIGTERM);
 
 			   //else{ //pid hijo
+					//waitpid(pid,0,WNOHANG);
 				   //exit(0);
 			   //}
 			}
