@@ -91,8 +91,15 @@ void liberarArchivo(t_archivo_a_persistir *archivo);
 int validarGuardado(int respuesta, t_bloque *bloque, t_nodo *nodo);
 
 // Liberar memoria.
-void destruirListaYBloques(t_list *bloques);
-void destruirBloque(t_bloque *bloque);
 void liberarNodo(t_nodo *nodo);
+
+void liberarBloque(t_bloque *bloque);
+void liberarBloqueYNodos(t_bloque *bloque);
+void liberarBloqueSinContenidoYNodos(t_bloque *bloque);
+
+void liberarBloques(t_list *bloques);
+void liberarBloquesYNodos(t_list *bloques);
+
+void liberarArchivoYNodos(t_archivo_a_persistir *archivo);
 
 #endif
