@@ -322,7 +322,8 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	string_append(&rutaTempRecibido,"recibido");
 	char*rutaArchLocal=string_new();
 	rutaArchLocal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoLocal);
-	FILE*archLocal=fopen(rutaArchLocal,"r+");
+	printf("rutaArchLocal:%s\n",rutaArchLocal);
+	FILE*archLocal=fopen(rutaArchLocal,"r");
 	copiarContenidoDeArchivo(archivoApareado,archLocal);
 	printf("copio contenido de la ruta %s a la ruta del archivo apareado\n",rutaArchLocal);
 	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
@@ -434,6 +435,7 @@ void copiarContenidoDeArchivo(FILE* archivoCopiado, FILE* archivoACopiar) {
 	printf("no rompio no?\n");
 	while (!(feof(archivoACopiar))) {
 		fgets(regArchivoACopiar, LARGO_MAX_LINEA, archivoACopiar);
+		printf("copie linea\n");
 		txt_write_in_file(archivoCopiado, regArchivoACopiar);
 	}
 	printf("y ahora?\n");
