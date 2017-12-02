@@ -10,8 +10,9 @@
 
 
 #include "funcionesMaster.h"
+#include <signal.h>
 
-
+//void signal_handler(int);
 //PARA EJECUTAR ESTE PROGRAMA RECORDAR QUE LOS PARAMETROS TIENEN QUE SER RUTAS VALIDAS
 int main(int argsc,char **args) {
 	//char * transformador;
@@ -26,6 +27,7 @@ int main(int argsc,char **args) {
 
 		if(!chequearParametros(transformador,reductor,archivoAprocesar,direccionDeResultado)){
 
+			//signal(SIGINT, signal_handler);
 			return 0;
 		} else{
 			printf("Esta todo ok. Se envia por socket la info al yamafs\n");
@@ -33,6 +35,8 @@ int main(int argsc,char **args) {
 
 	} else{
 		printf("Cantidad de parametros invalida. Se esperan 4 pero se detectaron: %d \n",argsc-1);
+		//pause();
+		//signal(SIGINT, signal_handler);
 		return 0;
 
 	}
@@ -40,3 +44,8 @@ int main(int argsc,char **args) {
 	iniciarMaster(transformador,reductor,archivoAprocesar,direccionDeResultado);
 	return EXIT_SUCCESS;
 }
+/*
+void signal_handler(int numero){
+	printf("aborte\n");
+	signal(SIGINT, SIG_DFL);
+}*/

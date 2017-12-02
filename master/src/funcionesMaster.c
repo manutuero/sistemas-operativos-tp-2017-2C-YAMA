@@ -1014,10 +1014,11 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 			list_add(archivosTranformacionOk, transformacion->archivoTransformacion);
 			pthread_mutex_unlock(&mutexTotalTransformaciones);
 			header.id = TRANSFORMACIONOKYAMA;
+			log_info(masterLogger,"termino tarea de transformacion del worker %d",transformacion->idNodo);
 			avisarAYama(transformacion, header);
 		}
 		else{
-			printf("error en nodo %d",transformacion->idNodo);
+			printf("error en nodo %d\n",transformacion->idNodo);
 			enviarFalloTransformacionAYama(transformacion, &header);
 			log_error(masterLogger, "El worker %d no pudo terminar la ejecucion de la tarea de transformacion.\n",
 							transformacion->idNodo);
