@@ -279,7 +279,7 @@ void* esperarConexionesDatanodes() {
 							} else {
 								t_infoNodo infoNodo = deserializarInfoNodo(
 										buffer, header.tamanioPayload);
-
+								free(buffer);
 								t_nodo *nodo = malloc(sizeof(t_nodo));
 								nodo->socketDescriptor = socketEntrante;
 								nodo->idNodo = infoNodo.idNodo;
@@ -307,13 +307,17 @@ void* esperarConexionesDatanodes() {
 											nodo->bitmap =
 													recuperarBitmapAnterior(
 															nodo->idNodo);
-											actualizarDisponibilidadArchivos(
-													nodo->idNodo, CONEXION);
+											if (estadoFs == NO_ESTABLE) {
+												actualizarDisponibilidadArchivos(
+														nodo->idNodo, CONEXION);
+											}
 										}
 
 										socketsClientes[i] = socketEntrante;
 										agregarNodo(nodo);
 									} else {
+										free(nodo->ip);
+										free(nodo);
 										cerrarSocket(socketEntrante);
 									}
 								} else if (estadoNodos
@@ -322,17 +326,19 @@ void* esperarConexionesDatanodes() {
 									if (esNodoAnterior(nodosEsperados,
 											nodo->idNodo)) {
 										if (estadoAnterior) {
-											nodo->bitmap =
-													recuperarBitmapAnterior(
-															nodo->idNodo);
-											actualizarDisponibilidadArchivos(
-													nodo->idNodo, CONEXION);
+											nodo->bitmap = recuperarBitmapAnterior(nodo->idNodo);
+											if (estadoFs == NO_ESTABLE) {
+												actualizarDisponibilidadArchivos(
+														nodo->idNodo, CONEXION);
+											}
 										}
 										socketsClientes[i] = socketEntrante;
 										agregarNodo(nodo);
 									} else if (estadoFs == ESTABLE) {
 										socketsClientes[i] = 0;
 										cerrarSocket(socketEntrante); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+										free(nodo->ip);
+										free(nodo);
 									}
 								}
 								//free(buffer);
@@ -356,15 +362,16 @@ void* esperarConexionesDatanodes() {
 
 				if (FD_ISSET(sd, &readfds)) {
 					buffer = malloc(1);
-					if (recv(sd, buffer, sizeof(buffer),
+					if (recv(sd, buffer, 1,
 					MSG_PEEK | MSG_DONTWAIT) == 0) {
 						// Desconexion de un nodo.
 						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
 						cerrarSocket(sd);
 						sacarNodo(sd);
 					}
+					free(buffer);
 				}
-				//free(buffer);
+
 			}
 		}
 	}
@@ -2199,14 +2206,12 @@ void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
 		// Me fijo si el nodo que se reconecto guardaba algun bloque del archivo, si es asi ese bloque esta disponible.
 		if (tipoInfoNodo == CONEXION) {
 			actualizarBloquesDisponibles(archivo, idNodo);
-		} else if (tipoInfoNodo == DESCONEXION) {
-			//actualizarBloquesNoDisponibles(archivo, idNodo); entiendo que no hace falta...por las dudas las funciones estan hechas
 		}
 	}
 
 	// Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
 	if (archivosDisponibles == archivosTotales) {
-		if(estadoFs == NO_ESTABLE) {
+		if (estadoFs == NO_ESTABLE) {
 			destruirListaDeArchivos();
 		}
 		estadoFs = ESTABLE;
@@ -2359,11 +2364,15 @@ void sacarNodo(int sd) {
 			if (estadoFs == ESTABLE && yamaConectado) {
 				enviarInfoNodoYama(nodoDesconectado, DESCONEXION);
 				list_remove(nodos, i);
+				free(nodoDesconectado->ip);
+				free(nodoDesconectado);
 			}
 
 			// Si estamos en un estado estable solo lo sacamos de la lista de nodos conectados, quedando en la de esperados por si se desea volver a conectar.
 			else if (estadoFs == ESTABLE) {
 				list_remove(nodos, i);
+				free(nodoDesconectado->ip);
+				free(nodoDesconectado);
 			}
 
 			// Este escenario se produce cuando nunca se corre el fs por primera vez y nunca se hizo format.
@@ -2371,11 +2380,15 @@ void sacarNodo(int sd) {
 					&& estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 				list_remove(nodos, i);
 				list_remove(nodosEsperados, i);
+				free(nodoDesconectado->ip);
+				free(nodoDesconectado);
 			}
 		}
 	}
 }
 
+
+/* Destructores */
 void destruirListaDeArchivos() {
 	int i;
 	t_archivo_a_persistir *archivo;

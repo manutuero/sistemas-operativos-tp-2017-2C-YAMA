@@ -33,7 +33,6 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 		}
 	}
 
-	// LIBERAR ARCHIVO CUANDO LA FUNCION QUE LLAMA TERMINA!...para que no hayan leaks despues de cada llamado.
 	pthread_mutex_unlock(&mutex);
 	return archivo;
 }
@@ -108,7 +107,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.\n");
 
 			// Libero recursos
-			destruirListaYBloques(bloques);
+			liberarBloques(bloques);
 			list_destroy_and_destroy_elements(nodosAux, (void*) liberarNodo);
 
 			pthread_mutex_unlock(&mutex);
@@ -126,7 +125,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 				!= GUARDO_BLOQUE_OK) {
 
 			// Libero recursos
-			destruirListaYBloques(bloques);
+			liberarBloques(bloques);
 
 			pthread_mutex_unlock(&mutex);
 			return ERROR;
@@ -137,7 +136,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 				!= GUARDO_BLOQUE_OK) {
 
 			// Libero recursos
-			destruirListaYBloques(bloques);
+			liberarBloques(bloques);
 
 			pthread_mutex_unlock(&mutex);
 			return ERROR;
@@ -326,19 +325,6 @@ bool compararPorIdDesc(t_nodo *unNodo, t_nodo *otroNodo) {
 	return unNodo->idNodo < otroNodo->idNodo;
 }
 
-void destruirNodo(t_nodo *nodo) {
-	free(nodo);
-}
-
-void destruirBloque(t_bloque *bloque) {
-	free(bloque->contenido);
-	free(bloque);
-}
-
-void destruirBloqueSinContenido(t_bloque *bloque) {
-	free(bloque);
-}
-
 void limpiar(char* string, size_t largo) {
 	memset(string, 0, largo);
 }
@@ -385,37 +371,6 @@ t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
 	archivo->bloques = list_create();
 	list_add_all(archivo->bloques, bloques);
 	return archivo;
-}
-
-void liberarArchivo(t_archivo_a_persistir *archivo) {
-	destruirListaYBloques(archivo->bloques);
-	free(archivo->nombreArchivo);
-	free(archivo);
-}
-
-void liberarArchivoSinContenido(t_archivo_a_persistir *archivo) {
-	destruirListaYBloquesSinContenido(archivo->bloques);
-	free(archivo->nombreArchivo);
-	free(archivo);
-}
-
-void destruirListaYBloques(t_list *bloques) {
-	int i;
-	for (i = 0; i < bloques->elements_count; i++)
-		destruirBloque(list_get(bloques, i));
-
-	list_destroy(bloques);
-}
-
-void destruirListaYBloquesSinContenido(t_list *bloques) {
-	int i;
-	t_bloque *bloque;
-	for (i = 0; i < bloques->elements_count; i++) {
-		bloque = list_get(bloques, i);
-		destruirBloqueSinContenido(bloque);
-	}
-
-	list_destroy(bloques);
 }
 
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
@@ -499,8 +454,86 @@ void crearTablaDeArchivo(t_archivo_a_persistir *archivo) {
 	fclose(filePointer);
 }
 
+/* Funciones para liberar memoria */
+
+// Liberar nodo
+void destruirNodo(t_nodo *nodo) {
+	free(nodo);
+}
+
 void liberarNodo(t_nodo *nodo) {
 	free(nodo->bitmap);
 	free(nodo->ip);
 	free(nodo);
+}
+
+// Liberar archivo
+void liberarArchivo(t_archivo_a_persistir *archivo) {
+	liberarBloques(archivo->bloques);
+	free(archivo->nombreArchivo);
+	free(archivo);
+}
+
+void liberarArchivoYNodos(t_archivo_a_persistir *archivo) {
+	liberarBloquesYNodos(archivo->bloques);
+	free(archivo->nombreArchivo);
+	free(archivo);
+}
+
+void liberarArchivoSinContenido(t_archivo_a_persistir *archivo) {
+	liberarBloquesSinContenido(archivo->bloques);
+	free(archivo->nombreArchivo);
+	free(archivo);
+}
+
+// Liberar bloques de un archivo
+void liberarBloques(t_list *bloques) {
+	int i;
+	t_bloque *bloque;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		liberarBloque(bloque);
+	}
+
+	list_destroy(bloques);
+}
+
+void liberarBloquesSinContenido(t_list *bloques) {
+	int i;
+	t_bloque *bloque;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		liberarBloqueSinContenidoYNodos(bloque);
+	}
+
+	list_destroy(bloques);
+}
+
+void liberarBloquesYNodos(t_list *bloques) {
+	int i;
+	t_bloque *bloque;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		liberarBloqueYNodos(bloque);
+	}
+
+	list_destroy(bloques);
+}
+
+void liberarBloque(t_bloque *bloque) {
+	free(bloque->contenido);
+	free(bloque);
+}
+
+void liberarBloqueYNodos(t_bloque *bloque) {
+	free(bloque->contenido);
+	free(bloque->nodoCopia0);
+	free(bloque->nodoCopia1);
+	free(bloque);
+}
+
+void liberarBloqueSinContenidoYNodos(t_bloque *bloque) {
+	free(bloque->nodoCopia0);
+	free(bloque->nodoCopia1);
+	free(bloque);
 }
