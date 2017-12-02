@@ -21,7 +21,7 @@
 #define REDUCCIONGLOBALOKYAMA 20
 #define ERRORTRANSFORMACION 103
 #define ERRORREDUCCION 104
-#define ERRORREDUCCIONGLOBAL 104
+#define ERRORREDUCCIONGLOBAL 105
 #define ERRORALMACENADOFINAL -4
 
 //MACROS YAMA
@@ -120,7 +120,6 @@
 	}t_transformacionesNodo;
 
 	typedef struct{
-		uint32_t etapa;
 		uint32_t largoRutaArchivoReducidoLocal;
 		char* rutaArchivoReducidoLocal;
 		uint32_t largoArchivoReductor;
@@ -144,9 +143,10 @@
 	}t_falloTransformacion;
 
 	typedef struct{
-		uint32_t etapa;
-		uint32_t largoRutaArchivoTemporal;
-		char* rutaArchivoTemporal;
+		uint32_t largoRutaArchivoTemporalLocal;
+		char* rutaArchivoTemporalLocal;
+		uint32_t largoRutaArchivoTemporalGlobal;
+		char* rutaArchivoTemporalGlobal;
 		uint32_t largoArchivoReductor;
 		char* archivoReductor;
 		uint32_t cantidadNodos;
