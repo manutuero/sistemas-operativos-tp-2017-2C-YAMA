@@ -13,6 +13,7 @@
 //#include <linux/sort.h>
 
 /* Variables globales */
+pthread_mutex_t mutexRedGlobal;
 t_log* workerLogger;
 char* NODOARCHCONFIG;
 char* IP_FILESYSTEM;

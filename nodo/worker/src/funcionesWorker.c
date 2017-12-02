@@ -448,8 +448,10 @@ char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 	recibirHeader(socketDePedido, &header);
 	if(header.id == RECIBIR_ARCH_TEMP){
 		buffer = malloc(header.tamanioPayload);
+		printf("estoy por recibir archivo de otro worker\n");
 		recibirPorSocket(socketDePedido, buffer, header.tamanioPayload);
 		char*archTemporal = malloc(header.tamanioPayload);
+		printf("recibi archivo de otro worker\n");
 		archTemporal = deserializarRecepcionArchivoTemp(buffer);
 		return archTemporal;
 		free(archTemporal);

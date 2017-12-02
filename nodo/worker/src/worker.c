@@ -43,10 +43,10 @@ int main(void) {
 	//char* buffer;
 	int bytesRecibidos, nuevoSocket;
 
-
+	int i = 0;
 	printf("escuchando masters\n");
 	while (1) {
-
+		i++;
 		if ((nuevoSocket = accept(socketMaster,
 				(struct soccaddr*) &direccionWorker, &tamanioDir)) <= 0)
 			perror("accept");
@@ -64,6 +64,7 @@ int main(void) {
 			if(header.id !=TRANSFORMACION){
 				printf("header reduccion %d\n",header.id);
 			}
+
 			buffer = malloc(header.tamanioPayload);
 			bytesRecibidos=recibirPorSocket(nuevoSocket, buffer, header.tamanioPayload);
 			if(bytesRecibidos<=0){
@@ -100,7 +101,7 @@ int main(void) {
 				}
 
 				close(nuevoSocket);
-				printf("Realice la tarea\n");
+				printf("Realice la tarea %d\n",i);
 				exit(0);
 				//waitpid(pid,0,WNOHANG);
 				//kill(pid,SIGTERM);
@@ -112,6 +113,7 @@ int main(void) {
 			}
 			else{
 				   waitpid(pid,0,WNOHANG);
+
 			}
 
 		}
