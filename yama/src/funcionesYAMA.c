@@ -268,70 +268,16 @@ void escucharMasters() {
 							printf("repre2\n");
 							rePrePlanificacion(nombreTMP,pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal, jobMaster);
 							break;
+
+						case 104:
+							printf("Se procede a terminar el trabajo en estado erroneo");
+							eliminarJob(temporal);
+							break;
+
 						default:
 							printf("Header ID erroneo");
 						}
-						/*
-						if(headerResp.id == 12){
 
-							char* temporal = malloc(headerResp.tamanioPayload+1);
-							temporal[headerResp.tamanioPayload] = '\0';
-							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
-							printf("termino la trans del temporal %s\n",temporal);
-
-
-							if(cambiarEstado(temporal,COMPLETADO))
-							headerResp.id = 13;
-							headerResp.tamanioPayload=0;
-							enviarPorSocket(i,&headerResp,0);
-							free(temporal);
-					}
-					if(headerResp.id == 16)
-					{
-						char* temporal = malloc(headerResp.tamanioPayload+1);
-						temporal[headerResp.tamanioPayload] = '\0';
-						bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
-						printf("termino la redlocal del temporal %s\n",temporal);
-						free(temporal);
-						redLocales++;
-						if(redLocales%3==0){
-							headerResp.id = 17;
-							headerResp.tamanioPayload=0;
-							//enviarPorSocket(i,&respuesta,sizeof(uint32_t));
-							enviarPorSocket(i,&headerResp,0);
-						}
-					}
-					if(headerResp.id == 20)
-					{
-						char* temporal = malloc(headerResp.tamanioPayload+1);
-						temporal[headerResp.tamanioPayload] = '\0';
-						bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
-						printf("termino la redglobal del temporal %s\n",temporal);
-						uint32_t respuesta = 21;
-						headerResp.id = 21;
-						headerResp.tamanioPayload=0;
-						enviarPorSocket(i,&headerResp,0);
-						descargarWorkload(temporal);
-						free(temporal);
-						printf("%d",respuesta);
-					}
-					if(headerResp.id == 103){
-							printf("repreplanifica\n");
-							t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
-							char *nombreTMP=NULL;
-							buffer = malloc(headerResp.tamanioPayload);
-							recibirPorSocket(i,buffer,headerResp.tamanioPayload);
-							pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
-							t_tabla_estados* registro = encontrarRegistro(pedido->nombreArchivo);
-							t_job* jobMaster = malloc(sizeof(t_job));
-							jobMaster->job = registro->job;
-							jobMaster->idMaster = registro->master;
-							jobMaster->socketMaster = i;
-							jobMaster->replanifica = 1;
-							printf("repre2\n");
-							rePrePlanificacion(nombreTMP,pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal, jobMaster);
-
-						}*/
 					}
 				}
 			}

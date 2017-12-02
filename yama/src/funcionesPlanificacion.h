@@ -237,6 +237,8 @@ int transformacionCargada(t_list *,t_bloqueRecv *);
 
 t_transformacionMaster *recuperarInformacionTransformacion(t_list*,t_bloqueRecv *);
 
+void eliminarJob(char *);
+
 /* Serializacion de estructuras de planificacion */
 
 void enviarMensajeFalloOperacion(t_job* jobMaster);

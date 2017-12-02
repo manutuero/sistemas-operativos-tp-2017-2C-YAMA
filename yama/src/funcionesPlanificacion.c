@@ -1429,6 +1429,30 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 	free(bufferMensaje);
 }
 
+/*EJPE					Eliminar job por error de reduccion local o global													*/
+
+void eliminarJob(char *temporal){
+
+	int i;
+	t_tabla_estados *registro;
+	t_list *listaFiltrada;
+
+	listaFiltrada = list_create();
+
+	registro = encontrarRegistro(temporal);
+
+	filtrarLista(listaFiltrada,registro->job);
+
+	for(i=0;i<list_size(listaFiltrada);i++)
+	{
+		registro = list_get(listaFiltrada,i);
+		registro->estado=ERROR_TAREA;
+	}
+
+	list_destroy(listaFiltrada);
+
+	return;
+}
 
 /*SRLZ					Serializaciones								 */
 
