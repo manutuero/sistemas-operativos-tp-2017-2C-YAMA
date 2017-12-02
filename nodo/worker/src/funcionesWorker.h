@@ -65,6 +65,8 @@ typedef struct {
 }__attribute__((packed)) t_infoReduccionLocal;
 
 typedef struct {
+	uint32_t largoRutaArchivoLocal;
+	char* rutaArchivoLocal;
 	uint32_t largoRutaArchivoTemporalFinal;
 	char* rutaArchivoTemporalFinal;
 	uint32_t largoArchivoReductor;

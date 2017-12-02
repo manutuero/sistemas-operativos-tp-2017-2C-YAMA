@@ -316,10 +316,15 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	FILE*archivoApareado = fopen(rutaArchApareado, "w+");
 	rutaArchReducidoFinal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	archivoReduccionGlobal = fopen(
-			rutaArchReducidoFinal, "r+");
+			rutaArchReducidoFinal, "w+");
 	char*rutaTempRecibido=string_new();
 	rutaTempRecibido=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	string_append(&rutaTempRecibido,"recibido");
+	char*rutaArchLocal=string_new();
+	rutaArchLocal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoLocal);
+	FILE*archLocal=fopen(rutaArchLocal,"r+");
+	copiarContenidoDeArchivo(archivoApareado,archLocal);
+	printf("copio contenido de la ruta %s a la ruta del archivo apareado\n",rutaArchLocal);
 	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
 		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
 				infoReduccionGlobal->nodosAConectar, i);
@@ -332,6 +337,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 			if (encontrado != 0) {
 				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
 				aparearArchivos(archAAparear, archivoRecibido, archivoApareado);
+				printf("apareo de archivos :%d\n",i);
 				//exit(1);
 			} else {
 				notificarAMaster(ERROR_REDUCCION,socketMaster);
@@ -378,7 +384,7 @@ void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
 	t_regArch regArch2 = malloc(LARGO_MAX_LINEA);
 	bool finArch1 = false;
 	bool finArch2 = false;
-	copiarContenidoDeArchivo(archivoApareado, archAAparear);
+	copiarContenidoDeArchivo(archAAparear, archivoApareado);
 
 	//regArch1.linea=fgets(linea,LARGO_MAX_LINEA,arch1);
 	//regArch2.linea=fgets(linea,LARGO_MAX_LINEA,arch2);
@@ -425,10 +431,12 @@ void leerRegArchivo(FILE* arch, t_regArch regArch, bool* fin) {
 
 void copiarContenidoDeArchivo(FILE* archivoCopiado, FILE* archivoACopiar) {
 	t_regArch regArchivoACopiar = malloc(LARGO_MAX_LINEA);
+	printf("no rompio no?\n");
 	while (!(feof(archivoACopiar))) {
 		fgets(regArchivoACopiar, LARGO_MAX_LINEA, archivoACopiar);
 		txt_write_in_file(archivoCopiado, regArchivoACopiar);
 	}
+	printf("y ahora?\n");
 
 }
 
@@ -464,6 +472,7 @@ char* deserializarRecepcionArchivoTemp(void* buffer) {
 	archTemporal=malloc(largoArchTemporal);
 	memcpy(archTemporal, buffer + desplazamiento, largoArchTemporal);
 	desplazamiento += bytesACopiar;
+	printf("%d\n",largoArchTemporal);
 	return archTemporal;
 }
 
@@ -832,6 +841,16 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 	t_infoReduccionGlobal* infoReduccionGlobal = malloc(
 			sizeof(t_infoReduccionGlobal));
 	uint32_t bytesACopiar, desplazamiento = 0, i = 0;
+
+	bytesACopiar=sizeof(uint32_t);
+	memcpy(&infoReduccionGlobal->largoRutaArchivoLocal,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
+	bytesACopiar=infoReduccionGlobal->largoRutaArchivoLocal;
+	infoReduccionGlobal->rutaArchivoLocal=malloc(infoReduccionGlobal->largoRutaArchivoLocal);
+	memcpy(infoReduccionGlobal->rutaArchivoLocal,buffer+desplazamiento,bytesACopiar);
+	desplazamiento+=bytesACopiar;
+
 
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(&infoReduccionGlobal->largoRutaArchivoTemporalFinal,
