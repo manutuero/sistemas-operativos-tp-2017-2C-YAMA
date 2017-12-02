@@ -190,6 +190,7 @@ void ejecutarCat(char **argumentos) {
 	pathArchivo = argumentos[1];
 	if (!esValido(pathArchivo)) {
 		printf("La ruta '%s' no es valida.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
@@ -197,6 +198,7 @@ void ejecutarCat(char **argumentos) {
 	indice = obtenerIndice(directorio);
 	if (!existePathDirectorio(directorio) || indice == DIR_NO_EXISTE) {
 		printf("El directorio '%s' no existe.\n", directorio);
+		free(directorio);
 		return;
 	}
 
@@ -524,6 +526,7 @@ void ejecutarCpto(char **argumentos) {
 		return;
 	}
 
+	// Escribo en el nuevo archivo.
 	for (i = 0; i < archivo->bloques->elements_count; i++) {
 		bloque = list_get(archivo->bloques, i);
 		fwrite(bloque->contenido, sizeof(char), bloque->bytesOcupados,

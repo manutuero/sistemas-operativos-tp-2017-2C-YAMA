@@ -7,11 +7,9 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	pthread_mutex_lock(&mutex);
 
 	int i;
-	char *contenido;
 	t_list *bloques;
 	t_bloque *bloque;
 	t_archivo_a_persistir *archivo;
-	off_t offset = 0;
 
 	// Verifico su existencia.
 	archivo = abrirArchivo(pathArchivo);
@@ -35,16 +33,6 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 		}
 	}
 
-	// Si no hubo fallos procede a serializar el contenido en un solo espacio de memoria.
-	contenido = malloc(sizeof(char) * archivo->tamanio);
-	for (i = 0; i < bloques->elements_count; i++) {
-		bloque = list_get(bloques, i);
-		memcpy(contenido + offset, bloque->contenido, bloque->bytesOcupados);
-		offset += bloque->bytesOcupados;
-	}
-
-	contenido[archivo->tamanio] = '\0';
-
 	// LIBERAR ARCHIVO CUANDO LA FUNCION QUE LLAMA TERMINA!...para que no hayan leaks despues de cada llamado.
 	pthread_mutex_unlock(&mutex);
 	return archivo;
@@ -57,6 +45,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	int i, respuesta, tamanio = 0;
 	char *pathArchivo;
 	t_nodo *nodoCopia0, *nodoCopia1;
+	t_archivo_a_persistir *archivo;
 
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
@@ -163,12 +152,12 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 	// Actualizo los archivos de metadata.
 	actualizarBitmaps();
-	crearTablaDeArchivo(
-			nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques));
+	archivo = nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques);
+	crearTablaDeArchivo(archivo);
 	actualizarTablaDeNodos();
 
 	// Libero recursos
-	destruirListaYBloques(bloques);
+	liberarArchivo(archivo);
 
 	pthread_mutex_unlock(&mutex);
 	return EXITO;
@@ -346,6 +335,10 @@ void destruirBloque(t_bloque *bloque) {
 	free(bloque);
 }
 
+void destruirBloqueSinContenido(t_bloque *bloque) {
+	free(bloque);
+}
+
 void limpiar(char* string, size_t largo) {
 	memset(string, 0, largo);
 }
@@ -400,10 +393,27 @@ void liberarArchivo(t_archivo_a_persistir *archivo) {
 	free(archivo);
 }
 
+void liberarArchivoSinContenido(t_archivo_a_persistir *archivo) {
+	destruirListaYBloquesSinContenido(archivo->bloques);
+	free(archivo->nombreArchivo);
+	free(archivo);
+}
+
 void destruirListaYBloques(t_list *bloques) {
 	int i;
 	for (i = 0; i < bloques->elements_count; i++)
 		destruirBloque(list_get(bloques, i));
+
+	list_destroy(bloques);
+}
+
+void destruirListaYBloquesSinContenido(t_list *bloques) {
+	int i;
+	t_bloque *bloque;
+	for (i = 0; i < bloques->elements_count; i++) {
+		bloque = list_get(bloques, i);
+		destruirBloqueSinContenido(bloque);
+	}
 
 	list_destroy(bloques);
 }

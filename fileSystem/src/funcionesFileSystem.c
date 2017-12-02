@@ -1040,6 +1040,7 @@ void persistirTablaDeNodos() {
 
 	if (!filePointer) {
 		fprintf(stderr, "[ERROR]: no se encontro el archivo '%s'.\n", path);
+		free(path);
 		exit(EXIT_FAILURE);
 	}
 
@@ -1398,13 +1399,17 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 
 		// Verifico existencia del archivo en ese path.
 		diccionario = config_create(path);
-		if (!diccionario)
+		if (!diccionario) {
+			free(path);
 			return NULL;
+		}
 	} else {
 		diccionario = config_create(pathArchivo);
-		nombreArchivo = obtenerNombreArchivo(pathArchivo);
-		if (!diccionario)
+		if (!diccionario) {
+			free(path);
 			return NULL;
+		}
+		nombreArchivo = obtenerNombreArchivo(pathArchivo);
 	}
 
 // Pido memoria correspondiente.
@@ -2201,10 +2206,11 @@ void actualizarDisponibilidadArchivos(int idNodo, int tipoInfoNodo) {
 
 	// Si hay al menos 1 copia de cada archivo el sistema pasa a un estado estable.
 	if (archivosDisponibles == archivosTotales) {
+		if(estadoFs == NO_ESTABLE) {
+			destruirListaDeArchivos();
+		}
 		estadoFs = ESTABLE;
 		sem_post(&semEstadoEstable);
-	} else {
-		estadoFs = NO_ESTABLE;
 	}
 }
 
@@ -2368,4 +2374,14 @@ void sacarNodo(int sd) {
 			}
 		}
 	}
+}
+
+void destruirListaDeArchivos() {
+	int i;
+	t_archivo_a_persistir *archivo;
+	for (i = 0; i < archivos->elements_count; i++) {
+		archivo = list_get(archivos, i);
+		liberarArchivoSinContenido(archivo);
+	}
+	list_destroy(archivos);
 }

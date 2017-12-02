@@ -193,6 +193,10 @@ t_archivo_a_persistir* abrirArchivo(char *path);
 int obtenerTipo(char *pathArchivo);
 t_bloque* obtenerBloque(char *pathArchivo, int numeroBloque);
 int guardarBloque(t_bloque *bloque, int idNodo);
+void destruirListaDeArchivos();
+void liberarArchivoSinContenido(t_archivo_a_persistir *archivo);
+void destruirListaYBloquesSinContenido(t_list *bloques);
+void destruirBloqueSinContenido(t_bloque *bloque);
 
 /* Firmas de funciones para validaciones */
 bool hayEstadoAnterior();
