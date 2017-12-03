@@ -150,7 +150,7 @@ int verificarExistenciaArchTemp(char*,char*);
 char* obtenerContenidoArchivo(char*);
 int devolverTamanioArchivo(char*);
 t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void*);
-char* recibirArchivoTemp(int,int*);
+void* recibirArchivoTemp(int,int*);
 char* deserializarRecepcionArchivoTemp(void*);
 void aparearArchivos(FILE*,FILE*,FILE*);
 void leerRegArchivo(FILE*,t_regArch,bool*);

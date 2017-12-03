@@ -333,11 +333,11 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 		socketDePedido = solicitarArchivoAWorker(infoArchivo.ip,
 				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal);
 		if (socketDePedido != -1) {
-			contenidoArchRecibido = recibirArchivoTemp(socketDePedido,
+			contenidoArchRecibido = (char*)recibirArchivoTemp(socketDePedido,
 					&encontrado);
 			if (encontrado != 0) {
 				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
-				free(contenidoArchRecibido);
+				//free(contenidoArchRecibido);
 				aparearArchivos(archAAparear, archivoRecibido, archivoApareado);
 				printf("apareo de archivos :%d\n",i);
 				//exit(1);
@@ -444,7 +444,7 @@ void copiarContenidoDeArchivo(FILE* archivoCopiado, FILE* archivoACopiar) {
 
 }
 
-char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
+void* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 	void*buffer;
 	t_header header;
 	recibirHeader(socketDePedido, &header);
@@ -452,11 +452,11 @@ char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 		buffer = malloc(header.tamanioPayload);
 		printf("estoy por recibir archivo de otro worker\n");
 		recibirPorSocket(socketDePedido, buffer, header.tamanioPayload);
-		char*archTemporal = malloc(header.tamanioPayload);
+		//char*archTemporal = malloc(header.tamanioPayload);
 		printf("recibi archivo de otro worker\n");
-		memcpy(archTemporal,buffer,header.tamanioPayload);
+		//memcpy(archTemporal,buffer,header.tamanioPayload);
 		//archTemporal = deserializarRecepcionArchivoTemp(buffer);
-		return archTemporal;
+		return buffer;
 		//free(archTemporal);
 	}
 	else if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
