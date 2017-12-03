@@ -250,6 +250,7 @@ void* esperarConexionesDatanodes() {
 		}
 
 		// Espero que haya actividad en los sockets. Si el tiempo de espera es NULL, nunca termina.
+		sleep(2);
 		actividad = select(max_sd + 1, &readfds, NULL, NULL, &tv);
 		if (actividad < 0) {
 			fprintf(stderr, "[ERROR]: Fallo la funcion select().");
@@ -294,54 +295,43 @@ void* esperarConexionesDatanodes() {
 										inet_ntoa(address.sin_addr));
 								free(infoNodo.ip);
 
+								// Escenario de estado inicial, sin haber hecho format.
 								if (estadoNodos == ACEPTANDO_NODOS_NUEVOS) {
 									socketsClientes[i] = socketEntrante;
 									agregarNodo(nodo);
 								}
 
-								if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+								// Escenario de estado anterior. Se pasa a estado estable teniendo al menos 1 copia de cada archivo del fs.
+								else if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
 										&& estadoFs == NO_ESTABLE) {
 									if (esNodoAnterior(nodosEsperados,
 											nodo->idNodo)) {
-										if (estadoAnterior) {
-											nodo->bitmap =
-													recuperarBitmapAnterior(
-															nodo->idNodo);
-											if (estadoFs == NO_ESTABLE) {
-												actualizarDisponibilidadArchivos(
-														nodo->idNodo, CONEXION);
-											}
-										}
+										actualizarDisponibilidadArchivos(
+												nodo->idNodo, CONEXION);
 
 										socketsClientes[i] = socketEntrante;
 										agregarNodo(nodo);
-									} else {
+									} else { // Si no es un nodo anterior, lo rechazamos.
 										free(nodo->ip);
 										free(nodo);
 										cerrarSocket(socketEntrante);
 									}
-								} else if (estadoNodos
-										== ACEPTANDO_NODOS_YA_CONECTADOS // este escenario se da con el estado anterior.
-								&& estadoFs == ESTABLE) {
+								}
+
+								// Aceptamos reconexiones de los nodos esperados.
+								else if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+										&& estadoFs == ESTABLE) {
 									if (esNodoAnterior(nodosEsperados,
 											nodo->idNodo)) {
-										if (estadoAnterior) {
-											nodo->bitmap = recuperarBitmapAnterior(nodo->idNodo);
-											if (estadoFs == NO_ESTABLE) {
-												actualizarDisponibilidadArchivos(
-														nodo->idNodo, CONEXION);
-											}
-										}
+
 										socketsClientes[i] = socketEntrante;
 										agregarNodo(nodo);
-									} else if (estadoFs == ESTABLE) {
-										socketsClientes[i] = 0;
-										cerrarSocket(socketEntrante); // Si estamos en un estado estable y me llega solicitud de conexion, rechazo.
+									} else { // Si no es un nodo esperado, lo rechazamos.
+										cerrarSocket(socketEntrante);
 										free(nodo->ip);
 										free(nodo);
 									}
 								}
-								//free(buffer);
 							}
 
 							break;
@@ -548,8 +538,16 @@ int buscarPrimerLugarLibre() {
 }
 
 int obtenerIndice(t_directorio path) {
-	char *nombre = string_substring_from(strrchr(path, '/'), 1);
-	int i;
+	char *nombre;
+	int i, largo;
+
+	if (string_ends_with(path, "/")) {
+		largo = strlen(path);
+		nombre = string_substring_until(path, largo - 1);
+		nombre = string_substring_from(strrchr(nombre, '/'), 1);
+	} else {
+		nombre = string_substring_from(strrchr(path, '/'), 1);
+	}
 
 	for (i = 0; i < 100; i++) {
 		if (sonIguales(nombre, directorios[i].nombre))
@@ -1039,12 +1037,13 @@ void persistirTablaDeNodos() {
 	int i;
 	t_nodo *nodo;
 	char *clave, *valor, *path;
+	FILE *filePointer;
 
 	path = string_new();
 	string_append(&path, PATH_METADATA);
 	string_append(&path, "/nodos.bin");
-	FILE *filePointer = fopen(path, "r+b");
 
+	filePointer = fopen(path, "w+b");
 	if (!filePointer) {
 		fprintf(stderr, "[ERROR]: no se encontro el archivo '%s'.\n", path);
 		free(path);
@@ -1407,13 +1406,11 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		// Verifico existencia del archivo en ese path.
 		diccionario = config_create(path);
 		if (!diccionario) {
-			free(path);
 			return NULL;
 		}
 	} else {
 		diccionario = config_create(pathArchivo);
 		if (!diccionario) {
-			free(path);
 			return NULL;
 		}
 		nombreArchivo = obtenerNombreArchivo(pathArchivo);
@@ -1467,6 +1464,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
+		free(valores);
 
 		bloque->nodoCopia1 = nodoCopia1;
 		clave = string_new();
@@ -1480,6 +1478,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		free(clave);
 		free(valores[ID_NODO]);
 		free(valores[NRO_BLOQUE_DATABIN]);
+		free(valores);
 
 		clave = string_new();
 		string_append(&clave, "BLOQUE");
@@ -1491,7 +1490,7 @@ t_archivo_a_persistir* abrirArchivo(char *pathArchivo) {
 		list_add(archivo->bloques, bloque);
 	}
 
-// Libero recursos. Liberar las listas desde la funcion que llama.
+// Libero recursos.
 	config_destroy(diccionario);
 
 	return archivo;
@@ -2006,6 +2005,7 @@ void *esperarConexionesWorker() {
 	while (1) {
 
 		readfds = auxRead;
+		sleep(2);
 		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
 			perror("select");
 			exit(1);
@@ -2230,6 +2230,11 @@ int contarDisponibles(t_list *bloques) {
 	return cantidadDisponibles;
 }
 
+void reiniciarBitmap(t_nodo *nodo) {
+	nodo->bloquesLibres = nodo->bloquesTotales;
+	memset(nodo->bitmap, 'L', strlen(nodo->bitmap)); // Reinicio el bitmap del nodo.
+}
+
 void reiniciarEstructuras() {
 	reiniciarDirectorios();
 	reiniciarNodos();
@@ -2241,14 +2246,10 @@ void reiniciarNodos() {
 
 	for (i = 0; i < nodos->elements_count; i++) {
 		nodo = list_get(nodos, i);
-		nodo->bloquesLibres = nodo->bloquesTotales;
-		memset(nodo->bitmap, 'L', strlen(nodo->bitmap));
+		reiniciarBitmap(nodo);
 	}
 
-	// Actualizo la lista de nodosEsperados.
-	list_clean_and_destroy_elements(nodosEsperados, (void*) destruirNodo);
-	list_add_all(nodosEsperados, nodos);
-
+	// Actualizo los archivos en metadata.
 	persistirTablaDeNodos();
 	persistirBitmaps();
 }
@@ -2332,6 +2333,7 @@ void agregarNodo(t_nodo *nodo) {
 
 	// El nodo ya se habia conectado antes pero se esta reconectando (por desconexion o estado anterior).
 	else if (!existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
+		nodo->bitmap = recuperarBitmapAnterior(nodo->idNodo);
 		list_add(nodos, nodo);
 	}
 
@@ -2344,7 +2346,16 @@ void agregarNodo(t_nodo *nodo) {
 		cerrarSocket(nodo->socketDescriptor);
 	}
 
-	if ((estadoFs == ESTABLE) && (yamaConectado)) {
+	// Este escenario es para rechazar nodos con el mismo id, viniendo de un estado inicial y sin haber hecho format.
+	else if (existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)
+			&& estadoFs == NO_ESTABLE) {
+		printf(
+				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
+				nodo->idNodo);
+		cerrarSocket(nodo->socketDescriptor);
+	}
+
+	if (estadoFs == ESTABLE && yamaConectado) {
 		enviarInfoNodoYama(nodo, CONEXION);
 	}
 	// Se conectaron al menos
@@ -2386,7 +2397,6 @@ void sacarNodo(int sd) {
 		}
 	}
 }
-
 
 /* Destructores */
 void destruirListaDeArchivos() {
