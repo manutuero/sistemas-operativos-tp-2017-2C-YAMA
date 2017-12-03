@@ -455,7 +455,7 @@ char* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 		char*archTemporal = malloc(header.tamanioPayload);
 		printf("recibi archivo de otro worker\n");
 		memcpy(archTemporal,buffer,header.tamanioPayload);
-		archTemporal = deserializarRecepcionArchivoTemp(buffer);
+		//archTemporal = deserializarRecepcionArchivoTemp(buffer);
 		return archTemporal;
 		//free(archTemporal);
 	}
