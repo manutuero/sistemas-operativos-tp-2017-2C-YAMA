@@ -499,7 +499,8 @@ void operarEtapas() {
 	t_header headerRed;
 	uint32_t respuestaYama;
 	while (finaliza == 0) {
-		recibirPorSocket(socketYama, &headerRed, sizeof(t_header));
+		//recibirPorSocket(socketYama, &headerRed, sizeof(t_header));
+		recibirHeader(socketYama, &headerRed);
 		switch(headerRed.id){
 
 		case REPLANIFICACION:
