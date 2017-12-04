@@ -327,6 +327,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	copiarContenidoDeArchivo(archivoApareado,archLocal);
 	printf("copio contenido de la ruta %s a la ruta del archivo apareado\n",rutaArchLocal);
 	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
+		rewind(archivoApareado);
 		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
 				infoReduccionGlobal->nodosAConectar, i);
 		FILE* archivoRecibido = fopen(rutaTempRecibido, "w+");
@@ -388,7 +389,8 @@ void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
 	bool finArch1 = false;
 	bool finArch2 = false;
 	copiarContenidoDeArchivo(archAAparear, archivoApareado);
-
+	rewind(archAAparear);
+	rewind(archivoApareado);
 	//regArch1.linea=fgets(linea,LARGO_MAX_LINEA,arch1);
 	//regArch2.linea=fgets(linea,LARGO_MAX_LINEA,arch2);
 	leerRegArchivo(archAAparear, regArch1, &finArch1);
