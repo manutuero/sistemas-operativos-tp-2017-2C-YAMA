@@ -73,7 +73,6 @@ void actualizarBitmaps();
 
 /* Auxiliares*/
 void escribirStreamConFormato(FILE *stream, char *format, ...);
-void liberarBLoque(t_bloque* bloque);
 int proximoRegistro(FILE *datos, char *registro);
 t_list* obtenerBloques(FILE *datos, int tipo);
 t_list* parsearArchivoDeTexto(FILE *datos);
@@ -87,19 +86,21 @@ void destruirNodo(t_nodo *nodo);
 t_archivo_a_persistir* nuevoArchivo(char *path, char *nombreArchivo, int tipo,
 		int tamanio, t_list *bloques);
 void crearTablaDeArchivo(t_archivo_a_persistir *archivo);
-void liberarArchivo(t_archivo_a_persistir *archivo);
 int validarGuardado(int respuesta, t_bloque *bloque, t_nodo *nodo);
 
 // Liberar memoria.
 void liberarNodo(t_nodo *nodo);
 
+void liberarArchivo(t_archivo_a_persistir *archivo);
+void liberarArchivoYNodos(t_archivo_a_persistir *archivo);
+void liberarArchivoSinContenido(t_archivo_a_persistir *archivo);
+
 void liberarBloque(t_bloque *bloque);
 void liberarBloqueYNodos(t_bloque *bloque);
+void liberarBloqueSinContenido(t_bloque *bloque);
 void liberarBloqueSinContenidoYNodos(t_bloque *bloque);
 
 void liberarBloques(t_list *bloques);
 void liberarBloquesYNodos(t_list *bloques);
-
-void liberarArchivoYNodos(t_archivo_a_persistir *archivo);
 
 #endif

@@ -22,8 +22,16 @@ void* levantarConsola() {
 			if (sonIguales(argumentos[0], "exit")) {
 				puts("Que tenga un buen dia");
 
-				list_clean_and_destroy_elements(nodosEsperados, (void*) destruirNodo);
-				list_clean_and_destroy_elements(nodos, (void*) destruirNodo);
+				if (nodos->elements_count > 0) {
+					list_clean_and_destroy_elements(nodos,
+							(void*) destruirNodo);
+				}
+
+				if (nodosEsperados->elements_count > 0) {
+					list_clean_and_destroy_elements(nodosEsperados,
+							(void*) destruirNodo);
+				}
+
 				exit(EXIT_SUCCESS);
 			}
 

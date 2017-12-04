@@ -52,7 +52,8 @@ void ejecutarFormat() {
 		cantidad_nodos_esperados = nodos->elements_count;
 		sem_post(&semEstadoEstable);
 	} else {
-		printf("No se puede formatear el sistema, se necesitan al menos 2 nodos conectados.\n");
+		printf(
+				"No se puede formatear el sistema, se necesitan al menos 2 nodos conectados.\n");
 	}
 }
 
@@ -67,11 +68,13 @@ void ejecutarRmArchivo(char **argumentos) {
 	pathArchivo = argumentos[1];
 	if (!esValido(pathArchivo)) {
 		printf("La ruta '%s' no es valida.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
 	if (!existeArchivoEnYamaFs(pathArchivo)) {
 		printf("El archivo '%s' no existe.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
@@ -84,10 +87,14 @@ void ejecutarRmArchivo(char **argumentos) {
 		idNodoCopia0 = bloque->nodoCopia0->idNodo;
 		nroBloqueDataBin = bloque->numeroBloqueCopia0;
 		liberarBloqueBitmaps(idNodoCopia0, nroBloqueDataBin);
+		free(bloque->nodoCopia0);
 
 		idNodoCopia1 = bloque->nodoCopia1->idNodo;
 		nroBloqueDataBin = bloque->numeroBloqueCopia1;
 		liberarBloqueBitmaps(idNodoCopia1, nroBloqueDataBin);
+		free(bloque->nodoCopia1);
+
+		free(bloque);
 	}
 
 	comando = string_new();
@@ -99,6 +106,10 @@ void ejecutarRmArchivo(char **argumentos) {
 	string_append(&comando, obtenerNombreArchivo(pathArchivo));
 	system(comando);
 
+	// Libero recursos
+	list_destroy(bloques);
+	free(archivo->nombreArchivo);
+	free(archivo);
 	free(pathArchivo);
 	free(comando);
 }
@@ -113,22 +124,29 @@ void ejecutarRmDirectorio(char **argumentos) {
 	pathDirectorioYama = argumentos[2];
 	if (!esValido(pathDirectorioYama)) {
 		printf("La ruta '%s' no es valida.\n", pathDirectorioYama);
+		free(pathDirectorioYama);
 		return;
 	}
 
 	opcion = argumentos[1];
 	if (!sonIguales(opcion, "-d")) {
 		printf("La opcion '%s' no es valida.\n", opcion);
+		free(pathDirectorioYama);
+		free(opcion);
 		return;
 	}
 
 	if (sonIguales(pathDirectorioYama, "/root")) {
 		printf("No se puede eliminar el directorio raiz...abortando.\n");
+		free(pathDirectorioYama);
+		free(opcion);
 		return;
 	}
 
 	if (!existePathDirectorio(pathDirectorioYama)) {
 		printf("El directorio '%s' no existe.\n", pathDirectorioYama);
+		free(pathDirectorioYama);
+		free(opcion);
 		return;
 	}
 
@@ -159,7 +177,11 @@ void ejecutarRmDirectorio(char **argumentos) {
 		string_append(&comando, "rmdir ");
 		string_append(&comando, pathDirectorioLocal);
 		system(comando);
+
+		// Libero recursos
 		free(comando);
+		free(pathDirectorioYama);
+		free(opcion);
 	}
 }
 
@@ -178,9 +200,8 @@ void ejecutarRmBloque(char **argumentos) {
 }
 
 void ejecutarCat(char **argumentos) {
-	int i, indice;
+	int i;
 	char *pathArchivo, *contenido;
-	t_directorio directorio;
 	t_list *bloques;
 	off_t offset = 0;
 	t_bloque *bloque;
@@ -194,11 +215,9 @@ void ejecutarCat(char **argumentos) {
 		return;
 	}
 
-	directorio = obtenerPathDirectorio(pathArchivo);
-	indice = obtenerIndice(directorio);
-	if (!existePathDirectorio(directorio) || indice == DIR_NO_EXISTE) {
-		printf("El directorio '%s' no existe.\n", directorio);
-		free(directorio);
+	if(!existeArchivoEnYamaFs(pathArchivo)) {
+		printf("El archivo '%s' no existe.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
@@ -218,6 +237,7 @@ void ejecutarCat(char **argumentos) {
 	// Libero recursos.
 	free(pathArchivo);
 	free(contenido);
+	liberarArchivoYNodos(archivo);
 }
 
 void ejecutarMkdir(char **argumentos) {
@@ -332,21 +352,21 @@ void ejecutarInfo(char **argumentos) {
 	pathArchivo = argumentos[1];
 	if (!esValido(pathArchivo)) {
 		printf("La ruta ingresada '%s' no es valida.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
 	archivo = abrirArchivo(pathArchivo);
 	if (!archivo) {
 		printf("El archivo '%s' no existe.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
 	// Header
-	puts(
-			" ---------------------------------------------------------------------------------------");
-	printf("|				Info '%s'				|\n", archivo->nombreArchivo);
-	puts(
-			" ---------------------------------------------------------------------------------------\n");
+	puts("\n -----------------------------------------------");
+	printf("|		Info '%s'		|\n", archivo->nombreArchivo);
+	puts(" -----------------------------------------------\n");
 
 	// Body
 	printf("Tamaño: %d bytes.\n", archivo->tamanio);
@@ -355,34 +375,34 @@ void ejecutarInfo(char **argumentos) {
 	} else if (archivo->tipo == TEXTO) {
 		printf("Tipo: de texto.\n");
 	} else {
-		fprintf(stderr, "[ERRO]: el tipo del archivo no se pudo determinar.\n");
+		fprintf(stderr,
+				"[ERROR]: el tipo del archivo no se pudo determinar.\n");
 	}
 
 	printf("Directorio padre: %d.\n", archivo->indiceDirectorio);
 	printf("Cantidad de bloques: %d.\n", archivo->bloques->elements_count);
 	printf(
-			"\n ----------------------------------------------------------------------------------------------------");
+			"\n -----------------------------------------------------------------------");
 	puts(
-			"\n|     Bloque    |           Copia0              |             Copia1            |     Fin de bloque  |");
+			"\n|   Bloque  |        Copia0       |        Copia1       | Fin de bloque |");
 	printf(
-			" ----------------------------------------------------------------------------------------------------");
+			" -----------------------------------------------------------------------");
 	for (i = 0; i < archivo->bloques->elements_count; i++) {
 		bloque = list_get(archivo->bloques, i);
-		printf("\n|	%d	", bloque->numeroBloque);
-		printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia0->idNodo,
+		printf("\n|     %d     ", bloque->numeroBloque);
+		printf("|  Nodo %d - Bloque %d  ", bloque->nodoCopia0->idNodo,
 				bloque->numeroBloqueCopia0);
-		printf("|	Nodo %d - Bloque %d	", bloque->nodoCopia1->idNodo,
+		printf("|  Nodo %d - Bloque %d  ", bloque->nodoCopia1->idNodo,
 				bloque->numeroBloqueCopia1);
-		printf("|	%d      |\n", bloque->bytesOcupados);
+		printf("|     %d   |\n", bloque->bytesOcupados);
 		printf(
-				" ---------------------------------------------------------------------------------------------------- ");
+				" -----------------------------------------------------------------------");
 	}
 	printf("\n");
 
 	// Libero recursos.
-	free(archivo->nombreArchivo);
-	list_destroy_and_destroy_elements(archivo->bloques, (void*) liberarBloque);
-	free(archivo);
+	liberarArchivoSinContenido(archivo);
+	free(pathArchivo);
 }
 
 void ejecutarRename(char **argumentos) {
@@ -391,19 +411,34 @@ void ejecutarRename(char **argumentos) {
 	pathOriginal = argumentos[1];
 	if (!esValido(pathOriginal)) {
 		printf("La ruta '%s' no es valida.\n", pathOriginal);
+		free(pathOriginal);
 		return;
 	}
 
 	nombreFinal = argumentos[2];
 	if (string_starts_with(nombreFinal, "/")) {
 		printf("El nombre '%s' no es valido.\n", nombreFinal);
+		free(pathOriginal);
+		free(nombreFinal);
 		return;
 	}
 
 	// Determina si lo que se desea renombrar es un archivo o un directorio.
 	if (existePathDirectorio(pathOriginal)) {
+		if(sonIguales(pathOriginal, "/root") || sonIguales(pathOriginal, "/root/")) {
+			printf("El directorio 'root' no puede ser renombrado.\n");
+			free(pathOriginal);
+			free(nombreFinal);
+			return;
+		}
 		renombrarDirectorio(pathOriginal, nombreFinal);
 	} else {
+		if(!existeArchivoEnYamaFs(pathOriginal)) {
+			printf("El archivo '%s' no existe en ':yamafs'.\n", pathOriginal);
+			free(pathOriginal);
+			free(nombreFinal);
+			return;
+		}
 		renombrarArchivo(pathOriginal, nombreFinal);
 	}
 
@@ -418,19 +453,35 @@ void ejecutarMv(char **argumentos) {
 	pathOriginal = argumentos[1];
 	if (!esValido(pathOriginal)) {
 		printf("La ruta '%s' no es valida.\n", pathOriginal);
+		free(pathOriginal);
 		return;
 	}
 
 	pathFinal = argumentos[2];
 	if (!esValido(pathFinal)) {
 		printf("La ruta '%s' no es valida.\n", pathFinal);
+		free(pathOriginal);
+		free(pathFinal);
 		return;
 	}
 
 	// Determina si lo que hay que mover es un archivo o un directorio.
 	if (existePathDirectorio(pathOriginal)) {
+		if(sonIguales(pathOriginal, "/root")) {
+			printf("El directorio 'root' no puede ser reubicado.\n");
+			free(pathOriginal);
+			free(pathFinal);
+			return;
+		}
+
 		moverDirectorio(pathOriginal, pathFinal);
 	} else {
+		if(!existeArchivoEnYamaFs(pathOriginal)) {
+			printf("El archivo '%s' no existe en ':yamafs'.\n", pathOriginal);
+			free(pathOriginal);
+			free(pathFinal);
+			return;
+		}
 		moverArchivo(pathOriginal, pathFinal);
 	}
 
@@ -442,37 +493,51 @@ void ejecutarMv(char **argumentos) {
 void ejecutarCpfrom(char **argumentos) {
 	char tipo;
 	char *pathArchivoOrigen, *pathDirectorioYamaFs, *nombreArchivo;
+	FILE *datos;
 
 	pathArchivoOrigen = argumentos[1];
 	pathDirectorioYamaFs = argumentos[2];
 
 	// Validaciones.
-	if (esValido(pathDirectorioYamaFs)) {
-		FILE *datos = fopen(pathArchivoOrigen, "r");
-		if (!datos) {
-			printf("El archivo '%s' no existe.\n", pathArchivoOrigen);
-			return;
-		}
+	if (!esValido(pathDirectorioYamaFs)) {
+		printf("La ruta '%s' no es valida.\n", pathDirectorioYamaFs);
+		free(pathArchivoOrigen);
+		free(pathDirectorioYamaFs);
+		return;
+	}
 
-		if (!esArchivoRegular(pathArchivoOrigen)) {
-			printf("'%s' es un directorio.\n", pathArchivoOrigen);
-			return;
-		}
+	datos = fopen(pathArchivoOrigen, "r");
+	if (!datos) {
+		printf("El archivo '%s' no existe en su filesystem (ext4).\n", pathArchivoOrigen);
+		free(pathArchivoOrigen);
+		free(pathDirectorioYamaFs);
+		return;
+	}
 
-		if (!existePathDirectorio(pathDirectorioYamaFs)) {
-			printf("El directorio '%s' no existe.\n", pathDirectorioYamaFs);
-			return;
-		}
-
-		// Tener en cuenta si no se guarda bien de devolver un error (si no estan conectados los datanodes ?)
-		nombreArchivo = obtenerNombreArchivo(pathArchivoOrigen);
-		tipo = obtenerTipo(pathArchivoOrigen);
-		// CONSIDERAR ENVIAR LAS COPIAS DE CADA BLOQUE EN 2 HILOS DIFERENTES!
-		almacenarArchivo(pathDirectorioYamaFs, nombreArchivo, tipo, datos);
+	if (!esArchivoRegular(pathArchivoOrigen)) {
+		printf("'%s' es un directorio.\n", pathArchivoOrigen);
 		fclose(datos);
-	} else
-		printf("Los parametros ingresados: %s, %s no son validos.\n",
-				pathArchivoOrigen, pathDirectorioYamaFs);
+		free(pathArchivoOrigen);
+		free(pathDirectorioYamaFs);
+		return;
+	}
+
+	if (!existePathDirectorio(pathDirectorioYamaFs)) {
+		printf("El directorio '%s' no existe en ':yamafs'.\n", pathDirectorioYamaFs);
+		fclose(datos);
+		free(pathArchivoOrigen);
+		free(pathDirectorioYamaFs);
+		return;
+	}
+
+	nombreArchivo = obtenerNombreArchivo(pathArchivoOrigen);
+	tipo = obtenerTipo(pathArchivoOrigen);
+	almacenarArchivo(pathDirectorioYamaFs, nombreArchivo, tipo, datos);
+
+	// Libero recursos.
+	fclose(datos);
+	free(pathArchivoOrigen);
+	free(pathDirectorioYamaFs);
 }
 
 void ejecutarCpto(char **argumentos) {
@@ -487,6 +552,7 @@ void ejecutarCpto(char **argumentos) {
 	pathArchivoYamaFs = argumentos[1];
 	if (!esValido(pathArchivoYamaFs)) {
 		printf("La ruta '%s' no es valida.\n", pathArchivoYamaFs);
+		free(pathArchivoYamaFs);
 		return;
 	}
 
@@ -496,13 +562,18 @@ void ejecutarCpto(char **argumentos) {
 	if (dir) {
 		closedir(dir);
 	} else if (ENOENT == errno) {
-		printf("El directorio '%s' no existe.\n", pathDirectorioLocalFs);
+		printf("El directorio '%s' no existe en su filesystem (ext4).\n",
+				pathDirectorioLocalFs);
+		free(pathArchivoYamaFs);
+		free(pathDirectorioLocalFs);
 		return;
 	}
 
 	// Si el archivo no existe en ese directorio de yamafs.
 	if (!existeArchivoEnYamaFs(pathArchivoYamaFs)) {
-		printf("El archivo '%s' no existe.\n", pathArchivoYamaFs);
+		printf("El archivo '%s' no existe en ':yamafs'.\n", pathArchivoYamaFs);
+		free(pathArchivoYamaFs);
+		free(pathDirectorioLocalFs);
 		return;
 	}
 
@@ -511,6 +582,8 @@ void ejecutarCpto(char **argumentos) {
 	if (!archivo) {
 		fprintf(stderr, "[ERROR]: no se pudo leer el archivo '%s'.\n",
 				pathArchivoYamaFs);
+		free(pathArchivoYamaFs);
+		free(pathDirectorioLocalFs);
 		return;
 	}
 
@@ -519,10 +592,13 @@ void ejecutarCpto(char **argumentos) {
 	string_append(&pathNuevoArchivo, pathDirectorioLocalFs);
 	string_append(&pathNuevoArchivo, "/");
 	string_append(&pathNuevoArchivo, obtenerNombreArchivo(pathArchivoYamaFs));
+
 	nuevoArchivo = fopen(pathNuevoArchivo, "w");
 	if (!nuevoArchivo) {
 		fprintf(stderr, "[ERROR]: no se pudo importar el archivo '%s'.\n",
 				pathArchivoYamaFs);
+		free(pathArchivoYamaFs);
+		free(pathDirectorioLocalFs);
 		return;
 	}
 
@@ -557,17 +633,23 @@ void ejecutarCpblock(char **argumentos) {
 	pathArchivo = argumentos[1];
 	if (!esValido(pathArchivo)) {
 		printf("La ruta '%s' no es valida.\n", pathArchivo);
+		free(pathArchivo);
 		return;
 	}
 
 	if (!esNumero(argumentos[2])) {
 		printf("El numero de bloque '%s' no es valido.\n", argumentos[2]);
+		free(pathArchivo);
+		free(argumentos[2]);
 		return;
 	}
 	numeroBloque = atoi(argumentos[2]);
 
 	if (!esNumero(argumentos[3])) {
 		printf("El id de nodo '%s' no es valido.\n", argumentos[3]);
+		free(pathArchivo);
+		free(argumentos[2]);
+		free(argumentos[3]);
 		return;
 	}
 	idNodo = atoi(argumentos[3]);
@@ -585,13 +667,21 @@ void ejecutarCpblock(char **argumentos) {
 	// Sino lo encuentra conectado devuelve un flag de error.
 	if (!nodoConectado) {
 		printf("El nodo id '%d' no se encuentra conectado.\n", idNodo);
+		free(pathArchivo);
+		free(argumentos[2]);
+		free(argumentos[3]);
 		return;
 	}
 
 	// Si esta conectado obtengo el bloque.
 	bloque = obtenerBloque(pathArchivo, numeroBloque);
-	if (!bloque)
+	if (!bloque) {
+		free(pathArchivo);
+		free(argumentos[2]);
+		free(argumentos[3]);
+		liberarBloqueSinContenido(bloque);
 		return;
+	}
 
 	// Reutilizo el campo nodoCopia0 (por como esta hecha la funcion guardarBloqueEnNodo).
 	// Solicito al bitmap del nodo un bloque libre.
@@ -602,8 +692,13 @@ void ejecutarCpblock(char **argumentos) {
 
 	// Escribo el bloque en el nodo solicitado.
 	resultado = guardarBloque(bloque, idNodo);
-	if (resultado != GUARDO_BLOQUE_OK)
+	if (resultado != GUARDO_BLOQUE_OK) {
+		free(pathArchivo);
+		free(argumentos[2]);
+		free(argumentos[3]);
+		liberarBloqueSinContenidoYNodos(bloque);
 		return;
+	}
 
 	actualizarBitmaps();
 
@@ -622,6 +717,10 @@ void ejecutarCpblock(char **argumentos) {
 	diccionario = config_create(pathMetadataArchivo);
 	if (!diccionario) {
 		fprintf(stderr, "[ERROR]: no se pudo abrir la metadata del archivo.\n");
+		free(pathArchivo);
+		free(argumentos[2]);
+		free(argumentos[3]);
+		liberarBloqueSinContenidoYNodos(bloque);
 		return;
 	}
 
@@ -661,6 +760,7 @@ void ejecutarCpblock(char **argumentos) {
 	system(comando);
 
 	// Libero recursos.
+	liberarBloqueSinContenidoYNodos(bloque);
 	config_destroy(diccionario);
 	free(clave);
 	free(valor);

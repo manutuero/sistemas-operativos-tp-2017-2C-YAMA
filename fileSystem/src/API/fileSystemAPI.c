@@ -80,7 +80,13 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 
 	nodosAux = copiarListaNodos(nodos);
 	// "Corta" el archivo en bloques segun su tipo y devuelve una lista con esos bloques.
+
 	bloques = obtenerBloques(datos, tipo);
+	if(!bloques) {
+		fprintf(stderr, "Se recibio un archivo que no es ni de texto ni binario, posiblemente sea un script file.\n");
+		liberarBloques(bloques);
+		return ERROR;
+	}
 
 	// Pide los 2 nodos con mayor cantidad de bloques libres para todos los bloques del archivo.
 	for (i = 0; i < bloques->elements_count; i++) {
@@ -224,8 +230,7 @@ t_list* obtenerBloques(FILE *datos, int tipo) {
 	} else if (tipo == BINARIO) {
 		return parsearArchivoBinario(datos);
 	} else {
-		perror("[Error]: Se recibio un tipo no valido.");
-		return NULL; // Error
+		return NULL; // Si se recibio algo que no es ni binario ni texto devuelve NULL.
 	}
 }
 
@@ -529,6 +534,10 @@ void liberarBloqueYNodos(t_bloque *bloque) {
 	free(bloque->contenido);
 	free(bloque->nodoCopia0);
 	free(bloque->nodoCopia1);
+	free(bloque);
+}
+
+void liberarBloqueSinContenido(t_bloque *bloque) {
 	free(bloque);
 }
 
