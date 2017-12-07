@@ -2408,3 +2408,26 @@ void destruirListaDeArchivos() {
 	}
 	list_destroy(archivos);
 }
+
+void guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
+	int tipoArchivo = 0, resultadoAlmacenamiento;
+	char *pathDirectorioYamaFs, *nombreArchivo;
+	FILE *datos;
+	size_t tamanioArchivo;
+
+	// Preparo los argumentos que recibira almacenarArchivo de la API del fs.
+	nombreArchivo = obtenerNombreArchivo(infoArchivoFinal->rutaArchivoFinal);
+	pathDirectorioYamaFs = obtenerPathDirectorio(
+			infoArchivoFinal->rutaArchivoFinal);
+	tamanioArchivo = infoArchivoFinal->largoArchivo; // preguntar si contemplan el '\0'.
+
+	datos = fmemopen(infoArchivoFinal->archivoFinal, tamanioArchivo, "r+");
+
+	resultadoAlmacenamiento = almacenarArchivo(pathDirectorioYamaFs,
+			nombreArchivo, tipoArchivo, datos);
+
+	if (resultadoAlmacenamiento != EXITO)
+		fprintf(stderr, "Se produjo un error al almacenar el archivo resultante de la reduccion global.\n");
+
+	fclose(datos);
+}

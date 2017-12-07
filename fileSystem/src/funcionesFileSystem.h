@@ -235,4 +235,5 @@ void enviarInfoNodosAYamaInicial();
 /*Para worker*/
 void *esperarConexionesWorker();
 t_infoArchivoFinal* deserializarInfoArchivoFinal(void*);
+void guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal);
 #endif
