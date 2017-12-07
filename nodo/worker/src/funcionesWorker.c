@@ -314,6 +314,9 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	string_append(&rutaArchApareado,"AP");
 	FILE* archAAparear = fopen(rutaArchAAparear, "w+");
 	FILE*archivoApareado = fopen(rutaArchApareado, "w+");
+	if(!archivoApareado) {
+		fprintf(stderr,"no se pudo crear el archivo\n");
+	}
 	rutaArchReducidoFinal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	archivoReduccionGlobal = fopen(
 			rutaArchReducidoFinal, "w+");
@@ -336,23 +339,25 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 		if (socketDePedido != -1) {
 			contenidoArchRecibido = (char*)recibirArchivoTemp(socketDePedido,
 					&encontrado);
+			printf("recibi archivo temp");
 			if (encontrado != 0) {
 				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
 				//free(contenidoArchRecibido);
-				aparearArchivos(archAAparear, archivoRecibido, archivoApareado);
+				aparearArchivos(rutaArchAAparear, archivoRecibido, archivoApareado);
 				printf("apareo de archivos :%d\n",i);
 				//exit(1);
 			} else {
 				notificarAMaster(ERROR_REDUCCION,socketMaster);
-				//exit(1);
+
+				printf("no se encontro el archivo");//exit(1);
 			}
 		} else {
 			notificarAMaster(ERROR_REDUCCION,socketMaster);
+			printf("error de conectarse a worker");
 		}
 
 		fclose(archivoRecibido);
 	}
-	printf("archivo apareado\n");
 
 	//copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
 
@@ -373,7 +378,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	}
 
 
-	fclose(archAAparear);
+	//fclose(archAAparear);
 	fclose(archivoApareado);
 	fclose(archivoReduccionGlobal);
 	remove(rutaArchAAparear);
@@ -382,10 +387,12 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	remove(rutaTempRecibido);
 }
 
-void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
+void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
 		FILE* archivoApareado) {
 	t_regArch regArch1 = malloc(LARGO_MAX_LINEA);
 	t_regArch regArch2 = malloc(LARGO_MAX_LINEA);
+	FILE* archAAparear=fopen(rutaArchAAparear,"w+");
+	printf("se creo archivo a aparear.\n");
 	bool finArch1 = false;
 	bool finArch2 = false;
 	copiarContenidoDeArchivo(archAAparear, archivoApareado);
@@ -406,7 +413,7 @@ void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
 			leerRegArchivo(archivoRecibido, regArch2, &finArch2);
 		}
 	}
-	txt_write_in_file(archivoApareado, "\n");
+	//txt_write_in_file(archivoApareado, "\n");
 	if (!finArch1) {
 		while (!finArch1) {
 			txt_write_in_file(archivoApareado, regArch1);
@@ -422,6 +429,8 @@ void aparearArchivos(FILE* archAAparear, FILE* archivoRecibido,
 		}
 		//txt_write_in_file(archFinal,"\n");
 	}
+	fclose(archAAparear);
+	printf("se cerro el archivo a aparear\n");
 
 }
 
@@ -528,7 +537,6 @@ int conectarseAWorker(int puerto, char* ip) {
 	direccionWorker.sin_family = AF_INET;
 	direccionWorker.sin_port = htons(puerto);
 	direccionWorker.sin_addr.s_addr = inet_addr(ip);
-	//memset(&(direccionYama.sin_zero), '\0', 8);
 	int socketWorker;
 
 	socketWorker = socket(AF_INET, SOCK_STREAM, 0);

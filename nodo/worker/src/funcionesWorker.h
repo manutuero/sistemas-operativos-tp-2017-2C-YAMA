@@ -152,7 +152,7 @@ int devolverTamanioArchivo(char*);
 t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void*);
 void* recibirArchivoTemp(int,int*);
 char* deserializarRecepcionArchivoTemp(void*);
-void aparearArchivos(FILE*,FILE*,FILE*);
+void aparearArchivos(char*,FILE*,FILE*);
 void leerRegArchivo(FILE*,t_regArch,bool*);
 void copiarContenidoDeArchivo(FILE*,FILE*);
 
