@@ -1963,9 +1963,10 @@ bool esNodoAnterior(t_list *nodosEsperados, int idNodo) {
 }
 
 void *esperarConexionesWorker() {
-
+	t_infoArchivoFinal* archivo;
 	int socketFSWorkers;
 	struct sockaddr_in direccionFSWorker;
+
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
 	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
@@ -2003,7 +2004,6 @@ void *esperarConexionesWorker() {
 	maxPuerto = socketFSWorkers;
 
 	while (1) {
-
 		readfds = auxRead;
 		sleep(2);
 		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
@@ -2030,12 +2030,10 @@ void *esperarConexionesWorker() {
 						buffer = malloc(header.tamanioPayload);
 						recibirPorSocket(nuevoSocket, buffer,
 								header.tamanioPayload);
-						t_infoArchivoFinal* archivo;
 
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
 							archivo = deserializarInfoArchivoFinal(buffer);
-
-							//TODO guardar archivoGlobal
+							guardarArchivoReduccionGlobal(archivo);
 						}
 
 						if (nuevoSocket > maxPuerto)
