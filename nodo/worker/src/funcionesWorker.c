@@ -269,13 +269,18 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	int i;
 	int resultado;
 	FILE* archivo;
-	char* linea=malloc(LARGO_MAX_LINEA);
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
+		char* linea=malloc(LARGO_MAX_LINEA);
 		archivo = fopen(armarRutaGuardadoTemp((char*)list_get(infoReduccionLocal->archTemporales, i)), "r+");
-		while (fgets(linea, LARGO_MAX_LINEA, archivo) != NULL) {
+		//while (fgets(linea, LARGO_MAX_LINEA, archivo)!=NULL) {
+		proximoRegistro(archivo,linea);
+			//char* linea=malloc(LARGO_MAX_LINEA);
+			//if(fgets(linea, LARGO_MAX_LINEA, archivo)!=NULL){
+			//fgets(linea, LARGO_MAX_LINEA, archivo);
 			txt_write_in_file(archivoConcat, linea);
 			free(linea);
-		}
+			//}
+		//}
 		fclose(archivo);
 	}
 
@@ -296,11 +301,31 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 		notificarAMaster(ERROR_REDUCCION,socketMaster);
 		log_info(workerLogger,"Reduccion Local error",infoReduccionLocal->rutaArchReducidoLocal);
 	}
-	free(rutaArchConcat);
-	free(rutaArchReductor);
-	free(rutaReducidoLocal);
-	free(lineaAEjecutar);
+	//free(rutaArchConcat);
+	//free(rutaArchReductor);
+	//free(rutaReducidoLocal);
+	//free(lineaAEjecutar);
 	}
+
+int proximoRegistro(FILE *datos, char *registro) {
+	int largo = 0;
+	char caracter = fgetc(datos);
+	// Recorro el stream de datos.
+	while (caracter != '\n' && !feof(datos)) {
+		registro[largo++] = caracter;
+
+		// Los registros son de maximo 1 MB. Considero 1 caracter por el '\n'.
+		if (largo > UN_MEGABYTE) {
+			puts("[ERROR]: El registro a escribir es mayor a 1 MB.");
+			exit(EXIT_FAILURE);
+		}
+		caracter = fgetc(datos);
+	}
+	if (caracter == '\n') {
+		registro[largo++] = caracter;
+	}
+	return largo;
+}
 
 
 void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int socketMaster) {
@@ -398,7 +423,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	free(rutaArchReducidoFinal);
 	free(rutaArchReductor);
 	free(rutaTempRecibido);
-	free(lineaAEjecutar);
+	//free(lineaAEjecutar);
 }
 
 void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,

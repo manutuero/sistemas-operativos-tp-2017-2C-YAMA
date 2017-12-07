@@ -159,6 +159,6 @@ void copiarContenidoDeArchivo(FILE*,FILE*);
 void* serializarInfoGuardadoFinal(int,char*,t_infoGuardadoFinal*,int*);
 void guardadoFinalEnFilesystem(t_infoGuardadoFinal*);
 void notificarAMaster(int , int);
-
+int proximoRegistro(FILE*,char*);
 
 #endif
