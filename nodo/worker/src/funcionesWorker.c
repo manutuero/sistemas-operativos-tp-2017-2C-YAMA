@@ -195,7 +195,7 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	data = memcpy(data, bloque, infoTransformacion->bytesOcupados);
 	txt_write_in_file(dataBloque,data);
 	char* lineaAEjecutar = string_new();
-	string_append(&data, "\0");
+	//string_append(&data, "\0");
 	rutaGuardadoTemp=armarRutaGuardadoTemp(infoTransformacion->nombreArchTemp);
 	archivoTemp = fopen(rutaGuardadoTemp, "w+");
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s | sort > %s",
@@ -208,8 +208,8 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	fclose(archivoTemp);
 	remove(rutaArchTransformador);
 	remove(rutaDataBloque);
-	//free(bloque);
-	//free(data);
+	free(bloque);
+	free(data);
 
 
 	if(respuesta!=-1){
@@ -269,11 +269,12 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	int i;
 	int resultado;
 	FILE* archivo;
-	char linea[LARGO_MAX_LINEA];
+	char* linea=malloc(LARGO_MAX_LINEA);
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
 		archivo = fopen(armarRutaGuardadoTemp((char*)list_get(infoReduccionLocal->archTemporales, i)), "r+");
 		while (fgets(linea, LARGO_MAX_LINEA, archivo) != NULL) {
 			txt_write_in_file(archivoConcat, linea);
+			free(linea);
 		}
 		fclose(archivo);
 	}
@@ -291,10 +292,16 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	if(resultado!=-1) {
 		notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
 		log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
-
-	}
+	}else{
 		notificarAMaster(ERROR_REDUCCION,socketMaster);
+		log_info(workerLogger,"Reduccion Local error",infoReduccionLocal->rutaArchReducidoLocal);
 	}
+	free(rutaArchConcat);
+	free(rutaArchReductor);
+	free(rutaReducidoLocal);
+	free(lineaAEjecutar);
+	}
+
 
 void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int socketMaster) {
 	char* lineaAEjecutar = string_new();
@@ -312,7 +319,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 
 	rutaArchApareado=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
 	string_append(&rutaArchApareado,"AP");
-	FILE* archAAparear = fopen(rutaArchAAparear, "w+");
+	//FILE* archAAparear = fopen(rutaArchAAparear, "w+");
 	FILE*archivoApareado = fopen(rutaArchApareado, "w+");
 	if(!archivoApareado) {
 		fprintf(stderr,"no se pudo crear el archivo\n");
@@ -385,6 +392,13 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	remove(rutaArchApareado);
 	remove(rutaArchReductor);
 	remove(rutaTempRecibido);
+	free(rutaArchAAparear);
+	free(rutaArchApareado);
+	free(rutaArchLocal);
+	free(rutaArchReducidoFinal);
+	free(rutaArchReductor);
+	free(rutaTempRecibido);
+	free(lineaAEjecutar);
 }
 
 void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
@@ -983,7 +997,7 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
 	int tamanioArchTempFinal;
 	tamanioArchTempFinal = devolverTamanioArchivo(
 			infoGuardadoFinal->rutaTemporal);
-	contenidoArchTempFinal = malloc(tamanioArchTempFinal);
+	//contenidoArchTempFinal = malloc(tamanioArchTempFinal);
 	contenidoArchTempFinal = obtenerContenidoArchivo(
 			infoGuardadoFinal->rutaTemporal);
 	void* buffer;
@@ -996,7 +1010,7 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
 		buffer = serializarInfoGuardadoFinal(tamanioArchTempFinal,
 				contenidoArchTempFinal, infoGuardadoFinal, &largoBuffer);
 		tamanioMensaje = largoBuffer;
-		bufferMensaje = malloc(tamanioMensaje);
+		bufferMensaje = malloc(tamanioMensaje +sizeof(t_header));
 		header.id = GUARDAR_FINAL;
 		header.tamanioPayload = largoBuffer;
 
@@ -1018,7 +1032,6 @@ void* serializarInfoGuardadoFinal(int tamanioArchTempFinal,
 		int* largoBuffer) {
 	void*buffer;
 	int desplazamiento = 0;
-	;
 	int tamanioBuffer = infoGuardadoFinal->largoRutaArchFinal
 			+ tamanioArchTempFinal + (sizeof(uint32_t) * 2);
 	buffer = malloc(tamanioBuffer);
