@@ -19,7 +19,7 @@ char* NODOARCHCONFIG;
 char* IP_FILESYSTEM;
 extern char* pathTemporales;
 int PUERTO_FILESYSTEM;
-char* ID_NODO;
+int ID_NODO;
 int PUERTO_WORKER;
 int PUERTO_DATANODE;
 char* RUTA_DATABIN;
