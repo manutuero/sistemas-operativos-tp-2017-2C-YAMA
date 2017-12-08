@@ -141,8 +141,8 @@ void realizarReduccionGlobal(t_infoReduccionGlobal*,int);
 char* armarRutaGuardadoTemp(char*);
 char *guardarArchScript(char*,char*);
 
-int solicitarArchivoAWorker(char*, int,char*);
-void* serializarSolicitudArchivo(char*,int*);
+int solicitarArchivoAWorker(char*, int,char*,int);
+void* serializarSolicitudArchivo(char*,int,int*);
 char* deserializarSolicitudArchivo(void*);
 int conectarseAWorker(int , char* );
 void responderSolicitudArchivoWorker(char*,int);

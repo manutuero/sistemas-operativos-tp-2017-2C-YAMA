@@ -269,10 +269,12 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	int i;
 	int resultado;
 	FILE* archivo;
+	char*linea;
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
-		char* linea=malloc(LARGO_MAX_LINEA);
+		//char* linea=malloc(LARGO_MAX_LINEA);
 		archivo = fopen(armarRutaGuardadoTemp((char*)list_get(infoReduccionLocal->archTemporales, i)), "r+");
-		//while (fgets(linea, LARGO_MAX_LINEA, archivo)!=NULL) {
+		while (!feof(archivo)) {
+		linea=malloc(LARGO_MAX_LINEA);
 		proximoRegistro(archivo,linea);
 			//char* linea=malloc(LARGO_MAX_LINEA);
 			//if(fgets(linea, LARGO_MAX_LINEA, archivo)!=NULL){
@@ -280,7 +282,7 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 			txt_write_in_file(archivoConcat, linea);
 			free(linea);
 			//}
-		//}
+			}
 		fclose(archivo);
 	}
 
@@ -367,7 +369,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 				infoReduccionGlobal->nodosAConectar, i);
 		FILE* archivoRecibido = fopen(rutaTempRecibido, "w+");
 		socketDePedido = solicitarArchivoAWorker(infoArchivo.ip,
-				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal);
+				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal,infoArchivo.largoRutaArchivoReduccionLocal);
 		if (socketDePedido != -1) {
 			contenidoArchRecibido = (char*)recibirArchivoTemp(socketDePedido,
 					&encontrado);
@@ -534,15 +536,15 @@ char* deserializarRecepcionArchivoTemp(void* buffer) {
 	printf("%d\n",largoArchTemporal);
 	return archTemporal;
 }
-
-int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp) {
+//larry no te olvides lo que tenes que hacer
+int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp,int largoNombreArchTemp) {
 	void* buffer;
 	void* bufferMensaje;
 	t_header header;
 	int largoBuffer, tamanioMensaje, desplazamiento = 0;
 	int socketWorker = conectarseAWorker(puerto, ip);
 	if (socketWorker != -1) {
-		buffer = serializarSolicitudArchivo(nombreArchivoTemp, &largoBuffer);
+		buffer = serializarSolicitudArchivo(nombreArchivoTemp,largoNombreArchTemp, &largoBuffer);
 		tamanioMensaje = largoBuffer + sizeof(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = SOLICITUD_WORKER;
@@ -614,10 +616,9 @@ int conectarseAFilesystem(int puerto, char* ip) {
 
 	return socketFilesystem;
 }
-void* serializarSolicitudArchivo(char* nombreArchTemp, int* largoBuffer) {
+void* serializarSolicitudArchivo(char* nombreArchTemp,int largoNombreArchTemp, int* largoBuffer) {
 	void* buffer;
 	int desplazamiento = 0;
-	int largoNombreArchTemp = strlen(nombreArchTemp)+1;
 	int tamanioBuffer = largoNombreArchTemp + sizeof(uint32_t);
 	buffer = malloc(tamanioBuffer);
 
@@ -967,7 +968,7 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 				nodo->largoRutaArchivoReduccionLocal);
 		memcpy(nodo->rutaArchivoReduccionLocal, buffer + desplazamiento,
 				bytesACopiar);
-		string_append(&nodo->rutaArchivoReduccionLocal,"\0");
+		//string_append(&nodo->rutaArchivoReduccionLocal,"\0");
 		desplazamiento += bytesACopiar;
 
 		list_add(infoReduccionGlobal->nodosAConectar, nodo);
