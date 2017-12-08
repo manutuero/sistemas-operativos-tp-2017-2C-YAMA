@@ -543,7 +543,7 @@ void operarEtapas() {
 		}
 	}
 
-	free(nodosTransformacion);
+	//free(nodosTransformacion);
 }
 
 void replanificarTransformaciones(uint32_t tamanio){
@@ -592,10 +592,10 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 	t_ini = clock();
 	int i;
 	t_reduccionLocalMaster redLocalMaster;
-	t_infoReduccionesLocales redLocalWorker;
+	t_infoReduccionesLocales* redLocalWorker =  malloc(sizeof(t_infoReduccionesLocales));
 	t_temporalesTransformacionWorker* temporales;
 	t_header header;
-	printf("redLocal: nodo %d puerto %d", nodoReduccion->idNodo, nodoReduccion->puerto);
+	printf("redLocal: nodo %d puerto %d\n", nodoReduccion->idNodo, nodoReduccion->puerto);
 
 	pthread_mutex_lock(&mutexMaximasTareas);
 	cantidadTareasCorriendoRedLocal++;
@@ -603,12 +603,13 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 		maximoTareasCorriendoRedLocal++;
 	pthread_mutex_unlock(&mutexMaximasTareas);
 
-	redLocalWorker.largoRutaArchivoReducidoLocal = strlen(
-			nodoReduccion->archivoRedLocal);
-	redLocalWorker.rutaArchivoReducidoLocal = nodoReduccion->archivoRedLocal;
-	redLocalWorker.largoArchivoReductor = devolverTamanioArchivo(reductor);
-	redLocalWorker.archivoReductor = obtenerContenidoArchivo(reductor);
-	redLocalWorker.temporalesTranformacion = list_create();
+	redLocalWorker->largoRutaArchivoReducidoLocal = nodoReduccion->largoArchivoRedLocal;
+	printf("%d\n", redLocalWorker->largoRutaArchivoReducidoLocal);
+	redLocalWorker->rutaArchivoReducidoLocal = malloc(redLocalWorker->largoRutaArchivoReducidoLocal);
+	strcpy(redLocalWorker->rutaArchivoReducidoLocal,nodoReduccion->archivoRedLocal);
+	redLocalWorker->largoArchivoReductor = devolverTamanioArchivo(reductor);
+	redLocalWorker->archivoReductor = obtenerContenidoArchivo(reductor);
+	redLocalWorker->temporalesTranformacion = list_create();
 
 	for (i = 0; i < list_size(listaRedLocales); i++) {
 		redLocalMaster = *(t_reduccionLocalMaster*) list_get(listaRedLocales,
@@ -621,11 +622,11 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 					temporales->largoRutaTemporalTransformacion + 1);
 			strcpy(temporales->rutaTemporalTransformacion,
 					redLocalMaster.archivoTransformacion);
-			list_add(redLocalWorker.temporalesTranformacion, temporales);
+			list_add(redLocalWorker->temporalesTranformacion, temporales);
 		}
 	}
-	redLocalWorker.cantidadTransformaciones = list_size(
-			redLocalWorker.temporalesTranformacion);
+	redLocalWorker->cantidadTransformaciones = list_size(
+			redLocalWorker->temporalesTranformacion);
 
 	int socketWorker = conectarseAWorker(nodoReduccion->puerto,
 			nodoReduccion->ip);
@@ -634,7 +635,7 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 		printf("envio desconexion del nodo a yama en el socket %d\n",
 				socketYama);
 		header.id = ERRORREDUCCION;
-		avisarAYamaRedLocal(redLocalWorker, header);
+		avisarAYamaRedLocal(*redLocalWorker, header);
 		pthread_mutex_lock(&mutexTotalFallos);
 		fallos++;
 		pthread_mutex_unlock(&mutexTotalFallos);
@@ -645,7 +646,7 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 		int tamanioMensaje, largoBuffer, desplazamiento = 0;
 		void* bufferMensaje;
 		void* buffer;
-		buffer = serializarReduccionLocalWorker(&redLocalWorker, &largoBuffer);
+		buffer = serializarReduccionLocalWorker(redLocalWorker, &largoBuffer);
 		tamanioMensaje = largoBuffer + sizeof(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = PEDIDOREDLOCALWORKER;
@@ -672,21 +673,21 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 				pthread_mutex_lock(&mutexTotalReduccionesLocales);
 				reduccionesLocalesPendientes--;
 				pthread_mutex_unlock(&mutexTotalReduccionesLocales);
-				avisarAYamaRedLocal(redLocalWorker, header);
+				avisarAYamaRedLocal(*redLocalWorker, header);
 			}
 		if (respuesta == 107){
 			header.id = ERRORREDUCCION;
 			pthread_mutex_lock(&mutexTotalReduccionesLocales);
 			reduccionesLocalesPendientes--;
 			pthread_mutex_unlock(&mutexTotalReduccionesLocales);
-			avisarAYamaRedLocal(redLocalWorker, header);
+			avisarAYamaRedLocal(*redLocalWorker, header);
 		}
 
-		for (i = 0; i < list_size(redLocalWorker.temporalesTranformacion);i++) {
-			free(((t_temporalesTransformacionWorker*) list_get(redLocalWorker.temporalesTranformacion, i))->rutaTemporalTransformacion);
+		for (i = 0; i < list_size(redLocalWorker->temporalesTranformacion);i++) {
+			free(((t_temporalesTransformacionWorker*) list_get(redLocalWorker->temporalesTranformacion, i))->rutaTemporalTransformacion);
 		}
-		list_destroy_and_destroy_elements(redLocalWorker.temporalesTranformacion, free);
-		free(redLocalWorker.archivoReductor);
+		list_destroy_and_destroy_elements(redLocalWorker->temporalesTranformacion, free);
+		free(redLocalWorker->archivoReductor);
 	}
 	pthread_mutex_lock(&mutexMaximasTareas);
 	cantidadTareasCorriendoRedLocal--;
@@ -703,25 +704,25 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 void enviarReduccionGlobalAWorkerEncargado() {
 	int i, socketWorkerEncargado, nodoEncargado;
 	clock_t t_ini, t_fin;
-	t_infoReduccionGlobal redGlobalWorker;
+	t_infoReduccionGlobal* redGlobalWorker;
 	t_reduccionGlobalMaster* redGlobalMaster;
 	t_datosNodoAEncargado* nodoWorker;
 	t_header header;
 	t_ini = clock();
-	redGlobalWorker.largoArchivoReductor = devolverTamanioArchivo(reductor);
-	redGlobalWorker.archivoReductor = obtenerContenidoArchivo(reductor);
-	redGlobalWorker.nodosAConectar = list_create();
+	redGlobalWorker->largoArchivoReductor = devolverTamanioArchivo(reductor);
+	redGlobalWorker->archivoReductor = obtenerContenidoArchivo(reductor);
+	redGlobalWorker->nodosAConectar = list_create();
 
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
 		redGlobalMaster = list_get(listaRedGloblales, i);
 		if (redGlobalMaster->encargado == 1) {
 			printf("nodo encargado: %d\n",redGlobalMaster->idNodo);
-			redGlobalWorker.largoRutaArchivoTemporalGlobal =	redGlobalMaster->largoArchivoRedGlobal;
-			redGlobalWorker.rutaArchivoTemporalGlobal = malloc(redGlobalWorker.largoRutaArchivoTemporalGlobal);
-			strcpy(redGlobalWorker.rutaArchivoTemporalGlobal,	redGlobalMaster->archivoRedGlobal);
-			redGlobalWorker.largoRutaArchivoTemporalLocal = redGlobalMaster->largoArchivoRedLocal;
-			redGlobalWorker.rutaArchivoTemporalLocal= malloc(redGlobalWorker.largoRutaArchivoTemporalLocal);
-			strcpy(redGlobalWorker.rutaArchivoTemporalLocal,	redGlobalMaster->archivoRedLocal);
+			redGlobalWorker->largoRutaArchivoTemporalGlobal =	redGlobalMaster->largoArchivoRedGlobal;
+			redGlobalWorker->rutaArchivoTemporalGlobal = malloc(redGlobalWorker->largoRutaArchivoTemporalGlobal);
+			strcpy(redGlobalWorker->rutaArchivoTemporalGlobal,	redGlobalMaster->archivoRedGlobal);
+			redGlobalWorker->largoRutaArchivoTemporalLocal = redGlobalMaster->largoArchivoRedLocal;
+			redGlobalWorker->rutaArchivoTemporalLocal= malloc(redGlobalWorker->largoRutaArchivoTemporalLocal);
+			strcpy(redGlobalWorker->rutaArchivoTemporalLocal,	redGlobalMaster->archivoRedLocal);
 			socketWorkerEncargado = conectarseAWorker(redGlobalMaster->puerto,redGlobalMaster->ip);
 			nodoEncargado = redGlobalMaster->idNodo;
 		} else {
@@ -737,10 +738,10 @@ void enviarReduccionGlobalAWorkerEncargado() {
 			strcpy(nodoWorker->rutaArchivoReduccionLocal,
 					redGlobalMaster->archivoRedLocal);
 
-			list_add(redGlobalWorker.nodosAConectar, nodoWorker);
+			list_add(redGlobalWorker->nodosAConectar, nodoWorker);
 		}
-		redGlobalWorker.cantidadNodos = list_size(
-				redGlobalWorker.nodosAConectar);
+		redGlobalWorker->cantidadNodos = list_size(
+				redGlobalWorker->nodosAConectar);
 	}
 
 	if (socketWorkerEncargado == -1) {
@@ -748,7 +749,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 				socketYama);
 		header.id = ERRORREDUCCION;
 		header.tamanioPayload = 0;
-		avisarAYamaRedGlobal(redGlobalWorker, header);
+		avisarAYamaRedGlobal(*redGlobalWorker, header);
 		//enviarPorSocket(socketYama, &header, sizeof(t_header));
 		fallos++;
 		log_error(masterLogger,"no se pudo conectar al worker encargado de la reduccion global.");
@@ -756,7 +757,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		int tamanioMensaje, largoBuffer, desplazamiento = 0;
 		void* bufferMensaje;
 		void* buffer;
-		buffer = serializarReduccionGlobalWorker(&redGlobalWorker,&largoBuffer);
+		buffer = serializarReduccionGlobalWorker(redGlobalWorker,&largoBuffer);
 		tamanioMensaje = largoBuffer + sizeof(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = PEDIDOREDGLOBALWORKER;
@@ -783,19 +784,19 @@ void enviarReduccionGlobalAWorkerEncargado() {
 			printf("fallo la reduccion global\n");
 			log_error(masterLogger,"Fallo la operacion de reduccion global al worker %d",nodoEncargado);
 		}
-		avisarAYamaRedGlobal(redGlobalWorker, header);
+		avisarAYamaRedGlobal(*redGlobalWorker, header);
 
 		reduccionGlobalRealizada++;
 		}
-		for (i = 0; i < list_size(redGlobalWorker.nodosAConectar); i++) {
-			free(((t_datosNodoAEncargado*) list_get(redGlobalWorker.nodosAConectar, i))->ip);
-			free(((t_datosNodoAEncargado*) list_get(redGlobalWorker.nodosAConectar, i))->rutaArchivoReduccionLocal);
+		for (i = 0; i < list_size(redGlobalWorker->nodosAConectar); i++) {
+			free(((t_datosNodoAEncargado*) list_get(redGlobalWorker->nodosAConectar, i))->ip);
+			free(((t_datosNodoAEncargado*) list_get(redGlobalWorker->nodosAConectar, i))->rutaArchivoReduccionLocal);
 		}
-		list_destroy_and_destroy_elements(redGlobalWorker.nodosAConectar, free);
+		list_destroy_and_destroy_elements(redGlobalWorker->nodosAConectar, free);
 	}
 
-	free(redGlobalWorker.archivoReductor);
-	free(redGlobalWorker.rutaArchivoTemporalGlobal);
+	free(redGlobalWorker->archivoReductor);
+	free(redGlobalWorker->rutaArchivoTemporalGlobal);
 	t_fin = clock();
 	tiempoTotalRedGlobal = (double) (t_fin - t_ini) / CLOCKS_PER_SEC * 1000;
 
@@ -874,6 +875,7 @@ void avisarAlmacenadoFinal() {
 	int i, socketWorker, nodoEncargado;
 	t_reduccionGlobalMaster* redGlobalMaster;
 	t_header header;
+	char* temporalGlobal;
 
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
 		redGlobalMaster = list_get(listaRedGloblales, i);
@@ -881,6 +883,8 @@ void avisarAlmacenadoFinal() {
 			socketWorker = conectarseAWorker(redGlobalMaster->puerto,
 					redGlobalMaster->ip);
 			nodoEncargado = redGlobalMaster->idNodo;
+			temporalGlobal = malloc (strlen(redGlobalMaster->archivoRedGlobal));
+			strcpy(temporalGlobal, redGlobalMaster->archivoRedGlobal);
 		}
 	}
 
@@ -889,7 +893,7 @@ void avisarAlmacenadoFinal() {
 				socketYama);
 		header.id = ERRORALMACENADOFINAL;
 		header.tamanioPayload = 0;
-		enviarPorSocket(socketYama, &header, sizeof(t_header));
+		enviarPorSocket(socketYama, &header, 0);
 		fallos++;
 		log_error(masterLogger,
 				"no se pudo conectar al worker encargado de guardar el archivo final.");
@@ -897,7 +901,7 @@ void avisarAlmacenadoFinal() {
 
 	else{
 		void* buffer, *bufferStruct;
-		int tamanioBuffer;
+		int tamanioBuffer, desplazamiento = 0;;
 		header.id = ORDENALMACENADOFINAL;
 		t_infoGuardadoFinal* guardado = malloc(sizeof(t_infoGuardadoFinal));
 		bufferStruct = serializarInfoGuardadoFinal(guardado,&tamanioBuffer);
@@ -912,9 +916,31 @@ void avisarAlmacenadoFinal() {
 		printf("se avisa al worker encargado (nodo %d) para almacenar el resultado del job\n",nodoEncargado);
 		log_info(masterLogger,"Se avisa al worker encargado (nodo %d) para almacenar el resultado del job.",
 				nodoEncargado);
+		free(temporalGlobal);
 		free(bufferStruct);
 		free(buffer);
-	}
+/*
+		int respuesta = respuestaWorker(socketWorker);
+		if(respuesta = ERRORALMACENADOFINAL){
+			header.id = ERRORALMACENADOFINALYAMA;
+		}
+		else if(respuesta = ALMACENADOFINALOK){
+			header.id = ALMACENADOFINALOKYAMA;
+		}
+		header.tamanioPayload = strlen(temporalGlobal);
+		buffer = malloc(sizeof(t_header) + header.tamanioPayload);
+		memcpy(buffer, &header.id, sizeof(header.id));
+		desplazamiento += sizeof(header.id);
+		memcpy(buffer + desplazamiento, &header.tamanioPayload,
+				sizeof(header.tamanioPayload));
+		desplazamiento += sizeof(header.tamanioPayload);
+		memcpy(buffer + desplazamiento, temporalGlobal,
+				header.tamanioPayload);
+		desplazamiento += header.tamanioPayload;
+
+		enviarPorSocket(socketYama, buffer, header.tamanioPayload);
+		free(buffer);
+*/	}
 }
 
 void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuffer){
@@ -940,6 +966,7 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 
 	memcpy(buffer+desplazamiento,&guardado->largoRutaTemporalArchivo,sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
+
 	memcpy(buffer+desplazamiento,guardado->nombreArchivoTemporal,guardado->largoRutaTemporalArchivo);
 	desplazamiento += guardado->largoRutaTemporalArchivo;
 	memcpy(buffer+desplazamiento,&guardado->largoRutaArchivoFinal,sizeof(uint32_t));
@@ -1236,7 +1263,7 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 		int* largoBuffer) {
 	int i, desplazamiento = 0, tamanioBuffer = 0;
 	void* buffer;
-	t_datosNodoAEncargado nodos;
+	t_datosNodoAEncargado *nodos;
 	tamanioBuffer = 4 * sizeof(uint32_t) + redGlobalWorker->largoArchivoReductor
 			+ redGlobalWorker->largoRutaArchivoTemporalGlobal + redGlobalWorker->largoRutaArchivoTemporalLocal;
 	buffer = malloc(tamanioBuffer);
@@ -1270,25 +1297,27 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 	desplazamiento += sizeof(uint32_t);
 
 	for (i = 0; i < redGlobalWorker->cantidadNodos; i++) {
-		nodos = *(t_datosNodoAEncargado*) (list_get(
+		nodos = (t_datosNodoAEncargado*) (list_get(
 				redGlobalWorker->nodosAConectar, i));
-		tamanioBuffer += nodos.largoRutaArchivoReduccionLocal + nodos.largoIp
+		tamanioBuffer += nodos->largoRutaArchivoReduccionLocal + nodos->largoIp
 				+ 3 * sizeof(uint32_t);
 		buffer = realloc(buffer, tamanioBuffer);
-		memcpy(buffer + desplazamiento, &nodos.puerto, sizeof(uint32_t));
+		memcpy(buffer + desplazamiento, &nodos->puerto, sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
 
-		memcpy(buffer + desplazamiento, &nodos.largoIp, sizeof(uint32_t));
+		memcpy(buffer + desplazamiento, &nodos->largoIp, sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
-		memcpy(buffer + desplazamiento, nodos.ip, nodos.largoIp);
-		desplazamiento += nodos.largoIp;
+		memcpy(buffer + desplazamiento, nodos->ip, nodos->largoIp);
+		desplazamiento += nodos->largoIp;
 
-		memcpy(buffer + desplazamiento, &nodos.largoRutaArchivoReduccionLocal,
+		memcpy(buffer + desplazamiento, &nodos->largoRutaArchivoReduccionLocal,
 				sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
-		memcpy(buffer + desplazamiento, nodos.rutaArchivoReduccionLocal,
-				nodos.largoRutaArchivoReduccionLocal);
-		desplazamiento += nodos.largoRutaArchivoReduccionLocal;
+		memcpy(buffer + desplazamiento, nodos->rutaArchivoReduccionLocal,
+				nodos->largoRutaArchivoReduccionLocal);
+		desplazamiento += nodos->largoRutaArchivoReduccionLocal;
+		printf("%d\n",nodos->largoRutaArchivoReduccionLocal);
+		printf("%s\n",nodos->rutaArchivoReduccionLocal);
 	}
 
 	*largoBuffer = tamanioBuffer;
@@ -1383,7 +1412,7 @@ char* obtenerContenidoArchivo(char* archivo) {
 		exit(1);
 	}
 	int tam = mystat.st_size;
-	buffer = (char*) malloc(tam * sizeof(char) + 1);
+	buffer = malloc(tam * sizeof(char) + 1);
 	char* pmap = (char *) mmap(0, tam, PROT_READ, MAP_SHARED, file, 0);
 	int i;
 	for (i = 0; i < tam; i++) {
