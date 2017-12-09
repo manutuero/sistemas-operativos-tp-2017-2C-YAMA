@@ -72,6 +72,9 @@ int main(void) {
 				continue;
 			}
 			pid = fork();
+			if(pid<0){
+				fprintf(stderr,"fallo el fork!");
+			}
 			if(pid == 0){
 			   //if (fork() == 0) {//pid nieto
 				switch (header.id) {
@@ -114,12 +117,12 @@ int main(void) {
 			   //}
 			}
 			else{
-				   waitpid(pid,0,WNOHANG);
+				   wait(NULL);
 
 			}
 
 		}
 
 	}
-
+return 0;
 }

@@ -213,6 +213,7 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 
 
 	if(respuesta!=-1){
+	wait(&respuesta);
 	notificarAMaster(TRANSFORMACION_OK, socketMaster);
 	log_info(workerLogger,"Transformacion del bloque %d realizada",infoTransformacion->numBloque);
 	}else {
