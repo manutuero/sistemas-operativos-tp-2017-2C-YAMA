@@ -102,7 +102,7 @@ typedef struct {
 	int largoRutaTemporal;
 	char* rutaTemporal;
 	int largoRutaArchFinal;
-	char* rutaArchFInal;
+	char* rutaArchFinal;
 }__attribute__((packed)) t_infoGuardadoFinal;
 
 //defines

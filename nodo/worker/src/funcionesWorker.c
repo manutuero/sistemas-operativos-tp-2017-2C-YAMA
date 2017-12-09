@@ -1007,22 +1007,32 @@ t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void* buffer) {
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
+	printf("%d\n",infoGuardadoFinal->largoRutaTemporal);
 	bytesACopiar = infoGuardadoFinal->largoRutaTemporal;
 	infoGuardadoFinal->rutaTemporal = malloc(
 			infoGuardadoFinal->largoRutaTemporal);
 	memcpy(infoGuardadoFinal->rutaTemporal, buffer + desplazamiento,
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
+	printf("%s\n",infoGuardadoFinal->rutaTemporal);
 
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(&infoGuardadoFinal->largoRutaArchFinal, buffer + desplazamiento,
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
+	printf("%d\n",infoGuardadoFinal->largoRutaArchFinal);
+
 	bytesACopiar = infoGuardadoFinal->largoRutaArchFinal;
-	infoGuardadoFinal->rutaArchFInal = malloc(
+	infoGuardadoFinal->rutaArchFinal = malloc(
 			infoGuardadoFinal->largoRutaArchFinal);
+	memcpy(infoGuardadoFinal->rutaArchFinal, buffer + desplazamiento,
+			bytesACopiar);
 	desplazamiento += bytesACopiar;
+
+
+	printf("%s\n",infoGuardadoFinal->rutaArchFinal);
+
 
 	return infoGuardadoFinal;
 
@@ -1058,6 +1068,8 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
+		printf("serializo archivo al FS\n");
+
 		enviarPorSocket(socketFilesystem, bufferMensaje, tamanioMensaje);
 		free(buffer);
 		free(bufferMensaje);
@@ -1076,7 +1088,7 @@ void* serializarInfoGuardadoFinal(int tamanioArchTempFinal,
 	memcpy(buffer + desplazamiento, &infoGuardadoFinal->largoRutaArchFinal,
 			sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, infoGuardadoFinal->rutaArchFInal,
+	memcpy(buffer + desplazamiento, infoGuardadoFinal->rutaArchFinal,
 			infoGuardadoFinal->largoRutaArchFinal);
 	desplazamiento += infoGuardadoFinal->largoRutaArchFinal;
 	memcpy(buffer + desplazamiento, &tamanioArchTempFinal, sizeof(uint32_t));
@@ -1087,6 +1099,8 @@ void* serializarInfoGuardadoFinal(int tamanioArchTempFinal,
 	desplazamiento += tamanioArchTempFinal;
 
 	*largoBuffer = desplazamiento;
+
+	printf("serializo correctamente\n");
 
 	return buffer;
 }

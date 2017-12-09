@@ -90,7 +90,9 @@ int main(void) {
 					realizarReduccionGlobal(infoReduccionGlobal, nuevoSocket);
 					break;
 				case ORDEN_GUARDADO_FINAL:
+					printf("inicio guardado final: deserializo\n");
 					infoGuardadoFinal = deserializarInfoGuardadoFinal(buffer);
+					printf("deserializo. mando a FS\n");
 					guardadoFinalEnFilesystem(infoGuardadoFinal);
 					break;
 				case SOLICITUD_WORKER:
