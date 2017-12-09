@@ -164,7 +164,7 @@ void escucharMasters() {
 	while (1) {
 
 		readfds = auxRead;
-		sleep(2);
+		sleep(1);
 		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
 			perror("select");
 			exit(1);

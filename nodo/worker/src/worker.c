@@ -43,6 +43,8 @@ int main(void) {
 	//char* buffer;
 	int bytesRecibidos, nuevoSocket;
 
+
+	//signal(SIGCHLD,SIG_IGN);
 	int i = 0;
 	printf("escuchando masters\n");
 	while (1) {
@@ -72,6 +74,9 @@ int main(void) {
 				continue;
 			}
 			pid = fork();
+			if(pid<0){
+				fprintf(stderr,"fallo el fork!");
+			}
 			if(pid == 0){
 			   //if (fork() == 0) {//pid nieto
 				switch (header.id) {
@@ -90,7 +95,9 @@ int main(void) {
 					realizarReduccionGlobal(infoReduccionGlobal, nuevoSocket);
 					break;
 				case ORDEN_GUARDADO_FINAL:
+					printf("inicio guardado final: deserializo\n");
 					infoGuardadoFinal = deserializarInfoGuardadoFinal(buffer);
+					printf("deserializo. mando a FS\n");
 					guardadoFinalEnFilesystem(infoGuardadoFinal);
 					break;
 				case SOLICITUD_WORKER:
