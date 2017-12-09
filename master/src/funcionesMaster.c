@@ -469,6 +469,7 @@ void operarEtapas() {
 	int transformaciones = list_size(listaTransformaciones);
 	//int redLocales = list_size(listaRedLocales);
 	int redGlobales = list_size(listaRedGloblales);
+	t_reduccionGlobalMaster* reduccionGlobal;
 	int finaliza = 0;
 	tiempoTotalTransformaciones = 0;
 	tiempoTotalRedLocales = 0;
@@ -510,7 +511,7 @@ void operarEtapas() {
 		case INICIOREDUCCIONLOCAL:
 			for (i = 0; i < list_size(listaRedGloblales); i++) {
 				//if (nodosTransformacion[i].idNodo == headerRed.tamanioPayload) { //en tamanioPayload tengo el idnodo
-				if(nodosTransformacion[i].cantidadTransformaciones == 0){
+				/*if(nodosTransformacion[i].cantidadTransformaciones == 0){
 					log_info(masterLogger, "inicia la reduccion local del nodo %d",nodosTransformacion->idNodo);
 					printf("termino todas las transformaciones del nodo %d\n",
 					nodosTransformacion[i].idNodo);
@@ -520,6 +521,13 @@ void operarEtapas() {
 							(t_reduccionGlobalMaster*) list_get(listaRedGloblales, i));
 					nodosTransformacion[i].cantidadTransformaciones--;
 					//pthread_join(hiloConexionReduccionWorker, NULL);
+				}*/
+				reduccionGlobal = (t_reduccionGlobalMaster*) list_get(listaRedGloblales, i);
+				if(reduccionGlobal->idNodo == headerRed.tamanioPayload){
+					pthread_t hiloConexionReduccionWorker;
+					pthread_create(&hiloConexionReduccionWorker, &atributos,(void*) enviarRedLocalesAWorker,
+							reduccionGlobal);
+
 				}
 
 			}
@@ -732,12 +740,12 @@ void enviarReduccionGlobalAWorkerEncargado() {
 			strcpy(nodoWorker->ip, redGlobalMaster->ip);
 			nodoWorker->puerto = redGlobalMaster->puerto;
 			nodoWorker->largoRutaArchivoReduccionLocal =
-					redGlobalMaster->largoArchivoRedLocal;
+					redGlobalMaster->largoArchivoRedLocal+1;
 			nodoWorker->rutaArchivoReduccionLocal = malloc(
 					nodoWorker->largoRutaArchivoReduccionLocal);
 			strcpy(nodoWorker->rutaArchivoReduccionLocal,
 					redGlobalMaster->archivoRedLocal);
-
+			string_append(&nodoWorker->rutaArchivoReduccionLocal,"\0");
 			list_add(redGlobalWorker->nodosAConectar, nodoWorker);
 		}
 		redGlobalWorker->cantidadNodos = list_size(
@@ -778,7 +786,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		if(respuesta == REDUCCIONGLOBALOKWORKER){
 			header.id = REDUCCIONGLOBALOKYAMA;
 			printf("enviado a worker la reduccion global\n");
-			log_info(masterLogger,"Se completa la operacion de reduccion global al worker %d",nodoEncargado);
+			log_info(masterLogger,"Se completa la operacion de reduccion global al worker encargado");
 		if(respuesta == ERRORREDUCCIONGLOBAL){
 			header.id = ERRORREDUCCION;
 			printf("fallo la reduccion global\n");
@@ -1035,7 +1043,7 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 		log_info(masterLogger, "Enviado transformacion a worker %d",transformacion->idNodo);
 
 		if (respuestaWorker(socketWorker) == TRANSFORMACIONOKWORKER) {
-			printf("transformacion OK\n");
+			//printf("transformacion OK\n");
 			pthread_mutex_lock(&mutexTotalTransformaciones);
 			disminuirTransformacionesDeNodo(transformacion->idNodo);
 			cantidadTransformacionesRealizadas++;
