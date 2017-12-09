@@ -534,6 +534,8 @@ void operarEtapas() {
 			break;
 		case INICIOREDUCCIONGLOBAL:
 			printf("inicia reduccion global\n");
+			log_info(masterLogger,"Inicia reduccion global");
+
 			enviarReduccionGlobalAWorkerEncargado();
 			break;
 		case ALMACENAFINALYAMA:
@@ -712,7 +714,7 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 void enviarReduccionGlobalAWorkerEncargado() {
 	int i, socketWorkerEncargado, nodoEncargado;
 	clock_t t_ini, t_fin;
-	t_infoReduccionGlobal* redGlobalWorker;
+	t_infoReduccionGlobal* redGlobalWorker = malloc(sizeof(t_infoReduccionGlobal));
 	t_reduccionGlobalMaster* redGlobalMaster;
 	t_datosNodoAEncargado* nodoWorker;
 	t_header header;
@@ -720,6 +722,8 @@ void enviarReduccionGlobalAWorkerEncargado() {
 	redGlobalWorker->largoArchivoReductor = devolverTamanioArchivo(reductor);
 	redGlobalWorker->archivoReductor = obtenerContenidoArchivo(reductor);
 	redGlobalWorker->nodosAConectar = list_create();
+
+	//log_info(masterLogger,"inicia reduccion global");
 
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
 		redGlobalMaster = list_get(listaRedGloblales, i);
@@ -752,6 +756,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 				redGlobalWorker->nodosAConectar);
 	}
 
+
 	if (socketWorkerEncargado == -1) {
 		printf("envio desconexion del nodo a yama en el socket %d\n",
 				socketYama);
@@ -762,6 +767,8 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		fallos++;
 		log_error(masterLogger,"no se pudo conectar al worker encargado de la reduccion global.");
 	} else {
+		//log_info(masterLogger,"Se envia operacion de reduccion global al worker %d.",	nodoEncargado);
+
 		int tamanioMensaje, largoBuffer, desplazamiento = 0;
 		void* bufferMensaje;
 		void* buffer;
@@ -956,19 +963,21 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 	void* buffer;
 	int i,desplazamiento=0;
 
+	guardado->nombreArchivoTemporal = string_new();
 	for(i=0;i<list_size(listaRedGloblales);i++){
 		redGlobal = list_get(listaRedGloblales, i);
 		if(redGlobal->encargado == 1){
-			guardado->largoRutaTemporalArchivo = redGlobal->largoArchivoRedGlobal;
-			guardado->nombreArchivoTemporal = malloc(guardado->largoRutaTemporalArchivo);
-			strcpy(guardado->nombreArchivoTemporal,redGlobal->archivoRedGlobal);
+			guardado->largoRutaTemporalArchivo = redGlobal->largoArchivoRedGlobal+1;
+			//guardado->nombreArchivoTemporal = malloc(redGlobal->largoArchivoRedGlobal);
+			string_append(&guardado->nombreArchivoTemporal,redGlobal->archivoRedGlobal);
+			string_append(&guardado->nombreArchivoTemporal,"\0");
 			i = listaRedGloblales->elements_count;
 		}
 	}
-	guardado->largoRutaArchivoFinal = strlen(direccionDeResultado);
-	guardado->nombreArchivoArchivoFinal = malloc(guardado->largoRutaArchivoFinal);
+	guardado->largoRutaArchivoFinal = strlen(direccionDeResultado)+1;
+	guardado->nombreArchivoArchivoFinal = malloc(strlen(direccionDeResultado));
 	strcpy(guardado->nombreArchivoArchivoFinal, direccionDeResultado);
-
+	string_append(&guardado->nombreArchivoArchivoFinal,"\0");
 	buffer = malloc(sizeof(uint32_t)*2 + guardado->largoRutaArchivoFinal +
 			guardado->largoRutaTemporalArchivo);
 
@@ -981,10 +990,14 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer+desplazamiento,guardado->nombreArchivoArchivoFinal,guardado->largoRutaArchivoFinal);
 	desplazamiento += guardado->largoRutaArchivoFinal;
+	printf("guardado largo temporal %d\n",guardado->largoRutaTemporalArchivo);
+	printf("guardado largo temporal %s\n",guardado->nombreArchivoTemporal);
+	printf("guardado largo final %d\n",guardado->largoRutaArchivoFinal);
+	printf("guardado largo temporal %s\n",guardado->nombreArchivoArchivoFinal);
 
-	free(guardado->nombreArchivoArchivoFinal);
-	free(guardado->nombreArchivoTemporal);
-	free(guardado);
+	//free(guardado->nombreArchivoArchivoFinal);
+	//free(guardado->nombreArchivoTemporal);
+	//free(guardado);
 	return buffer;
 }
 
