@@ -144,18 +144,27 @@ void escucharMasters() {
 	fd_set readfds, auxRead;
 	int tamanioDir = sizeof(direccionYama);
 	char* buffer;
-	int bytesRecibidos, maxPuerto, i, nuevoSocket;
+	int bytesRecibidos, maxPuerto, i, nuevoSocket,opt = 1;
 	FD_ZERO(&readfds);
 	FD_ZERO(&auxRead);
 	FD_SET(socketMasters, &auxRead);
 
+	if (setsockopt(socketMasters, SOL_SOCKET, SO_REUSEADDR, (char *) &opt,
+				sizeof(opt)) < 0) {
+			perror("setsockopt");
+			exit(EXIT_FAILURE);
+		}
+
+
+
+
 	maxPuerto = socketMasters;
 	inicializarWorkers(); //inicializa antes de entrar a la plani. sacar cuando este la conexion de nodos 
-	int redLocales = 0;
 	printf("escuchando masters\n");
 	while (1) {
 
 		readfds = auxRead;
+		sleep(2);
 		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
 			perror("select");
 			exit(1);
@@ -164,8 +173,7 @@ void escucharMasters() {
 		for (i = 0; i <= maxPuerto; i++) {
 			if (FD_ISSET(i, &readfds)) {
 				if (i == socketMasters) {
-
-					if ((nuevoSocket = accept(socketMasters,(void*) &direccionYama, &tamanioDir)) <= 0)
+					if ((nuevoSocket = accept(socketMasters,(void*) &direccionYama, (socklen_t *)&tamanioDir)) <= 0)
 						perror("accept");
 					else {
 
@@ -213,8 +221,10 @@ void escucharMasters() {
 
 							if(cambiarEstado(temporal,COMPLETADO))
 								{
+									printf("temporal %s\n",temporal);
+									conseguirIdNodo(temporal,&headerResp);
+									printf("nodo reduccion local: %d\n",headerResp.tamanioPayload);
 									headerResp.id = 13;
-									headerResp.tamanioPayload=0;
 									enviarPorSocket(i,&headerResp,0);
 								}
 
@@ -355,7 +365,7 @@ void escuchaActualizacionesNodos() {
 
 t_infoNodos deserializarActualizacion(void* mensaje) {
 
-	int desplazamiento = 0, bytesACopiar = 0, tamanioIp = 0;
+	int desplazamiento = 0, bytesACopiar = 0;
 	t_infoNodos infoNodo;
 
 	bytesACopiar = sizeof(uint32_t);
@@ -511,5 +521,31 @@ void crearTablaDeEstados() {
 
 	listaTablaEstados = list_create();
 
+}
+
+void conseguirIdNodo(char* temporal,t_header *header)
+{
+	t_tabla_estados *registro;
+	int i;
+
+	printf("%s\n", temporal);
+	for(i=0;i<list_size(listaTablaEstados);i++)
+	{
+		registro = list_get(listaTablaEstados,i);
+		if(sonIguales(registro->archivoTemp,temporal))
+		{
+			printf("archivo %s\n", registro->archivoTemp);
+			printf("bloque %d\n", registro->bloque);
+			printf("estado %d\n", registro->estado);
+			printf("etapa %d\n", registro->etapa);
+			printf("job %d\n", registro->job);
+			printf("nodo %d\n", registro->nodo);
+			printf("master %d\n", registro->master);
+			printf("bloque archivo %d\n", registro->nroBloqueArch);
+			header->tamanioPayload=registro->nodo;
+			break;
+		}
+
+	}
 }
 

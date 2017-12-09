@@ -242,12 +242,12 @@ int cambiarEstado(char* nombreTMP, int estado)
 	registro = encontrarRegistro(nombreTMP);
 	registro->estado = estado;
 
-	etapaCompletada = verificarEtapa(registro->job,registro->etapa);
+	etapaCompletada = verificarEtapa(registro->job,registro->etapa,registro->nodo);
 
 	return etapaCompletada;
 }
 
-int verificarEtapa(int trabajo,int etapa)
+int verificarEtapa(int trabajo,int etapa, int nodo)
 {
 	t_tabla_estados *registro;
 	t_list *listaFiltrada;
@@ -257,8 +257,15 @@ int verificarEtapa(int trabajo,int etapa)
 	for(i=0;i<list_size(listaTablaEstados);i++)
 	{
 		registro = list_get(listaTablaEstados,i);
-		if(registro->job==trabajo && registro->etapa==etapa && registro->estado!=ERROR_TAREA)
-			list_add(listaFiltrada,registro);
+
+		if(registro->etapa == TRANSFORMACION){
+			if(registro->job==trabajo && registro->nodo==nodo && registro->etapa==etapa && registro->estado!=ERROR_TAREA)
+				list_add(listaFiltrada,registro);
+		}
+		else{
+			if(registro->job==trabajo && registro->etapa==etapa && registro->estado!=ERROR_TAREA)
+				list_add(listaFiltrada,registro);
+		}
 	}
 
 	i = list_all_satisfy(listaFiltrada,tareaOk);

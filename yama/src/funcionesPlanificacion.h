@@ -277,7 +277,7 @@ void* descargarWorkload(void *);
 
 int cambiarEstado(char*, int estado);
 
-int verificarEtapa(int,int);
+int verificarEtapa(int,int,int);
 
 bool tareaOk(void*);
 

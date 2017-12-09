@@ -65,6 +65,6 @@ void* obtenerBloquesDelArchivo(t_rutaArchivo*);
 /* Crea la tabla de estados */
 void crearTablaDeEstados();
 
-
+void conseguirIdNodo(char*,t_header*);
 
 #endif /* FUNCIONESYAMA_H_ */
