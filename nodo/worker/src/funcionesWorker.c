@@ -449,15 +449,18 @@ void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
 	//regArch2.linea=fgets(linea,LARGO_MAX_LINEA,arch2);
 	leerRegArchivo(archAAparear, regArch1, &finArch1);
 	leerRegArchivo(archivoRecibido, regArch2, &finArch2);
-	while (!feof(archAAparear) && !feof(archivoApareado)) {
+	printf("empieza a aparear\n");
+	while (!feof(archAAparear) && !feof(archivoRecibido)) {
 		if (strcmp(regArch1, regArch2) < 0) {
 			txt_write_in_file(archivoApareado, regArch1);
 			//fwrite(regArch1.linea,sizeof(char),strlen(regArch1.linea),archFinal);
 			leerRegArchivo(archAAparear, regArch1, &finArch1);
+			printf("lee registro 1\n");
 		} else {
 			txt_write_in_file(archivoApareado, regArch2);
 			//fwrite(regArch2.linea,sizeof(char),strlen(regArch2.linea),archFinal);
 			leerRegArchivo(archivoRecibido, regArch2, &finArch2);
+			printf("lee registro 2\n");
 		}
 	}
 	//txt_write_in_file(archivoApareado, "\n");
@@ -466,13 +469,15 @@ void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
 			txt_write_in_file(archivoApareado, regArch1);
 			//fwrite(regArch1.linea,sizeof(char),strlen(regArch1.linea),archFinal);
 			leerRegArchivo(archAAparear, regArch1, &finArch1);
+			printf("no fin 1\n");
 		}
 		//txt_write_in_file(archFinal,"\n");
 	} else {
-		while (!feof(archivoApareado)) {
+		while (!feof(archivoRecibido)) {
 			txt_write_in_file(archivoApareado, regArch2);
 			//fwrite(regArch2.linea,sizeof(char),strlen(regArch2.linea),archFinal);
 			leerRegArchivo(archivoRecibido, regArch2, &finArch2);
+			printf("no fin 2\n");
 		}
 		//txt_write_in_file(archFinal,"\n");
 	}
