@@ -291,12 +291,14 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 			rutaReducidoLocal);
 
 	resultado = system(lineaAEjecutar);
+
 	fclose(archivoConcat);
 	remove(rutaArchConcat);
 	remove(rutaArchReductor);
 	fclose(archivoReduccionLocal);
 
 	if(resultado!=-1) {
+		wait(&resultado);
 		notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
 		log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
 	}else{
@@ -367,6 +369,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 		rewind(archivoApareado);
 		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
 				infoReduccionGlobal->nodosAConectar, i);
+		rutaTempRecibido=armarRutaGuardadoTemp(infoArchivo.rutaArchivoReduccionLocal);
 		FILE* archivoRecibido = fopen(rutaTempRecibido, "w+");
 		socketDePedido = solicitarArchivoAWorker(infoArchivo.ip,
 				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal,infoArchivo.largoRutaArchivoReduccionLocal);
@@ -376,6 +379,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 			printf("recibi archivo temp\n");
 			if (encontrado != 0) {
 				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
+				rewind(archivoRecibido);
 				//free(contenidoArchRecibido);
 				aparearArchivos(rutaArchAAparear, archivoRecibido, archivoApareado);
 				printf("apareo de archivos :%d\n",i);
@@ -391,6 +395,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 		}
 
 		fclose(archivoRecibido);
+		remove(rutaTempRecibido);
 	}
 
 	//copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
@@ -402,6 +407,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	resultado = system(lineaAEjecutar);
 
 	if(resultado!=-1){
+	wait(&resultado);
 	notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
 	printf("Reduccion Global realizada, archivo %s generado\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
 	log_info(workerLogger,"Reduccion Global realizada, archivo %s generado",infoReduccionGlobal->rutaArchivoTemporalFinal);
@@ -418,7 +424,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	remove(rutaArchAAparear);
 	remove(rutaArchApareado);
 	remove(rutaArchReductor);
-	remove(rutaTempRecibido);
+	//remove(rutaTempRecibido);
 	//free(rutaArchAAparear);
 	//free(rutaArchApareado);
 	//free(rutaArchLocal);
@@ -443,7 +449,7 @@ void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
 	//regArch2.linea=fgets(linea,LARGO_MAX_LINEA,arch2);
 	leerRegArchivo(archAAparear, regArch1, &finArch1);
 	leerRegArchivo(archivoRecibido, regArch2, &finArch2);
-	while (!finArch1 && !finArch2) {
+	while (!feof(archAAparear) && !feof(archivoApareado)) {
 		if (strcmp(regArch1, regArch2) < 0) {
 			txt_write_in_file(archivoApareado, regArch1);
 			//fwrite(regArch1.linea,sizeof(char),strlen(regArch1.linea),archFinal);
@@ -455,15 +461,15 @@ void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
 		}
 	}
 	//txt_write_in_file(archivoApareado, "\n");
-	if (!finArch1) {
-		while (!finArch1) {
+	if (!feof(archAAparear)) {
+		while (!feof(archAAparear)) {
 			txt_write_in_file(archivoApareado, regArch1);
 			//fwrite(regArch1.linea,sizeof(char),strlen(regArch1.linea),archFinal);
 			leerRegArchivo(archAAparear, regArch1, &finArch1);
 		}
 		//txt_write_in_file(archFinal,"\n");
 	} else {
-		while (!finArch2) {
+		while (!feof(archivoApareado)) {
 			txt_write_in_file(archivoApareado, regArch2);
 			//fwrite(regArch2.linea,sizeof(char),strlen(regArch2.linea),archFinal);
 			leerRegArchivo(archivoRecibido, regArch2, &finArch2);
