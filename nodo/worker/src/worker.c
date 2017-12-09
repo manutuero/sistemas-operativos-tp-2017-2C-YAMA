@@ -43,6 +43,8 @@ int main(void) {
 	//char* buffer;
 	int bytesRecibidos, nuevoSocket;
 
+
+	//signal(SIGCHLD,SIG_IGN);
 	int i = 0;
 	printf("escuchando masters\n");
 	while (1) {
@@ -117,12 +119,12 @@ int main(void) {
 			   //}
 			}
 			else{
-				   wait(NULL);
+				   waitpid(pid,0,WNOHANG);
 
 			}
 
 		}
 
 	}
-return 0;
+
 }
