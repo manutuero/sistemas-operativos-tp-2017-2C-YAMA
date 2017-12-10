@@ -323,7 +323,7 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	free(infoReduccionLocal->archReductor);
 	free(infoReduccionLocal->rutaArchReducidoLocal);
 	for(i=0;i<list_size(infoReduccionLocal->archTemporales);i++){
-		free(((t_temporalesTransformacionWorker*)list_get(infoReduccionLocal->archTemporales,i))->rutaTemporalTransformacion);
+		free((char*)list_get(infoReduccionLocal->archTemporales,i));
 	}
 	list_destroy_and_destroy_elements(infoReduccionLocal->archTemporales,free);
 	free(infoReduccionLocal);
