@@ -119,8 +119,9 @@ int main(void) {
 			   //}
 			}
 			else{
-				   waitpid(pid,0,WNOHANG);
 
+				waitpid(pid,0,WNOHANG);
+				free(buffer);
 			}
 
 		}

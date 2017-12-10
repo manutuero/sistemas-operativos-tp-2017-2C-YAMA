@@ -173,8 +173,9 @@ char* getBloque(int numero) {
 
 	strncpy(data, regionDeMapeo, bytesALeer);
 	munmap(regionDeMapeo, bytesALeer); // Libero la region de mapeo solicitada.
+	//free(regionDeMapeo);
 	return data;
-	free(regionDeMapeo);
+
 }
 
 void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketMaster) {
@@ -201,6 +202,9 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s | sort > %s",
 			rutaDataBloque, rutaArchTransformador, rutaGuardadoTemp);
 
+	free(bloque);
+	free(data);
+
 	respuesta = system(lineaAEjecutar);
 
 	//registrarOperacionEnLogs(repuesta)
@@ -208,8 +212,6 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	fclose(archivoTemp);
 	remove(rutaArchTransformador);
 	remove(rutaDataBloque);
-	free(bloque);
-	free(data);
 	free(rutaDataBloque);
 	free(rutaArchTransformador);
 
@@ -251,6 +253,8 @@ char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
 	chmod(rutaArchScritp,permiso);
 	txt_write_in_file(arch, contenidoArchivoScript);
 	fclose(arch);
+	free(nombreSolo);
+
 	return rutaArchScritp;
 }
 
@@ -280,10 +284,11 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	char*linea;
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
 		//char* linea=malloc(LARGO_MAX_LINEA);
+
 		archivo = fopen(armarRutaGuardadoTemp((char*)list_get(infoReduccionLocal->archTemporales, i)), "r+");
 		while (!feof(archivo)) {
-		linea=malloc(LARGO_MAX_LINEA);
-		proximoRegistro(archivo,linea);
+			linea=malloc(LARGO_MAX_LINEA);
+			proximoRegistro(archivo,linea);
 			//char* linea=malloc(LARGO_MAX_LINEA);
 			//if(fgets(linea, LARGO_MAX_LINEA, archivo)!=NULL){
 			//fgets(linea, LARGO_MAX_LINEA, archivo);
@@ -305,18 +310,27 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	remove(rutaArchReductor);
 	fclose(archivoReduccionLocal);
 
+
 	if(resultado!=-1) {
 		wait(&resultado);
 		notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
 		log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
+		free(lineaAEjecutar);
 	}else{
 		notificarAMaster(ERROR_REDUCCION,socketMaster);
 		log_info(workerLogger,"Reduccion Local error",infoReduccionLocal->rutaArchReducidoLocal);
 	}
-	//free(rutaArchConcat);
-	//free(rutaArchReductor);
-	//free(rutaReducidoLocal);
-	//free(lineaAEjecutar);
+	free(infoReduccionLocal->archReductor);
+	free(infoReduccionLocal->rutaArchReducidoLocal);
+	for(i=0;i<list_size(infoReduccionLocal->archTemporales);i++){
+		free(((t_temporalesTransformacionWorker*)list_get(infoReduccionLocal->archTemporales,i))->rutaTemporalTransformacion);
+	}
+	list_destroy_and_destroy_elements(infoReduccionLocal->archTemporales,free);
+	free(infoReduccionLocal);
+
+	free(rutaArchConcat);
+	free(rutaArchReductor);
+	free(rutaReducidoLocal);
 	}
 
 int proximoRegistro(FILE *datos, char *registro) {
@@ -899,7 +913,6 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 		list_add(infoReduccionLocal->archTemporales,
 				temporal->rutaTemporalTransformacion);
 
-		free(buffer);
 	}
 	int j;
 	printf("%d\n",infoReduccionLocal->largoRutaArchReducidoLocal);
@@ -912,6 +925,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 		printf("%s\n",(char*)list_get(infoReduccionLocal->archTemporales,j));
 	}
 
+	free(buffer);
 	return infoReduccionLocal;
 
 }
