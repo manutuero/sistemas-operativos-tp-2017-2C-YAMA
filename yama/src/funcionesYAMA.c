@@ -276,7 +276,7 @@ void escucharMasters() {
 							jobMaster->socketMaster = i;
 							jobMaster->replanifica = 1;
 							printf("repre2\n");
-							rePrePlanificacion(nombreTMP,pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal, jobMaster);
+							rePrePlanificacion(pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal,nombreTMP, jobMaster);
 							break;
 
 						case 104:

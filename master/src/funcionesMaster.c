@@ -995,9 +995,11 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 	printf("guardado largo final %d\n",guardado->largoRutaArchivoFinal);
 	printf("guardado largo temporal %s\n",guardado->nombreArchivoArchivoFinal);
 
+	*tamanioBuffer = desplazamiento;
 	//free(guardado->nombreArchivoArchivoFinal);
 	//free(guardado->nombreArchivoTemporal);
 	//free(guardado);
+	
 	return buffer;
 }
 
