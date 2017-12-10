@@ -28,8 +28,8 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 	log_info(workerLogger,
 			"El directorio sobre el que se esta trabajando es %s.",
 			pathArchConfig);
-	if (config_has_property(config, "PUERTO_FILESYSTEM")) {
-		PUERTO_FILESYSTEM = config_get_int_value(config, "PUERTO_FILESYSTEM");
+	if (config_has_property(config, "PUERTO_FS_WORKER")) {
+		PUERTO_FILESYSTEM = config_get_int_value(config, "PUERTO_FS_WORKER");
 	}
 	if (config_has_property(config, "IP_FILESYSTEM")) {
 		IP_FILESYSTEM = config_get_string_value(config, "IP_FILESYSTEM");
