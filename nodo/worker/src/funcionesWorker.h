@@ -120,7 +120,11 @@ typedef struct {
 #define ERROR_ARCHIVO_NO_ENCONTRADO 105
 #define LARGO_MAX_LINEA 1048576
 #define LARGO_MAX_LINEA 1048576
-#define ERROR_REDUCCION 107
+#define ERROR_REDUCCION 104
+#define RESPUESTA_FS_OK 27
+#define GUARDADO_OK_EN_FS 32
+#define FALLO_GUARDADO_FINAL 108
+#define ERROR_GUARDADO_FINAL 107
 
 /* Firmas de funciones */
 void crearLogger();
@@ -157,8 +161,9 @@ void leerRegArchivo(FILE*,t_regArch,bool*);
 void copiarContenidoDeArchivo(FILE*,FILE*);
 
 void* serializarInfoGuardadoFinal(int,char*,t_infoGuardadoFinal*,int*);
-void guardadoFinalEnFilesystem(t_infoGuardadoFinal*);
+void guardadoFinalEnFilesystem(t_infoGuardadoFinal*,int);
 void notificarAMaster(int , int);
 int proximoRegistro(FILE*,char*);
+int recibirRespuestaFileSystem(int);
 
 #endif

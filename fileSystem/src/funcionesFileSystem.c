@@ -2080,11 +2080,12 @@ void* obtenerSocketNodosYama() {
 					"No se ha podido obtener un número de socket. Reintente iniciar el proceso.");
 			//return (ERROR);
 		}
+		sleep(2);
 		if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
 			cantidadIntentos += 1;
-			if (cantidadIntentos == 50) {
+			if (cantidadIntentos == 100) {
 				perror(
-						"ERROR NO SE PUDO CONECTAR AL SOCKET PARA INFORMACION DE NODOS!");
+						"ERROR NO SE PUDO CONECTAR AL SOCKET PARA INFORMACION DE NODOS! Intento 100 veces");
 				break;
 				exit(1);
 			}
@@ -2415,8 +2416,9 @@ void guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
 
 	// Preparo los argumentos que recibira almacenarArchivo de la API del fs.
 	nombreArchivo = obtenerNombreArchivo(infoArchivoFinal->rutaArchivoFinal);
+	char* pathCompletoYamaFs = string_substring_from(infoArchivoFinal->rutaArchivoFinal, 7);	//7= yamafs:
 	pathDirectorioYamaFs = obtenerPathDirectorio(
-			infoArchivoFinal->rutaArchivoFinal);
+			pathCompletoYamaFs);
 	tamanioArchivo = infoArchivoFinal->largoArchivo; // preguntar si contemplan el '\0'.
 
 	datos = fmemopen(infoArchivoFinal->archivoFinal, tamanioArchivo, "r+");

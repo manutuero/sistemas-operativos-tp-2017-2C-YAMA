@@ -289,9 +289,6 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 		while (!feof(archivo)) {
 			linea=malloc(LARGO_MAX_LINEA);
 			proximoRegistro(archivo,linea);
-			//char* linea=malloc(LARGO_MAX_LINEA);
-			//if(fgets(linea, LARGO_MAX_LINEA, archivo)!=NULL){
-			//fgets(linea, LARGO_MAX_LINEA, archivo);
 			txt_write_in_file(archivoConcat, linea);
 			free(linea);
 			//}
@@ -396,7 +393,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 			contenidoArchRecibido = (char*)recibirArchivoTemp(socketDePedido,
 					&encontrado);
 			printf("recibi archivo temp\n");
-			if (encontrado != 0) {
+			if (encontrado != ERROR_ARCHIVO_NO_ENCONTRADO) {
 				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
 				rewind(archivoRecibido);
 				//free(contenidoArchRecibido);
@@ -404,20 +401,18 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 				printf("apareo de archivos :%d\n",i);
 				//exit(1);
 			} else {
-				notificarAMaster(ERROR_REDUCCION,socketMaster);
-
-				printf("no se encontro el archivo\n");//exit(1);
+				notificarAMaster(ERROR_REDUCCION_GLOBAL,socketMaster);
+				printf("no se encontro el archivo\n");
+				break;
 			}
 		} else {
-			notificarAMaster(ERROR_REDUCCION,socketMaster);
+			notificarAMaster(ERROR_REDUCCION_GLOBAL,socketMaster);
 			printf("error de conectarse a worker\n");
 		}
 		fclose(archivoRecibido);
 		remove(rutaTempRecibido);
 		free(rutaTempRecibido);
 	}
-
-	//copiarContenidoDeArchivo(archivoReduccionGlobal, archivoApareado);
 
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
 			rutaArchApareado, rutaArchReductor,
@@ -436,14 +431,11 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	log_info(workerLogger,"Error en reduccion global");
 	}
 
-
-	//fclose(archAAparear);
 	fclose(archivoApareado);
 	fclose(archivoReduccionGlobal);
 	remove(rutaArchAAparear);
 	remove(rutaArchApareado);
 	remove(rutaArchReductor);
-	//remove(rutaTempRecibido);
 	free(rutaArchAAparear);
 	free(rutaArchApareado);
 	free(rutaArchLocal);
@@ -540,7 +532,7 @@ void* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 		//free(archTemporal);
 	}
 	else if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
-		*encontrado = 0;
+		*encontrado = ERROR_ARCHIVO_NO_ENCONTRADO;
 	}
 	return "";
 }
@@ -1062,10 +1054,11 @@ t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void* buffer) {
 
 }
 
-void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
+void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal,int socketMaster) {
 	char*contenidoArchTempFinal;
 	int tamanioArchTempFinal;
 	char* rutaTemp;
+	int respuestaFileSystem;
 	rutaTemp=armarRutaGuardadoTemp(infoGuardadoFinal->rutaTemporal);
 	tamanioArchTempFinal = devolverTamanioArchivo(rutaTemp);
 	//contenidoArchTempFinal = malloc(tamanioArchTempFinal);
@@ -1095,9 +1088,33 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal) {
 		printf("serializo archivo al FS\n");
 
 		enviarPorSocket(socketFilesystem, bufferMensaje, tamanioMensaje);
-		free(buffer);
-		free(bufferMensaje);
+		log_info(workerLogger,"Envio archivo para guardarse en filesystem %s",infoGuardadoFinal->rutaArchFinal);
+		respuestaFileSystem=recibirRespuestaFileSystem(socketFilesystem);
+		if(respuestaFileSystem==RESPUESTA_FS_OK) {
+			notificarAMaster(GUARDADO_OK_EN_FS,socketMaster);
+			log_info(workerLogger,"Guardado final en filesystem ok de archivo %s",infoGuardadoFinal->rutaArchFinal);
+		}else {
+			notificarAMaster(FALLO_GUARDADO_FINAL,socketMaster);
+			log_info(workerLogger,"Fallo en guardado final de archivo %s",infoGuardadoFinal->rutaArchFinal);
+		}
+	}else {
+		notificarAMaster(FALLO_GUARDADO_FINAL,socketMaster);
+		log_info(workerLogger,"Fallo en guardado final de archivo %s",infoGuardadoFinal->rutaArchFinal);
 	}
+	free(buffer);
+	free(bufferMensaje);
+}
+
+int recibirRespuestaFileSystem(int socketFileSystem) {
+	t_header header;
+	recibirHeader(socketFileSystem,&header);
+
+	if(header.id==RESPUESTA_FS_OK) {
+		return RESPUESTA_FS_OK;
+	}else {
+		return ERROR_GUARDADO_FINAL;
+	}
+
 }
 
 void* serializarInfoGuardadoFinal(int tamanioArchTempFinal,
