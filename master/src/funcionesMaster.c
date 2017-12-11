@@ -922,7 +922,6 @@ void avisarAlmacenadoFinal() {
 		bufferStruct = serializarInfoGuardadoFinal(guardado,&tamanioBuffer);
 
 		header.tamanioPayload = tamanioBuffer;
-		tamanioBuffer = sizeof(t_header);
 		buffer = malloc(tamanioBuffer+sizeof(t_header));
 		memcpy(buffer, &header, sizeof(t_header));
 		memcpy(buffer+sizeof(t_header),bufferStruct, tamanioBuffer);
