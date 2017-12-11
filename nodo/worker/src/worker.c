@@ -98,7 +98,7 @@ int main(void) {
 					printf("inicio guardado final: deserializo\n");
 					infoGuardadoFinal = deserializarInfoGuardadoFinal(buffer);
 					printf("deserializo. mando a FS\n");
-					guardadoFinalEnFilesystem(infoGuardadoFinal);
+					guardadoFinalEnFilesystem(infoGuardadoFinal,nuevoSocket);
 					break;
 				case SOLICITUD_WORKER:
 					nombreArchTempPedido = deserializarSolicitudArchivo(buffer);
