@@ -220,19 +220,22 @@ void escucharMasters() {
 							if(bytesRecibidos==0)
 							{
 								printf("Fallo la coneccion con master");
+								FD_CLR(i, &readfds);
+								shutdown(i, 2);
 								break;
+							}else
+							{
+								printf("termino la trans del temporal %s\n",temporal);
+
+								if(cambiarEstado(temporal,COMPLETADO))
+									{
+										printf("temporal %s\n",temporal);
+										conseguirIdNodo(temporal,&headerResp);
+										printf("nodo reduccion local: %d\n",headerResp.tamanioPayload);
+										headerResp.id = 13;
+										enviarPorSocket(i,&headerResp,0);
+									}
 							}
-
-							printf("termino la trans del temporal %s\n",temporal);
-
-							if(cambiarEstado(temporal,COMPLETADO))
-								{
-									printf("temporal %s\n",temporal);
-									conseguirIdNodo(temporal,&headerResp);
-									printf("nodo reduccion local: %d\n",headerResp.tamanioPayload);
-									headerResp.id = 13;
-									enviarPorSocket(i,&headerResp,0);
-								}
 
 							free(temporal);
 
@@ -246,9 +249,12 @@ void escucharMasters() {
 							if(bytesRecibidos==0)
 							{
 								printf("Fallo la coneccion con master");
+								FD_CLR(i, &readfds);
+								shutdown(i, 2);
 								break;
 							}
-
+							else
+							{
 							printf("termino la redlocal del temporal %s\n",temporal);
 
 
@@ -256,9 +262,10 @@ void escucharMasters() {
 								headerResp.id = 17;
 								headerResp.tamanioPayload=0;
 								enviarPorSocket(i,&headerResp,0);
-							}
+							}}
 
 							free(temporal);
+
 							break;
 
 						case 20:
@@ -269,17 +276,22 @@ void escucharMasters() {
 							if(bytesRecibidos==0)
 							{
 								printf("Fallo la coneccion con master");
+								FD_CLR(i, &readfds);
+								shutdown(i, 2);
 								break;
+							}else
+							{
+								printf("termino la redglobal del temporal %s\n",temporal);
+								uint32_t respuesta = 21;
+								headerResp.id = 21;
+								headerResp.tamanioPayload=0;
+								enviarPorSocket(i,&headerResp,0);
+								descargarWorkload(temporal);
+								free(temporal);
+								printf("%d",respuesta);
 							}
 
-							printf("termino la redglobal del temporal %s\n",temporal);
-							uint32_t respuesta = 21;
-							headerResp.id = 21;
-							headerResp.tamanioPayload=0;
-							enviarPorSocket(i,&headerResp,0);
-							descargarWorkload(temporal);
 							free(temporal);
-							printf("%d",respuesta);
 							break;
 
 						case 103:
@@ -292,28 +304,32 @@ void escucharMasters() {
 							if(bytesRecibidos==0)
 							{
 								printf("Fallo la coneccion con master");
+								FD_CLR(i, &readfds);
+								shutdown(i, 2);
 								break;
-							}
-
-							nombreTMP = deserializarNombreTMP(buffer,desplazamiento);
-							pedido=deserializarRutasArchivos(buffer+*desplazamiento,1);
-
-							//pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
-							t_tabla_estados* registro = encontrarRegistro(nombreTMP);
-
-							if(registro->job==-1)
-							{
-								printf("No se puede replanificar, no se encuentra el registro\n");
 							}
 							else
 							{
-								t_job* jobMaster = malloc(sizeof(t_job));
-								jobMaster->job = registro->job;
-								jobMaster->idMaster = registro->master;
-								jobMaster->socketMaster = i;
-								jobMaster->replanifica = 1;
-								printf("repre2\n");
-								rePrePlanificacion(pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal,nombreTMP, jobMaster);
+								nombreTMP = deserializarNombreTMP(buffer,desplazamiento);
+								pedido=deserializarRutasArchivos(buffer+*desplazamiento,1);
+
+								//pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
+								t_tabla_estados* registro = encontrarRegistro(nombreTMP);
+
+								if(registro->job==-1)
+								{
+									printf("No se puede replanificar, no se encuentra el registro\n");
+								}
+								else
+								{
+									t_job* jobMaster = malloc(sizeof(t_job));
+									jobMaster->job = registro->job;
+									jobMaster->idMaster = registro->master;
+									jobMaster->socketMaster = i;
+									jobMaster->replanifica = 1;
+									printf("repre2\n");
+									rePrePlanificacion(pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal,nombreTMP, jobMaster);
+								}
 							}
 								break;
 
