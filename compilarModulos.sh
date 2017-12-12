@@ -1,9 +1,9 @@
 !#/bin/bash
 
-#git clone https://github.com/sisoputnfrba/so-commons-library.git
-#cd  so-commons-library
-#sudo make install
-#cd ..
+git clone https://github.com/sisoputnfrba/so-commons-library.git
+cd  so-commons-library
+sudo make install
+cd ..
 
 # Exportamos la variable de entorno
 export LC_ALL=C
@@ -16,7 +16,7 @@ sudo make install
 cd ..
 
 #instalacion readline
-apt-get install libreadline6-dev
+sudo apt-get install libreadline6-dev
 
 #instalacion master
 cd master/
