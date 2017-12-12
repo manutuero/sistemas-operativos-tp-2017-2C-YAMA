@@ -5,6 +5,9 @@
 #sudo make install
 #cd ..
 
+# Exportamos la variable de entorno
+export LC_ALL=C
+
 #instalacion utils
 cd utils/
 make clean

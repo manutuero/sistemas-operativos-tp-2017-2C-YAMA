@@ -1634,7 +1634,7 @@ bool existeArchivoEnYamaFs(char *pathArchivo) {
 		return false;
 }
 
-//crea un socket. Lo conecta a yama y se queda esperando peticiones de informacion de archivos.
+// Crea un socket. Lo conecta a yama y se queda esperando peticiones de informacion de archivos.
 void *escucharPeticionesYama() {
 	t_header *header;
 	header = malloc(sizeof(t_header));
@@ -1970,7 +1970,6 @@ void *esperarConexionesWorker() {
 	direccionFSWorker.sin_family = AF_INET;
 	direccionFSWorker.sin_port = htons(PUERTO_WORKERS);
 	direccionFSWorker.sin_addr.s_addr = INADDR_ANY;
-//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
 	int activado = 1;
 
@@ -1988,7 +1987,7 @@ void *esperarConexionesWorker() {
 		perror("No se pudo conectar");
 		exit(1);
 	}
-// Se pone a escuchar el servidor kernel
+
 	if (listen(socketFSWorkers, 10) == -1) {
 		perror("listen");
 		exit(1);
@@ -2026,6 +2025,7 @@ void *esperarConexionesWorker() {
 
 						void* buffer;
 						t_header header;
+						int resultadoAlmacenamiento;
 						recibirHeader(nuevoSocket, &header);
 						buffer = malloc(header.tamanioPayload);
 						recibirPorSocket(nuevoSocket, buffer,
@@ -2033,7 +2033,8 @@ void *esperarConexionesWorker() {
 
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
 							archivo = deserializarInfoArchivoFinal(buffer);
-							guardarArchivoReduccionGlobal(archivo);
+							resultadoAlmacenamiento = guardarArchivoReduccionGlobal(archivo);
+							notificarResultadoAlmacenamiento(nuevoSocket, resultadoAlmacenamiento);
 						}
 
 						if (nuevoSocket > maxPuerto)
@@ -2408,8 +2409,8 @@ void destruirListaDeArchivos() {
 	list_destroy(archivos);
 }
 
-void guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
-	int tipoArchivo = 0, resultadoAlmacenamiento;
+int guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
+	int tipoArchivo = 0, resultadoAlmacenamiento, idRespuestaWorker;
 	char *pathDirectorioYamaFs, *nombreArchivo;
 	FILE *datos;
 	size_t tamanioArchivo;
@@ -2426,8 +2427,31 @@ void guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
 	resultadoAlmacenamiento = almacenarArchivo(pathDirectorioYamaFs,
 			nombreArchivo, tipoArchivo, datos);
 
-	if (resultadoAlmacenamiento != EXITO)
-		fprintf(stderr, "Se produjo un error al almacenar el archivo resultante de la reduccion global.\n");
-
 	fclose(datos);
+
+	if(resultadoAlmacenamiento == EXITO) {
+		idRespuestaWorker = ALMACENAMIENTO_FINAL_OK;
+	} else if (resultadoAlmacenamiento == ERROR) {
+		idRespuestaWorker = ERROR_ALMACENAMIENTO_FINAL;
+	}
+
+	return idRespuestaWorker;
+}
+
+// Le notifica al proceso Worker que el almacenamiento final fallo.
+void notificarResultadoAlmacenamiento(int socketWorker, int idHeader) {
+	int bytesEnviados;
+	t_header *header;
+
+	header = malloc(sizeof(t_header));
+	header->id = idHeader;
+	header->tamanioPayload = 0;
+
+	bytesEnviados = enviarPorSocket(socketWorker, header, 0);
+	if(bytesEnviados <= 0) {
+		fprintf(stderr, "[ERROR]: no se pudo enviar el resultado del almacenamiento final al worker.\n");
+	}
+	puts("Envie resultado almacenamiento final a Worker");
+
+	free(header);
 }

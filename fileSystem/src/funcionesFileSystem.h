@@ -14,6 +14,9 @@
 #define CANTIDAD_DIRECTORIOS 100
 #define ALMACENAMIENTO_ARCHIVO 23
 
+#define ERROR_ALMACENAMIENTO_FINAL 107
+#define ALMACENAMIENTO_FINAL_OK 27
+
 /* Enums */
 enum resultadosDeOperacion {
 	ERROR = -1, EXITO
@@ -51,6 +54,7 @@ enum respuestasDatanode {
 	GUARDO_BLOQUE_OK,
 	TRAJO_BLOQUE_OK
 };
+
 
 /* Semaforos */
 extern sem_t semNodosRequeridos;
@@ -235,5 +239,7 @@ void enviarInfoNodosAYamaInicial();
 /*Para worker*/
 void *esperarConexionesWorker();
 t_infoArchivoFinal* deserializarInfoArchivoFinal(void*);
-void guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal);
+int guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal);
+void notificarResultadoAlmacenamiento(int socketWorker, int idHeader);
+
 #endif
