@@ -327,7 +327,6 @@ void deserializarTransformaciones(int cantTransformaciones, void* buffer,
 		memcpy(transformaciones->ip, buffer + *desplazamiento,
 				transformaciones->largoIp);
 		*desplazamiento += transformaciones->largoIp;
-		//transformaciones->ip[transformaciones->largoIp];
 		memcpy(&transformaciones->largoArchivo, buffer + *desplazamiento,
 				sizeof(transformaciones->largoArchivo));
 		*desplazamiento += sizeof(transformaciones->largoArchivo);
@@ -337,6 +336,7 @@ void deserializarTransformaciones(int cantTransformaciones, void* buffer,
 		memcpy(transformaciones->archivoTransformacion,
 				buffer + *desplazamiento, transformaciones->largoArchivo);
 		*desplazamiento += transformaciones->largoArchivo;
+		//transformaciones->archivoTransformacion[transformaciones->largoArchivo]='\0';
 		//transformaciones->archivoTransformacion[transformaciones->largoArchivo];
 		printf("ip nodo: %s\n",transformaciones->ip);
 		list_add(listaTransformaciones, transformaciones);
@@ -465,7 +465,7 @@ void cargarNodosTransformacion() {
 
 void operarEtapas() {
 
-	int i, j;
+	int i;
 	int transformaciones = list_size(listaTransformaciones);
 	//int redLocales = list_size(listaRedLocales);
 	int redGlobales = list_size(listaRedGloblales);
@@ -498,7 +498,6 @@ void operarEtapas() {
 	enviarTransformacionAWorkers(transformador, reductor);
 
 	t_header headerRed;
-	uint32_t respuestaYama;
 	while (finaliza == 0) {
 		//recibirPorSocket(socketYama, &headerRed, sizeof(t_header));
 		recibirHeader(socketYama, &headerRed);
@@ -831,7 +830,7 @@ int transformacionExistente(char* temporal){
 
 void avisarAYama(t_transformacionMaster* transformacion, t_header headerResp) {
 	int desplazamiento;
-	headerResp.tamanioPayload = transformacion->largoArchivo + 1;
+	headerResp.tamanioPayload = transformacion->largoArchivo;
 	void* buffer = malloc(sizeof(t_header) + headerResp.tamanioPayload);
 	desplazamiento = 0;
 	memcpy(buffer, &headerResp.id, sizeof(headerResp.id));
@@ -933,13 +932,15 @@ void avisarAlmacenadoFinal() {
 		free(temporalGlobal);
 		free(bufferStruct);
 		free(buffer);
-/*
+
 		int respuesta = respuestaWorker(socketWorker);
-		if(respuesta = ERRORALMACENADOFINAL){
+		if(respuesta == ERRORALMACENADOFINAL){
 			header.id = ERRORALMACENADOFINALYAMA;
+			printf("error en FS\n");
 		}
-		else if(respuesta = ALMACENADOFINALOK){
-			header.id = ALMACENADOFINALOKYAMA;
+		else if(respuesta == ALMACENADOFINALOK){
+			header.id = ALMACENADOFINALOK;
+			printf("envio a Yama que se guardo el archivo\n");
 		}
 		header.tamanioPayload = strlen(temporalGlobal);
 		buffer = malloc(sizeof(t_header) + header.tamanioPayload);
@@ -952,9 +953,10 @@ void avisarAlmacenadoFinal() {
 				header.tamanioPayload);
 		desplazamiento += header.tamanioPayload;
 
+		printf("termino de serializar respuesta final\n");
 		enviarPorSocket(socketYama, buffer, header.tamanioPayload);
 		free(buffer);
-*/	}
+	}
 }
 
 void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuffer){
@@ -973,10 +975,10 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 			i = listaRedGloblales->elements_count;
 		}
 	}
-	guardado->largoRutaArchivoFinal = strlen(direccionDeResultado)+1;
+	guardado->largoRutaArchivoFinal = strlen(direccionDeResultado);
 	guardado->nombreArchivoArchivoFinal = malloc(strlen(direccionDeResultado));
 	strcpy(guardado->nombreArchivoArchivoFinal, direccionDeResultado);
-	string_append(&guardado->nombreArchivoArchivoFinal,"\0");
+	//string_append(&guardado->nombreArchivoArchivoFinal,"\0");
 	buffer = malloc(sizeof(uint32_t)*2 + guardado->largoRutaArchivoFinal +
 			guardado->largoRutaTemporalArchivo);
 
@@ -1094,20 +1096,28 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 		t_header* header) {
 	void* buffer;
 	int desplazamiento = 0, tamanioBuffer;
-	t_falloTransformacion fallo;
-	fallo.largoRutaTemporal = transformacion->largoArchivo;
-	fallo.rutaTemporalTransformacion = malloc(fallo.largoRutaTemporal);
-	strcpy(fallo.rutaTemporalTransformacion,transformacion->archivoTransformacion);
-	fallo.largoRutaArchivoAProcesar = strlen(archivoAprocesar);
-	fallo.rutaArchivoAProcesar = malloc(fallo.largoRutaArchivoAProcesar);
-	strcpy(fallo.rutaArchivoAProcesar, archivoAprocesar);
-	fallo.largoRutaArchivoDestino = strlen(archivoAprocesar);
-	fallo.rutaArchivoDestino = malloc(fallo.largoRutaArchivoDestino);
-	strcpy(fallo.rutaArchivoDestino, direccionDeResultado);
+
+	t_falloTransformacion* fallo = malloc(sizeof(t_falloTransformacion));
+	fallo->largoRutaTemporal = transformacion->largoArchivo;
+	fallo->rutaTemporalTransformacion = malloc(fallo->largoRutaTemporal);
+	strcpy(fallo->rutaTemporalTransformacion,transformacion->archivoTransformacion);
+	string_append(&fallo->rutaTemporalTransformacion,"\0");
+	fallo->largoRutaArchivoAProcesar = strlen(archivoAprocesar); //tercer argumento de master
+	fallo->rutaArchivoAProcesar = malloc(fallo->largoRutaArchivoAProcesar);
+	strcpy(fallo->rutaArchivoAProcesar, archivoAprocesar);
+	string_append(&fallo->rutaArchivoAProcesar,"\0");
+	fallo->largoRutaArchivoDestino = strlen(direccionDeResultado); //cuartoumento argumento de master
+	fallo->rutaArchivoDestino = malloc(fallo->largoRutaArchivoDestino);
+
+	printf("temporal de transformacion: %s\n",transformacion->archivoTransformacion);
+	printf("%d de temporal: %s\n",fallo->largoRutaTemporal,fallo->rutaTemporalTransformacion);
+
+	strcpy(fallo->rutaArchivoDestino, direccionDeResultado);
+	string_append(&fallo->rutaArchivoDestino,"\0");
 
 
-	tamanioBuffer = sizeof(t_header) + 3 * sizeof(uint32_t)
-			+ fallo.largoRutaArchivoAProcesar + fallo.largoRutaTemporal;
+	tamanioBuffer = sizeof(t_header) + (3 * sizeof(uint32_t))
+			+ fallo->largoRutaArchivoAProcesar + fallo->largoRutaTemporal + fallo->largoRutaArchivoDestino;
 
 	buffer = malloc(tamanioBuffer);
 
@@ -1118,29 +1128,31 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer + desplazamiento, &header->tamanioPayload, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, &fallo.largoRutaTemporal, sizeof(uint32_t));
+	memcpy(buffer + desplazamiento, &fallo->largoRutaTemporal, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, fallo.rutaTemporalTransformacion,
-			fallo.largoRutaTemporal);
-	desplazamiento += fallo.largoRutaTemporal;
-	memcpy(buffer + desplazamiento, &fallo.largoRutaArchivoAProcesar,
+	memcpy(buffer + desplazamiento, fallo->rutaTemporalTransformacion,
+			fallo->largoRutaTemporal);
+	printf("despues serializar: %d- %s\n",fallo->largoRutaTemporal,fallo->rutaTemporalTransformacion);
+	desplazamiento += fallo->largoRutaTemporal;
+	memcpy(buffer + desplazamiento, &fallo->largoRutaArchivoAProcesar,
 			sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, fallo.rutaArchivoAProcesar,
-			fallo.largoRutaArchivoAProcesar);
-	desplazamiento += fallo.largoRutaArchivoAProcesar;
-	memcpy(buffer + desplazamiento, &fallo.largoRutaArchivoDestino,sizeof(uint32_t));
+	memcpy(buffer + desplazamiento, fallo->rutaArchivoAProcesar,
+			fallo->largoRutaArchivoAProcesar);
+	desplazamiento += fallo->largoRutaArchivoAProcesar;
+	memcpy(buffer + desplazamiento, &fallo->largoRutaArchivoDestino,sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	memcpy(buffer + desplazamiento, fallo.rutaArchivoDestino,fallo.largoRutaArchivoDestino);
-	desplazamiento += fallo.largoRutaArchivoDestino;
+	memcpy(buffer + desplazamiento, fallo->rutaArchivoDestino,fallo->largoRutaArchivoDestino);
+	desplazamiento += fallo->largoRutaArchivoDestino;
 
 	enviarPorSocket(socketYama, buffer, header->tamanioPayload);
 	pthread_mutex_lock(&mutexTotalFallos);
 	fallos++;
 	pthread_mutex_unlock(&mutexTotalFallos);
-	free(fallo.rutaArchivoAProcesar);
-	free(fallo.rutaTemporalTransformacion);
-	//free(buffer); //todo
+	free(fallo->rutaArchivoAProcesar);
+	free(fallo->rutaTemporalTransformacion);
+	free(fallo);
+	free(buffer);
 }
 
 void borrarTemporalesDeNodo(int nodo){
