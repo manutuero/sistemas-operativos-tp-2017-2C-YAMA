@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <utils.h>
+#include <signal.h>
 
 typedef struct{
 		uint32_t largoArchivo;
@@ -59,6 +60,7 @@ t_infoNodos deserializarActualizacion(void*);
 int recibirRutaDeArchivoAProcesar(int,t_pedidoTransformacion**);
 t_rutaArchivo* deserializarRutaArchivo(void* buffer);
 t_pedidoTransformacion* deserializarRutasArchivos(void* buffer,int*);
+char* deserializarNombreTMP(void *,int*);
 t_pedidoTransformacion* deserializarTresRutasArchivos(void *buffer,char *nombreTMP);
 void* obtenerBloquesDelArchivo(t_rutaArchivo*);
 
@@ -67,4 +69,8 @@ void crearTablaDeEstados();
 
 void conseguirIdNodo(char*,t_header*);
 
+/* log YAMA */
+void encargadoInterrupciones(int);
+
+void crearYAMALogger(t_log*);
 #endif /* FUNCIONESYAMA_H_ */

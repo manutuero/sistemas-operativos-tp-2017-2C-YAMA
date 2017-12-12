@@ -216,8 +216,14 @@ void escucharMasters() {
 							//char* temporal = malloc(headerResp.tamanioPayload+1);
 							temporal[headerResp.tamanioPayload] = '\0';
 							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
-							printf("termino la trans del temporal %s\n",temporal);
 
+							if(bytesRecibidos==0)
+							{
+								printf("Fallo la coneccion con master");
+								break;
+							}
+
+							printf("termino la trans del temporal %s\n",temporal);
 
 							if(cambiarEstado(temporal,COMPLETADO))
 								{
@@ -236,6 +242,13 @@ void escucharMasters() {
 						//	char* temporal = malloc(headerResp.tamanioPayload+1);
 							temporal[headerResp.tamanioPayload] = '\0';
 							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
+
+							if(bytesRecibidos==0)
+							{
+								printf("Fallo la coneccion con master");
+								break;
+							}
+
 							printf("termino la redlocal del temporal %s\n",temporal);
 
 
@@ -252,6 +265,13 @@ void escucharMasters() {
 							//char* temporal = malloc(headerResp.tamanioPayload+1);
 							temporal[headerResp.tamanioPayload] = '\0';
 							bytesRecibidos = recibirPorSocket(i,temporal, headerResp.tamanioPayload);
+
+							if(bytesRecibidos==0)
+							{
+								printf("Fallo la coneccion con master");
+								break;
+							}
+
 							printf("termino la redglobal del temporal %s\n",temporal);
 							uint32_t respuesta = 21;
 							headerResp.id = 21;
@@ -265,22 +285,45 @@ void escucharMasters() {
 						case 103:
 							printf("repreplanifica\n");
 							t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
-							char *nombreTMP=NULL;
+							char *nombreTMP;
+							int *desplazamiento;
 							buffer = malloc(headerResp.tamanioPayload);
-							recibirPorSocket(i,buffer,headerResp.tamanioPayload);
-							pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
-							t_tabla_estados* registro = encontrarRegistro(pedido->nombreArchivo);
-							t_job* jobMaster = malloc(sizeof(t_job));
-							jobMaster->job = registro->job;
-							jobMaster->idMaster = registro->master;
-							jobMaster->socketMaster = i;
-							jobMaster->replanifica = 1;
-							printf("repre2\n");
-							rePrePlanificacion(pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal,nombreTMP, jobMaster);
-							break;
+							bytesRecibidos=recibirPorSocket(i,buffer,headerResp.tamanioPayload);
+							if(bytesRecibidos==0)
+							{
+								printf("Fallo la coneccion con master");
+								break;
+							}
+
+							nombreTMP = deserializarNombreTMP(buffer,desplazamiento);
+							pedido=deserializarRutasArchivos(buffer+*desplazamiento,1);
+
+							//pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
+							t_tabla_estados* registro = encontrarRegistro(nombreTMP);
+
+							if(registro->job==-1)
+							{
+								printf("No se puede replanificar, no se encuentra el registro\n");
+							}
+							else
+							{
+								t_job* jobMaster = malloc(sizeof(t_job));
+								jobMaster->job = registro->job;
+								jobMaster->idMaster = registro->master;
+								jobMaster->socketMaster = i;
+								jobMaster->replanifica = 1;
+								printf("repre2\n");
+								rePrePlanificacion(pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal,nombreTMP, jobMaster);
+							}
+								break;
 
 						case 104:
 							printf("Se procede a terminar el trabajo en estado erroneo");
+							eliminarJob(temporal);
+							break;
+
+						case 107:
+							printf("Se procede a actualizar trabajo a error tarea por fallo guardado final en yamafs");
 							eliminarJob(temporal);
 							break;
 
@@ -464,19 +507,38 @@ t_pedidoTransformacion* deserializarRutasArchivos(void* buffer, int *idMaster){
 return rutaArchivos;
 }
 
+char* deserializarNombreTMP(void *buffer,int *desplazamiento)
+{
+	char *nombreTMP;
+	int largo,desp=0;
+
+	memcpy(&largo,buffer,sizeof(uint32_t));
+	desp+=sizeof(uint32_t);
+	nombreTMP = malloc(largo);
+
+	memcpy(nombreTMP,buffer+desp,largo);
+
+	desp+=largo;
+
+	*desplazamiento=desp;
+	return nombreTMP;
+}
+
 t_pedidoTransformacion* deserializarTresRutasArchivos(void *buffer,char *nombreTMP)
 {
 	t_pedidoTransformacion *pedido;
 	pedido = malloc (sizeof(t_pedidoTransformacion));
 	uint32_t largo,desplazamiento=0;
+	char *tmpAux;
 
 	//Nombre temporal
 	memcpy(&largo,buffer+desplazamiento,sizeof(uint32_t));
-	nombreTMP = malloc(largo);
+	tmpAux = malloc(largo);
 	desplazamiento+=sizeof(uint32_t);
 
-	memcpy(nombreTMP,buffer+desplazamiento,largo);
+	memcpy(tmpAux,buffer+desplazamiento,largo);
 	desplazamiento+=largo;
+	string_append(&nombreTMP,tmpAux);
 
 	//Nombre archivo original
 	memcpy(&largo,buffer+desplazamiento,sizeof(uint32_t));
@@ -549,3 +611,72 @@ void conseguirIdNodo(char* temporal,t_header *header)
 	}
 }
 
+void encargadoInterrupciones(int senial)
+{
+	int i;
+	char *mensaje;
+	t_tabla_estados *registro;
+	t_log *logger;
+
+	crearYAMALogger(logger);
+
+	//signal(senial,SIG_IGN);
+
+	if(list_size(listaTablaEstados)==0)
+		log_info(logger,"NO HAY ACTIVIDAD QUE REGISTRAR");
+	else
+	{
+		mensaje = string_new();
+		for(i=0;i<list_size(listaTablaEstados);i++)
+		{
+			registro = list_get(listaTablaEstados,i);
+			if((registro->estado==COMPLETADO)||(registro->estado==ERROR_TAREA))
+			{
+				string_append(&mensaje,"JOB: ");
+				string_append(&mensaje,string_itoa(registro->job));
+				string_append(&mensaje,"\tMASTER ID: ");
+				string_append(&mensaje,string_itoa(registro->master));
+				switch(registro->etapa)
+				{
+				case 1:
+					string_append(&mensaje,"\tETAPA TRANSFORMACION");
+					break;
+				case 2:
+					string_append(&mensaje,"\tETAPA REDUCCION LOCAL");
+					break;
+				case 3:
+					string_append(&mensaje,"\tETAPA REDUCCION GLOBAL");
+					break;
+				}
+				string_append(&mensaje,"\tARCHIVO TEMPORAL: ");
+				string_append(&mensaje,registro->archivoTemp);
+				string_append(&mensaje,"\ESTADO: ");
+				if(registro->estado==COMPLETADO)
+					string_append(&mensaje,"COMPLETADO");
+				else
+					string_append(&mensaje,"ERROR EN LA OPERACION");
+			}
+		log_info(logger,mensaje);
+	}}
+	//log_destroy(logger);
+	exit(0);
+}
+
+void crearYAMALogger(t_log *logger) {
+	char *pathLogger = string_new();
+	char* temporal = string_new();
+	char* sTime = temporal_get_string_time();
+	char cwd[1024];
+	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+	string_append(&temporal, "/logs/YAMALogs");
+	string_append(&temporal, sTime);
+	string_append(&temporal,".log");
+	string_append(&pathLogger, temporal);
+
+	char *logYAMAFileName = strdup(temporal);
+	free(sTime);
+	free(temporal);
+	free(logYAMAFileName);
+	free(pathLogger);
+	logYAMAFileName = NULL;
+}

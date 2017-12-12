@@ -132,6 +132,8 @@ void *preplanificarJob(t_job* jobMaster){
 	free(clock);
 	free(clockAux);
 
+	usleep(RETARDO_PLANIFICACION);
+
 	return((void*)0);
 }
 
@@ -580,11 +582,12 @@ void planificacionReduccionLocal()
 	char *nombreTMP;
 
 
-	redLocal = malloc(sizeof(t_reduccionLocalMaster));
 	transformacion = list_get(listaPlanTransformaciones,i);
 
 	while(i<cantTransformaciones)
 	{
+		redLocal = malloc(sizeof(t_reduccionLocalMaster));
+
 		nodoActual = transformacion->idNodo;
 
 		nombreTMP = generarNombreArchivoTemporal(job, transformacion->idNodo, 8000);
@@ -1157,7 +1160,8 @@ void cargarInfoTransformacionMaster(t_bloqueRecv *registroBloque,t_transformacio
 
 	largoIp = strlen(workers[transformacion->idNodo].ip)+1;
 	transformacion->largoIp=largoIp;
-	strcpy(transformacion->ip,workers[transformacion->idNodo].ip);
+	transformacion->ip=malloc(largoIp);
+	memcpy(transformacion->ip,workers[transformacion->idNodo].ip,largoIp);
 
 	workers[transformacion->idNodo].workLoad++;
 

@@ -12,6 +12,7 @@
 
 int main(void) {
 
+	signal(SIGINT,encargadoInterrupciones);
 	cargarArchivoDeConfiguracion();
 	crearTablaDeEstados();
 	conectarseAFS();
