@@ -2455,3 +2455,24 @@ void notificarResultadoAlmacenamiento(int socketWorker, int idHeader) {
 
 	free(header);
 }
+
+void crearLoggerFs() {
+	char *pathLogger, *logFsFileName;
+	char cwd[1024];
+
+	// Creo el path donde estara el log, tomando el current working directory.
+	pathLogger = string_new();
+	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+	string_append(&pathLogger, "/fsLogs.log");
+
+	// Asi es como se llamara el log.
+	logFsFileName = string_duplicate("fsLogs.log");
+
+	// Creo el logger.
+	fsLogger = log_create(pathLogger, logFsFileName, false,
+			LOG_LEVEL_INFO);
+
+	// Libero recursos.
+	free(logFsFileName);
+	logFsFileName = NULL;
+}

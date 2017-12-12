@@ -17,6 +17,9 @@
 #define ERROR_ALMACENAMIENTO_FINAL 107
 #define ALMACENAMIENTO_FINAL_OK 27
 
+/* Logger */
+t_log *fsLogger;
+
 /* Enums */
 enum resultadosDeOperacion {
 	ERROR = -1, EXITO
@@ -127,6 +130,7 @@ extern t_list *archivos;
 
 /* Firmas de funciones para archivo de configuracion */
 void cargarArchivoDeConfiguracionFS(char *path);
+void crearLoggerFs();
 
 /* Firmas de funciones para inicializacion */
 void crearDirectorioMetadata();
