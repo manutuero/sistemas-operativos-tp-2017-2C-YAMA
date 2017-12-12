@@ -68,6 +68,7 @@ void cargarArchivoDeConfiguracionFS(char *path) {
 		exit(EXIT_FAILURE);
 	}
 
+	log_info(fsLogger, "Cargando archivo de configuracion...hecho.");
 }
 
 /* Implementacion de funciones para bitmaps */
@@ -757,6 +758,7 @@ void borrarDirectorioMetadata() {
 		string_append(&comando, PATH_METADATA);
 		system(comando);
 		free(comando);
+		log_info(fsLogger, "Borrando directorio metadata del sistema...hecho.");
 	}
 
 	closedir(directorio);
