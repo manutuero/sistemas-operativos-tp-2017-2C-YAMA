@@ -433,6 +433,8 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
 		free(rutaTempRecibido);
 	}
 
+	if(i==infoReduccionGlobal->cantidadNodos-1){
+
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
 			rutaArchApareado, rutaArchReductor, rutaArchReducidoFinal);
 
@@ -464,6 +466,12 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
 	free(rutaArchReductor);
 	//free(rutaTempRecibido);
 	free(lineaAEjecutar);
+	}else {
+		notificarAMaster(ERROR_REDUCCION,socketMaster);
+		printf("No se pudo realizar la reduccion global");
+		log_info(workerLogger,"Error en reduccion global,no se genero %s",infoReduccionGlobal->rutaArchivoTemporalFinal);
+	}
+
 }
 
 void aparearArchivos(char* rutaArchAAparear, FILE* archivoRecibido,
