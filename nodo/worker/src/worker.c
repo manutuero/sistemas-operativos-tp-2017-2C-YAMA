@@ -3,6 +3,7 @@
 int main(void) {
 
 	//pathTemporales = "/home/utnso/temp/";
+	verificarExistenciaCarpetaLogs();
 	crearLogger();
 	NODOARCHCONFIG = "nodoConfig.cfg";
 	cargarArchivoConfiguracion(NODOARCHCONFIG);
