@@ -164,9 +164,8 @@ void escucharMasters() {
 	while (1) {
 
 		readfds = auxRead;
-		int bytes_recv_select;
 		sleep(1);
-		if (bytes_recv_select = select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
+		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
 			perror("select");
 			exit(1);
 		}
@@ -234,12 +233,7 @@ void escucharMasters() {
 										conseguirIdNodo(temporal,&headerResp);
 										printf("nodo reduccion local: %d\n",headerResp.tamanioPayload);
 										headerResp.id = 13;
-										bytesRecibidos = enviarPorSocket(i,&headerResp,0);
-										if(bytesRecibidos == -1){
-											printf("se desconecto master\n");
-											FD_CLR(i, &readfds);
-											shutdown(i, 2);
-										}
+										enviarPorSocket(i,&headerResp,0);
 									}
 							}
 
@@ -267,11 +261,7 @@ void escucharMasters() {
 							if(cambiarEstado(temporal,COMPLETADO)){
 								headerResp.id = 17;
 								headerResp.tamanioPayload=0;
-								bytesRecibidos = enviarPorSocket(i,&headerResp,0);
-								if(bytesRecibidos == -1) {
-									printf("se desconecto master. \n");
-
-								}
+								enviarPorSocket(i,&headerResp,0);
 							}}
 
 							free(temporal);
@@ -301,7 +291,6 @@ void escucharMasters() {
 								printf("%d",respuesta);
 							}
 
-							free(temporal);
 							break;
 
 						case 103:
@@ -310,6 +299,7 @@ void escucharMasters() {
 							char *nombreTMP;
 							int *desplazamiento;
 							buffer = malloc(headerResp.tamanioPayload);
+							desplazamiento = malloc(sizeof(int));
 							bytesRecibidos=recibirPorSocket(i,buffer,headerResp.tamanioPayload);
 							if(bytesRecibidos==0)
 							{
@@ -323,7 +313,12 @@ void escucharMasters() {
 								nombreTMP = deserializarNombreTMP(buffer,desplazamiento);
 								pedido=deserializarRutasArchivos(buffer+*desplazamiento,1);
 
-								//pedido = deserializarTresRutasArchivos(buffer,nombreTMP);
+								if(sonIguales(pedido->nombreArchivo,"yamafs:/root/nombres.csv"))
+									printf("son Iguales");
+
+								if(sonIguales(pedido->nombreArchivoGuardadoFinal,"yamafs:/root/nombresFinal"))
+									printf("son iguales");
+
 								t_tabla_estados* registro = encontrarRegistro(nombreTMP);
 
 								if(registro->job==-1)
@@ -705,16 +700,4 @@ void crearYAMALogger(t_log *logger) {
 	free(logYAMAFileName);
 	free(pathLogger);
 	logYAMAFileName = NULL;
-}
-
-
-void masterDesconectado(int senial){
-	if(senial == SIGPIPE){
-		//printf("recibi la senial sigpipe\n");
-	}
-	if(senial == SIGTRAP){
-		//printf("recibi la senial SIGTRAP\n");
-	}
-
-	signal(SIGPIPE, SIG_IGN);
 }

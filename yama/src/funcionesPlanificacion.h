@@ -11,7 +11,8 @@
 #define TRANSFORMACION 1
 #define REDUCCION_LOCAL 2
 #define REDUCCION_GLOBAL 3
-
+#define RED_LOCAL 8000
+#define RED_GLOBAL 9000
 
 /* 									Estructuras									*/
 
@@ -132,7 +133,7 @@ void crearListas();
 /* Obtener bloques de un archivo  */
 void envioPedidoArchivoAFS(t_pedidoTransformacion);
 
-void recibirComposicionArchivo(t_job *);
+int recibirComposicionArchivo(t_job *);
 
 /* Inicializa el array de workers suponiendo que todos estan deshabilitados inicialmente */
 void inicializarWorkers(void);
@@ -217,7 +218,9 @@ void rePrePlanificacion(char *,char *,char *,t_job *);
 
 void rePlanificacionReduccionGlobal(t_list*,int,int*);
 
-void rePrePlanificarTransformaciones(t_list *listaTareasCaidas);
+void removerTransforamcionesPlanificadas(t_list *);
+
+void rePrePlanificarTransformaciones(t_list *);
 
 /* filtrar de la tabla de estado las tareas que tenia el nodo caido */
 void filtrarTareas(int,int,t_list*,t_list*);

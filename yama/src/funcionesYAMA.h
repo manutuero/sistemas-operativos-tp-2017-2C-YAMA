@@ -72,7 +72,5 @@ void conseguirIdNodo(char*,t_header*);
 /* log YAMA */
 void encargadoInterrupciones(int);
 
-void masterDesconectado(int);
-
 void crearYAMALogger(t_log*);
 #endif /* FUNCIONESYAMA_H_ */

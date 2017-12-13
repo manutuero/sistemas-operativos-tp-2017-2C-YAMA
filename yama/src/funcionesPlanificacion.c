@@ -28,7 +28,7 @@ void *preplanificarJob(t_job* jobMaster){
 
 	//t_bloqueRecv* bloqueRecibido;
 	int i,cantNodosInvolucrados,*clock,*clockAux,transformacionesOk=0;
-
+	int estadoRecepcion;
 
 	crearListas();
 
@@ -43,8 +43,13 @@ void *preplanificarJob(t_job* jobMaster){
 
 	/* RBFS    Recibir de FS la composicion completa del archivo          */
 
-	recibirComposicionArchivo(jobMaster);
+	estadoRecepcion = recibirComposicionArchivo(jobMaster);
 
+	if(!estadoRecepcion)
+	{
+		printf("Fallo en la recepcion de la metadata de composicion de archivo");
+		return((void*)0);
+	}
 
 	/*for (i=0;i<header.tamanioPayload;i++)
 	{
@@ -543,11 +548,11 @@ char* generarNombreArchivoTemporal(int job, int nodo, int bloque){
 	string_append(&nombre, "/tmp/");
 	string_append_with_format(&nombre, "j%s", jobString);
 
-	if(bloque == 9000){ //si es reduccion global
+	if(bloque == RED_GLOBAL){ //si es reduccion global
 		string_append(&nombre, "rg");
 	}else{
 		string_append_with_format(&nombre, "n%s", nodoString);
-		if(bloque == 8000){
+		if(bloque == RED_LOCAL){
 		string_append(&nombre,"rl");
 		}else{ //si es reduccion local
 			string_append_with_format(&nombre, "b%s", bloqueString);
@@ -590,7 +595,7 @@ void planificacionReduccionLocal()
 
 		nodoActual = transformacion->idNodo;
 
-		nombreTMP = generarNombreArchivoTemporal(job, transformacion->idNodo, 8000);
+		nombreTMP = generarNombreArchivoTemporal(job, transformacion->idNodo, RED_LOCAL);
 
 		while ((i<cantTransformaciones)&&(nodoActual==transformacion->idNodo))
 		{
@@ -605,8 +610,6 @@ void planificacionReduccionLocal()
 		free(nombreTMP);
 	}
 
-	//free(nombreTMP);
-
 	return;
 }
 
@@ -617,15 +620,15 @@ void cargarInfoReduccionLocal(t_transformacionMaster *transformacion, t_reduccio
 
 	reduccion->largoArchivoRedLocal = strlen(nombreTMP)+1;
 	reduccion->archivoRedLocal = malloc(reduccion->largoArchivoRedLocal);
-	strcpy(reduccion->archivoRedLocal,nombreTMP);
+	memcpy(reduccion->archivoRedLocal,nombreTMP,reduccion->largoArchivoRedLocal);
 
 	reduccion->largoIp = strlen(transformacion->ip)+1;
 	reduccion->ip = malloc(reduccion->largoIp);
-	strcpy(reduccion->ip,transformacion->ip);
+	memcpy(reduccion->ip,transformacion->ip,reduccion->largoIp);
 
 	reduccion->largoArchivoTransformacion = strlen(transformacion->archivoTransformacion)+1;
 	reduccion->archivoTransformacion = malloc(reduccion->largoArchivoTransformacion);
-	strcpy(reduccion->archivoTransformacion,transformacion->archivoTransformacion);
+	memcpy(reduccion->archivoTransformacion,transformacion->archivoTransformacion,reduccion->largoArchivoTransformacion);
 
 	return;
 }
@@ -997,14 +1000,14 @@ void actualizarConfig()
 
 /*RPPL				           Re Pre Planificacion 	      					*/
 
-
+/*VERIFICAR QUE ESTEN LOS DOS NODOS CAIDOS CANCELAR JOB */
 void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *archivoTMP,t_job* jobRePlanificado)
 {
 	t_tabla_estados *registroEstados;
 	t_transformacionMaster *transformacion;
 	t_list *listaTareas,*listaTransformacionesCaidas,
 			*listaTransformacionesReplanificadas;
-	int i,cantNodosInvolucrados;
+	int i,cantNodosInvolucrados,estadoRecepcion;
 	t_bloqueRecv *registroBloque;
 	t_pedidoTransformacion pedidoTransformacion;
 
@@ -1027,11 +1030,17 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	/* Adquirir composicion del archivo*/
 	envioPedidoArchivoAFS(pedidoTransformacion);
 
-	recibirComposicionArchivo(jobRePlanificado);
+	estadoRecepcion=recibirComposicionArchivo(jobRePlanificado);
 
+	if(!estadoRecepcion)
+	{
+		printf("Error Recepcion metadata bloques\n");
+		return;
+	}
 
 	/* Ordenar lista por mayor disponibilidad */
-	list_sort(listaNodosInvolucrados,ordenarPorDisponibilidad);
+	if(list_size(listaNodosInvolucrados)>1)
+		list_sort(listaNodosInvolucrados,ordenarPorDisponibilidad);
 
 	/* Generar vector que sera utilizado por el clock */
 	cantNodosInvolucrados= list_size(listaNodosInvolucrados);
@@ -1060,10 +1069,13 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	planificacionReduccionLocal();
 
 	/* La planificacion de reduccion global siempre se pisa, no importa si el nodo era el encargado
-	 * o no ya que hay que pasarle la ubicacion de los nuevos archivos temporales de
+	 * o no ya que hay que pasarle la ubicacion de los nuevos archivos tserializarPeticionInfoArchivoemporales de
 	 * reduccion locales*/
 
 	rePlanificacionReduccionGlobal(listaTareas,cantNodosInvolucrados,nodosInvolucrados);
+
+	/* remover transformaciones no replanificadas*/
+	removerTransforamcionesPlanificadas(listaTransformacionesReplanificadas);
 
 	enviarPlanificacionAMaster(jobRePlanificado);
 
@@ -1074,6 +1086,23 @@ void rePrePlanificacion(char *archivoTrabajo, char *archivoGuardadoFinal,char *a
 	list_destroy(listaTareas);
 	list_destroy(listaTransformacionesCaidas);
 	list_destroy(listaTransformacionesReplanificadas);
+
+	return;
+}
+
+void removerTransforamcionesPlanificadas(t_list *listaTransfReplanificadas)
+{
+	t_tabla_estados *registro;
+	int i;
+
+	list_clean(listaPlanTransformaciones);
+
+
+	for (i=0;i<list_size(listaTransfReplanificadas);i++)
+	{
+		registro = list_get(listaTransfReplanificadas,i);
+		list_add(listaPlanTransformaciones,registro);
+	}
 
 	return;
 }
@@ -1156,7 +1185,7 @@ void cargarInfoTransformacionMaster(t_bloqueRecv *registroBloque,t_transformacio
 	nombreTMP= generarNombreArchivoTemporal(jobReplanificado,transformacion->idNodo,transformacion->nroBloqueNodo);
 	transformacion->largoArchivo = strlen(nombreTMP)+1;
 	transformacion->archivoTransformacion=malloc(transformacion->largoArchivo);
-	strcpy(transformacion->archivoTransformacion,nombreTMP);
+	memcpy(transformacion->archivoTransformacion,nombreTMP,transformacion->largoArchivo);
 
 	largoIp = strlen(workers[transformacion->idNodo].ip)+1;
 	transformacion->largoIp=largoIp;
@@ -1180,22 +1209,22 @@ t_transformacionMaster *recuperarInformacionTransformacion(t_list* tareas,t_bloq
 	{
 		registro = list_get(tareas,i);
 
-		if((registro->nroBloqueArch==bloqueRecibido->nroBloqueArch)&&(registro->estado!=ERROR_TAREA))
+		if((registro->nroBloqueArch==bloqueRecibido->nroBloqueArch)&&(registro->estado!=ERROR_TAREA)&&(registro->etapa==TRANSFORMACION))
 		{
 			transformacion->idNodo = registro->nodo;
 			transformacion->nroBloqueNodo = registro->bloque;
 			transformacion->bytesOcupados=bloqueRecibido->bytesOcupados;
 
 			//nombre de archivo temporal
-			transformacion->largoArchivo = strlen(registro->archivoTemp)+1;
-			transformacion->archivoTransformacion= malloc(sizeof(transformacion->largoArchivo));
-			strcpy(transformacion->archivoTransformacion,registro->archivoTemp);
+			transformacion->largoArchivo = strlen(registro->archivoTemp);
+			transformacion->archivoTransformacion= malloc(transformacion->largoArchivo);
+			memcpy(transformacion->archivoTransformacion,registro->archivoTemp,transformacion->largoArchivo);
 
 			//Datos Ip y puerto
 			transformacion->puerto=workers[registro->nodo].puerto;
-			transformacion->largoIp = strlen(workers[registro->nodo].ip)+1;
+			transformacion->largoIp = strlen(workers[registro->nodo].ip);
 			transformacion->ip=malloc(transformacion->largoIp);
-			strcpy(transformacion->ip,workers[registro->nodo].ip);
+			memcpy(transformacion->ip,workers[registro->nodo].ip,transformacion->largoIp);
 		}
 	}
 
@@ -1230,13 +1259,13 @@ t_pedidoTransformacion prepararPedidoTransformacion(char *original,char *guardad
 
 	pedidoTransformacion.largoArchivo = largoArchivo;
 	pedidoTransformacion.nombreArchivo= malloc(largoArchivo);
-	strcpy(pedidoTransformacion.nombreArchivo,original);
+	memcpy(pedidoTransformacion.nombreArchivo,original,pedidoTransformacion.largoArchivo);
 
 	largoArchivo = strlen(guardadoFinal)+1;
 
 	pedidoTransformacion.largoArchivo2 = largoArchivo;
 	pedidoTransformacion.nombreArchivoGuardadoFinal = malloc(largoArchivo);
-	strcpy(pedidoTransformacion.nombreArchivoGuardadoFinal,guardadoFinal);
+	memcpy(pedidoTransformacion.nombreArchivoGuardadoFinal,guardadoFinal,pedidoTransformacion.largoArchivo2);
 
 	return pedidoTransformacion;
 }
@@ -1252,7 +1281,9 @@ void filtrarTareas(int jobCaido,int nodoCaido,t_list* listaTareas,t_list *transf
 
 		if(registro->job==jobCaido)
 		{
-			registro->estado=ERROR_TAREA;
+			if(registro->nodo==nodoCaido)
+				registro->estado=ERROR_TAREA;
+
 			list_add(listaTareas,registro);//todas las tareas de ese trabajo y nodo
 		}
 
@@ -1295,7 +1326,7 @@ void envioPedidoArchivoAFS(t_pedidoTransformacion pedido){
 
 /*  						Recibir composicion de archivo   				*/
 
-void recibirComposicionArchivo(t_job *jobMaster){
+int recibirComposicionArchivo(t_job *jobMaster){
 
 	t_header *header;
 	void *buffer;
@@ -1336,15 +1367,21 @@ void recibirComposicionArchivo(t_job *jobMaster){
 		guardarEnBloqueRecibidos(bloqueRecibido);
 
 	}
-
 	free(buffer);
+
+	return 1;
 	}
 	else
 	{
-		enviarMensajeFalloOperacion(jobMaster);
+		if(header->id==100)
+				enviarMensajeFalloOperacion(jobMaster);
+		else
+			printf("Header Desconocido");
+
+		return 0;
 	}
 
-	return;
+	return 1;
 }
 
 /*                     		Enviar la planificacion a master                  */
