@@ -361,10 +361,10 @@ void* esperarConexionesDatanodes() {
 						socketsClientes[i] = 0; // Lo saco de la lista de sd conectados.
 						cerrarSocket(sd);
 						sacarNodo(sd);
+						log_info(fsLogger, "Se desconecta un nodo.");
 					}
 					free(buffer);
 				}
-
 			}
 		}
 	}
@@ -1694,7 +1694,7 @@ void *escucharPeticionesYama() {
 			deserializarPeticionInfoArchivo(peticionRecibida, &pathArchivo,
 					&pathGuardadoFinal);
 
-			char* path = string_substring_from(pathArchivo, 7);	// 7 = yama:
+			char* path = string_substring_from(pathArchivo, 7);	// 7 = yamafs:
 			char *pathFinal = string_substring_from(pathGuardadoFinal, 7);
 			t_archivo_a_persistir* archivo = abrirArchivo(path);
 
@@ -1713,12 +1713,11 @@ void *escucharPeticionesYama() {
 
 			} else {
 				t_header* headerRta = malloc(sizeof(t_header));
-				header->id = 100;
-				header->tamanioPayload = 0;
-				enviarPorSocket(socketYama, headerRta, 0);
+				headerRta->id = 100;
+				headerRta->tamanioPayload = 0;
+				enviarPorSocket(socketCliente, headerRta, 0); // ANTES socketYama..
 
 				free(headerRta);
-
 			}
 			free(peticionRecibida);
 			free(pathArchivo);
@@ -1744,8 +1743,8 @@ int esArchivoRegular(char *path) {
 	return S_ISREG(st.st_mode);
 }
 
-void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
-		char ** rutaGuardadoFinal) {
+void deserializarPeticionInfoArchivo(void *paquete, char **rutaArchivo,
+		char **rutaGuardadoFinal) {
 	int desplazamiento = 0;
 	uint32_t* largoALeer = malloc(sizeof(uint32_t));
 
@@ -1764,7 +1763,6 @@ void deserializarPeticionInfoArchivo(void *paquete, char ** rutaArchivo,
 	memcpy(*rutaGuardadoFinal, paquete + desplazamiento, *largoALeer); //ruta donde se va a guardar el resultado del proceso
 
 	free(largoALeer);
-
 }
 
 void serializarInfoArchivo(t_archivo_a_persistir *archivo,
