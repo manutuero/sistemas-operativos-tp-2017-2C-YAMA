@@ -13,6 +13,7 @@
 int main(void) {
 
 	signal(SIGINT,encargadoInterrupciones);
+	signal(SIGPIPE, masterDesconectado);
 	cargarArchivoDeConfiguracion();
 	crearTablaDeEstados();
 	conectarseAFS();

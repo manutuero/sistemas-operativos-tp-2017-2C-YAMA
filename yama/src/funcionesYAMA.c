@@ -164,8 +164,9 @@ void escucharMasters() {
 	while (1) {
 
 		readfds = auxRead;
+		int bytes_recv_select;
 		sleep(1);
-		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
+		if (bytes_recv_select = select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
 			perror("select");
 			exit(1);
 		}
@@ -233,7 +234,12 @@ void escucharMasters() {
 										conseguirIdNodo(temporal,&headerResp);
 										printf("nodo reduccion local: %d\n",headerResp.tamanioPayload);
 										headerResp.id = 13;
-										enviarPorSocket(i,&headerResp,0);
+										bytesRecibidos = enviarPorSocket(i,&headerResp,0);
+										if(bytesRecibidos == -1){
+											printf("se desconecto master\n");
+											FD_CLR(i, &readfds);
+											shutdown(i, 2);
+										}
 									}
 							}
 
@@ -261,7 +267,11 @@ void escucharMasters() {
 							if(cambiarEstado(temporal,COMPLETADO)){
 								headerResp.id = 17;
 								headerResp.tamanioPayload=0;
-								enviarPorSocket(i,&headerResp,0);
+								bytesRecibidos = enviarPorSocket(i,&headerResp,0);
+								if(bytesRecibidos == -1) {
+									printf("se desconecto master. \n");
+
+								}
 							}}
 
 							free(temporal);
@@ -695,4 +705,16 @@ void crearYAMALogger(t_log *logger) {
 	free(logYAMAFileName);
 	free(pathLogger);
 	logYAMAFileName = NULL;
+}
+
+
+void masterDesconectado(int senial){
+	if(senial == SIGPIPE){
+		//printf("recibi la senial sigpipe\n");
+	}
+	if(senial == SIGTRAP){
+		//printf("recibi la senial SIGTRAP\n");
+	}
+
+	signal(SIGPIPE, SIG_IGN);
 }
