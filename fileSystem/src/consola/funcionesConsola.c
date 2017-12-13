@@ -49,6 +49,7 @@ void ejecutarFormat() {
 		}
 
 		printf("Formateando sistema... hecho.\n");
+		log_info(fsLogger, "Formateando sistema...hecho.");
 		cantidad_nodos_esperados = nodos->elements_count;
 		sem_post(&semEstadoEstable);
 	} else {
@@ -105,6 +106,8 @@ void ejecutarRmArchivo(char **argumentos) {
 	string_append(&comando, "/");
 	string_append(&comando, obtenerNombreArchivo(pathArchivo));
 	system(comando);
+
+	log_info(fsLogger, "Eliminando archivo...hecho.");
 
 	// Libero recursos
 	list_destroy(bloques);
@@ -178,6 +181,8 @@ void ejecutarRmDirectorio(char **argumentos) {
 		string_append(&comando, pathDirectorioLocal);
 		system(comando);
 
+		log_info(fsLogger, "Eliminando directorio...hecho.");
+
 		// Libero recursos
 		free(comando);
 		free(pathDirectorioYama);
@@ -231,6 +236,7 @@ void ejecutarCat(char **argumentos) {
 		offset += bloque->bytesOcupados;
 	}
 
+	log_info(fsLogger, "Ejecutando cat...hecho.");
 	// Imprimo el contenido del archivo como texto plano (cat).
 	printf("%s", contenido);
 
@@ -244,6 +250,7 @@ void ejecutarMkdir(char **argumentos) {
 	char *path = argumentos[1];
 	if (esValido(path) && strlen(path) > 1) {
 		mkdirFs(path);
+		log_info(fsLogger, "Creando directorio...hecho.");
 	} else
 		printf(
 				"mkdir: no se puede crear el directorio «%s»: La ruta ingresada no es valida.\n",
@@ -290,6 +297,8 @@ void ejecutarMd5(char **argumentos) {
 
 		// Ejecuto la llamada a sistema.
 		system(comando);
+
+		log_info(fsLogger, "Ejecutando md5...hecho.");
 
 		remove(pathArchivoTemporal); // Borra el archivo temporal.
 		free(comando);
@@ -340,6 +349,10 @@ void ejecutarLs(char **argumentos) {
 	} else {
 		printf("La ruta '%s' no es valida.\n", path);
 	}
+
+	log_info(fsLogger, "Ejecutando ls...hecho.");
+
+	// Libero recursos
 	free(path);
 }
 
@@ -400,6 +413,8 @@ void ejecutarInfo(char **argumentos) {
 	}
 	printf("\n");
 
+	log_info(fsLogger, "Ejecutando info...hecho.");
+
 	// Libero recursos.
 	liberarArchivoSinContenido(archivo);
 	free(pathArchivo);
@@ -442,6 +457,8 @@ void ejecutarRename(char **argumentos) {
 		renombrarArchivo(pathOriginal, nombreFinal);
 	}
 
+	log_info(fsLogger, "Ejecutando rename...hecho.");
+
 	// Libero recursos.
 	free(pathOriginal);
 	free(nombreFinal);
@@ -475,6 +492,7 @@ void ejecutarMv(char **argumentos) {
 		}
 
 		moverDirectorio(pathOriginal, pathFinal);
+		log_info(fsLogger, "Ejecutando mv -d ...hecho.");
 	} else {
 		if(!existeArchivoEnYamaFs(pathOriginal)) {
 			printf("El archivo '%s' no existe en ':yamafs'.\n", pathOriginal);
@@ -483,6 +501,7 @@ void ejecutarMv(char **argumentos) {
 			return;
 		}
 		moverArchivo(pathOriginal, pathFinal);
+		log_info(fsLogger, "Ejecutando mv ...hecho.");
 	}
 
 	// Libero recursos.
@@ -533,6 +552,8 @@ void ejecutarCpfrom(char **argumentos) {
 	nombreArchivo = obtenerNombreArchivo(pathArchivoOrigen);
 	tipo = obtenerTipo(pathArchivoOrigen);
 	almacenarArchivo(pathDirectorioYamaFs, nombreArchivo, tipo, datos);
+
+	log_info(fsLogger, "Ejecutando cpfrom...hecho.");
 
 	// Libero recursos.
 	fclose(datos);
@@ -608,6 +629,8 @@ void ejecutarCpto(char **argumentos) {
 		fwrite(bloque->contenido, sizeof(char), bloque->bytesOcupados,
 				nuevoArchivo);
 	}
+
+	log_info(fsLogger, "Ejecutando cpto...hecho.");
 
 	// Libero recursos.
 	fclose(nuevoArchivo);
@@ -758,6 +781,8 @@ void ejecutarCpblock(char **argumentos) {
 	string_append(&comando, "/home/utnso/thePonchos/ordenarArchivo.sh ");
 	string_append(&comando, pathMetadataArchivo);
 	system(comando);
+
+	log_info(fsLogger, "Ejecutando cpblock...hecho.");
 
 	// Libero recursos.
 	liberarBloqueSinContenidoYNodos(bloque);

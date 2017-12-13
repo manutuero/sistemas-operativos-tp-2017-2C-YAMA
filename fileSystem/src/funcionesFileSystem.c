@@ -303,7 +303,8 @@ void* esperarConexionesDatanodes() {
 								}
 
 								// Escenario de estado anterior. Se pasa a estado estable teniendo al menos 1 copia de cada archivo del fs.
-								else if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+								else if (estadoNodos
+										== ACEPTANDO_NODOS_YA_CONECTADOS
 										&& estadoFs == NO_ESTABLE) {
 									if (esNodoAnterior(nodosEsperados,
 											nodo->idNodo)) {
@@ -320,7 +321,8 @@ void* esperarConexionesDatanodes() {
 								}
 
 								// Aceptamos reconexiones de los nodos esperados.
-								else if (estadoNodos == ACEPTANDO_NODOS_YA_CONECTADOS
+								else if (estadoNodos
+										== ACEPTANDO_NODOS_YA_CONECTADOS
 										&& estadoFs == ESTABLE) {
 									if (esNodoAnterior(nodosEsperados,
 											nodo->idNodo)) {
@@ -1680,8 +1682,8 @@ void *escucharPeticionesYama() {
 
 		//status = recv(socketCliente, (void*) package, 8, 0);//8 ES EL TAMANIO DEL HEADER ENVIADOS DESDE YAMA
 		if ((status != 0) && (header->id == 5)) {
-			printf("Recibi peticion de informacion de archivo de yama    \n");
-			puts("");
+			log_info(fsLogger,
+					"Se recibe una peticion de informacion de archivo de parte del proceso YAMA.");
 			void * peticionRecibida = malloc(header->tamanioPayload);
 			char* pathArchivo;
 			char* pathGuardadoFinal;
@@ -1691,15 +1693,13 @@ void *escucharPeticionesYama() {
 
 			deserializarPeticionInfoArchivo(peticionRecibida, &pathArchivo,
 					&pathGuardadoFinal);
-			//REVISAR EXISTENCIA DE PATH GUARDADO FINAL . . SI ALGUNO FALLA DEVUELVE ERROR.
-			char* path = string_substring_from(pathArchivo, 7);	//7= yama:
+
+			char* path = string_substring_from(pathArchivo, 7);	// 7 = yama:
 			char *pathFinal = string_substring_from(pathGuardadoFinal, 7);
-			puts("");
 			t_archivo_a_persistir* archivo = abrirArchivo(path);
 
 			if ((archivo != NULL) && !existeArchivoEnYamaFs(pathFinal)
-					&& existePathDirectorio(obtenerPathDirectorio(pathFinal))) { //&& (existePathDirectorio(pathFinal))
-					//void * paqueteRespuesta = NULL;	//Para que no me tire el warning de que no esta inicializado. Se hace un malloc cuando se serializa
+					&& existePathDirectorio(obtenerPathDirectorio(pathFinal))) {
 				void*paqueteRespuesta = malloc(
 						((archivo->bloques->elements_count * 6)
 								* sizeof(uint32_t)) + sizeof(uint32_t)
@@ -1708,7 +1708,7 @@ void *escucharPeticionesYama() {
 				t_header* headerRta;
 				headerRta = malloc(sizeof(t_header));
 				serializarInfoArchivo(archivo, paqueteRespuesta, headerRta);
-				int enviados = enviarPorSocket(socketCliente, paqueteRespuesta,
+				enviarPorSocket(socketCliente, paqueteRespuesta,
 						headerRta->tamanioPayload);
 
 			} else {
@@ -1725,9 +1725,8 @@ void *escucharPeticionesYama() {
 			free(pathGuardadoFinal);
 		} else {
 			//Enviar respuesta con error al yama. Solo con el header alcanza.
-			perror(
-					"ERROR al recibir header en peticion de informacion de yama");
-
+			log_error(fsLogger,
+					"Se produjo un error al recibir el header en una peticion de informacion de yama.");
 		}
 	}
 	close(socketCliente);
@@ -2021,8 +2020,7 @@ void *esperarConexionesWorker() {
 							(socklen_t*) &tamanioDir)) <= 0)
 						perror("accept");
 					else {
-						printf("Entro una conexion por el puerto %d\n",
-								nuevoSocket);
+						log_info(fsLogger, "Se recibe una solicitud de almacenado final por parte de un Worker.");
 						FD_SET(nuevoSocket, &auxRead);
 
 						void* buffer;
@@ -2035,8 +2033,10 @@ void *esperarConexionesWorker() {
 
 						if (header.id == ALMACENAMIENTO_ARCHIVO) {
 							archivo = deserializarInfoArchivoFinal(buffer);
-							resultadoAlmacenamiento = guardarArchivoReduccionGlobal(archivo);
-							notificarResultadoAlmacenamiento(nuevoSocket, resultadoAlmacenamiento);
+							resultadoAlmacenamiento =
+									guardarArchivoReduccionGlobal(archivo);
+							notificarResultadoAlmacenamiento(nuevoSocket,
+									resultadoAlmacenamiento);
 						}
 
 						if (nuevoSocket > maxPuerto)
@@ -2072,7 +2072,7 @@ t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 }
 
 void* obtenerSocketNodosYama() {
-//Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
+// Cuando se conecto el yama para mandar info archivo, guarde el ip en la variable global y libero el semaforo para poder obtener el socket
 	sem_wait(&semIpYamaNodos);
 	int conecto = 0;
 	int cantidadIntentos = 0;
@@ -2087,21 +2087,19 @@ void* obtenerSocketNodosYama() {
 		if (conectarSocket(socketPrograma, ipYama, PUERTO_YAMANODOS) != FAIL) {
 			cantidadIntentos += 1;
 			if (cantidadIntentos == 100) {
-				perror(
-						"ERROR NO SE PUDO CONECTAR AL SOCKET PARA INFORMACION DE NODOS! Intento 100 veces");
+				log_error(fsLogger,
+						"No se pudo conectar al socket para obtener informacion de nodos, se intento unas 100 veces.");
 				break;
 				exit(1);
 			}
 		} else {
 			conecto = 1;
-			printf(
-					"Conectado a yama correctamente para enviar informacion de nodos \n");
-
+			log_info(fsLogger,
+					"Conectado a YAMA correctamente para enviar informacion de nodos.");
 			socketYamaNodos = socketPrograma;
 			enviarInfoNodosAYamaInicial();
 			yamaConectado = 1;
 		}
-
 	}
 
 	return NULL;
@@ -2331,19 +2329,21 @@ void agregarNodo(t_nodo *nodo) {
 	if (!existeNodo(idNodo, nodos) && !existeNodo(idNodo, nodosEsperados)) {
 		list_add(nodos, nodo);
 		list_add(nodosEsperados, nodo);
+		log_info(fsLogger, "Se conecto el nodo '%d' por primera vez.", idNodo);
 	}
 
 	// El nodo ya se habia conectado antes pero se esta reconectando (por desconexion o estado anterior).
 	else if (!existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)) {
 		nodo->bitmap = recuperarBitmapAnterior(nodo->idNodo);
 		list_add(nodos, nodo);
+		log_info(fsLogger, "Se reconecto el nodo '%d'.", idNodo);
 	}
 
 	// Llego un nodo con el mismo id que otro ya conectado...rechaza e informa el error.
 	else if (existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)
 			&& estadoFs == ESTABLE) {
-		printf(
-				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
+		log_error(fsLogger,
+				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.",
 				nodo->idNodo);
 		cerrarSocket(nodo->socketDescriptor);
 	}
@@ -2351,8 +2351,8 @@ void agregarNodo(t_nodo *nodo) {
 	// Este escenario es para rechazar nodos con el mismo id, viniendo de un estado inicial y sin haber hecho format.
 	else if (existeNodo(idNodo, nodos) && existeNodo(idNodo, nodosEsperados)
 			&& estadoFs == NO_ESTABLE) {
-		printf(
-				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.\n",
+		log_error(fsLogger,
+				"El nodo id '%d' ya existe en el sistema, modifique el archivo de configuracion del nodo.",
 				nodo->idNodo);
 		cerrarSocket(nodo->socketDescriptor);
 	}
@@ -2419,9 +2419,9 @@ int guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
 
 	// Preparo los argumentos que recibira almacenarArchivo de la API del fs.
 	nombreArchivo = obtenerNombreArchivo(infoArchivoFinal->rutaArchivoFinal);
-	char* pathCompletoYamaFs = string_substring_from(infoArchivoFinal->rutaArchivoFinal, 7);	//7= yamafs:
-	pathDirectorioYamaFs = obtenerPathDirectorio(
-			pathCompletoYamaFs);
+	char* pathCompletoYamaFs = string_substring_from(
+			infoArchivoFinal->rutaArchivoFinal, 7);	//7= yamafs:
+	pathDirectorioYamaFs = obtenerPathDirectorio(pathCompletoYamaFs);
 	tamanioArchivo = infoArchivoFinal->largoArchivo; // preguntar si contemplan el '\0'.
 
 	datos = fmemopen(infoArchivoFinal->archivoFinal, tamanioArchivo, "r+");
@@ -2431,7 +2431,7 @@ int guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
 
 	fclose(datos);
 
-	if(resultadoAlmacenamiento == EXITO) {
+	if (resultadoAlmacenamiento == EXITO) {
 		idRespuestaWorker = ALMACENAMIENTO_FINAL_OK;
 	} else if (resultadoAlmacenamiento == ERROR) {
 		idRespuestaWorker = ERROR_ALMACENAMIENTO_FINAL;
@@ -2450,31 +2450,63 @@ void notificarResultadoAlmacenamiento(int socketWorker, int idHeader) {
 	header->tamanioPayload = 0;
 
 	bytesEnviados = enviarPorSocket(socketWorker, header, 0);
-	if(bytesEnviados <= 0) {
-		fprintf(stderr, "[ERROR]: no se pudo enviar el resultado del almacenamiento final al worker.\n");
-	}
-	puts("Envie resultado almacenamiento final a Worker");
+	if (bytesEnviados <= 0)
+		log_error(fsLogger,
+				"No se pudo enviar el resultado del almacenamiento final al worker.");
 
+	log_info(fsLogger,
+			"Enviando el resultado del almacenamiento final a Worker...hecho.");
+
+	// Libero recursos
 	free(header);
 }
 
+// Crea un logger por ejecucion.
 void crearLoggerFs() {
-	char *pathLogger, *logFsFileName;
+	char *pathLogger, *logFsFileName, *comando;
 	char cwd[1024];
+	DIR *dir;
+	FILE *archivo;
 
-	// Creo el path donde estara el log, tomando el current working directory.
+	// Creo el path donde estara el log, tomando como base el current working directory.
 	pathLogger = string_new();
 	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
-	string_append(&pathLogger, "/fsLogs.log");
+	string_append(&pathLogger, "/log");
 
-	// Asi es como se llamara el log.
-	logFsFileName = string_duplicate("fsLogs.log");
+	comando = string_new();
 
-	// Creo el logger.
-	fsLogger = log_create(pathLogger, logFsFileName, false,
-			LOG_LEVEL_INFO);
+	// Si no existe el directorio de log, se crea.
+	dir = opendir(pathLogger);
+	if (!dir) {
+		string_append(&comando, "mkdir -p ");
+		string_append(&comando, pathLogger);
+		system(comando);
+
+		string_append(&pathLogger, "/fsLogs.log");
+
+		// Asi es como se llamara el log.
+		logFsFileName = string_duplicate("fsLogs.log");
+
+		// Creo el logger.
+		fsLogger = log_create(pathLogger, logFsFileName, false, LOG_LEVEL_INFO);
+	} else {
+		closedir(dir);
+		string_append(&pathLogger, "/fsLogs.log");
+
+		// Asi es como se llamara el log.
+		logFsFileName = string_duplicate("fsLogs.log");
+
+		// Creo el logger.
+		fsLogger = log_create(pathLogger, logFsFileName, false, LOG_LEVEL_INFO);
+
+		archivo = txt_open_for_append(pathLogger);
+		txt_write_in_file(archivo,
+				"\n/**************************   INICIO FILESYSTEM   **************************/\n");
+		fclose(archivo);
+	}
 
 	// Libero recursos.
 	free(logFsFileName);
+	free(comando);
 	logFsFileName = NULL;
 }

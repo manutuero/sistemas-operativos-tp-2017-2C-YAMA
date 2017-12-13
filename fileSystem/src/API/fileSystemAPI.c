@@ -15,6 +15,7 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 	archivo = abrirArchivo(pathArchivo);
 	if (!archivo) {
 		printf("El archivo '%s' no existe.\n", pathArchivo);
+		log_error(fsLogger, "El archivo '%s' no existe.", pathArchivo);
 		pthread_mutex_unlock(&mutex);
 		return NULL;
 	}
@@ -28,11 +29,13 @@ t_archivo_a_persistir* leerArchivo(char *pathArchivo) {
 		if (traerBloqueNodo(bloque) != TRAJO_BLOQUE_OK) {
 			fprintf(stderr, "[ERROR]: no se pudo traer el bloque n° '%d'.\n",
 					bloque->numeroBloque);
+			log_error(fsLogger, "No se pudo traer el bloque n° '%d'.", bloque->numeroBloque);
 			pthread_mutex_unlock(&mutex);
 			return NULL;
 		}
 	}
 
+	log_info(fsLogger, "Leyendo archivo...hecho.");
 	pthread_mutex_unlock(&mutex);
 	return archivo;
 }
@@ -49,12 +52,14 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	// Verifica si existe el directorio donde se va a "guardar" el archivo.
 	if (!existePathDirectorio(path)) {
 		pthread_mutex_unlock(&mutex);
+		log_error(fsLogger, "No existe el directorio %s.", path);
 		return ERROR;
 	}
 
 	if (estadoFs == NO_ESTABLE && !estadoAnterior) {
 		printf(
 				"El sistema no se encuentra en un estado estable, primero debe formatearlo usando el comando 'format'.\n");
+		log_error(fsLogger, "El sistema no se encuentra en un estado estable, primero debe formatearlo usando el comando 'format'.");
 		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
@@ -63,6 +68,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	if (nodos->elements_count < 2) {
 		fprintf(stderr,
 				"[ERROR]: no hay nodos suficientes para realizar el almacenamiento del archivo...\n");
+		log_error(fsLogger, "No hay nodos suficientes para realizar el almacenamiento del archivo.");
 		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
@@ -74,6 +80,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	string_append(&pathArchivo, nombreArchivo);
 	if (existeArchivoEnYamaFs(pathArchivo)) {
 		printf("El archivo '%s' ya existe.\n", pathArchivo);
+		log_error(fsLogger, "El archivo '%s' ya existe.", pathArchivo);
 		pthread_mutex_unlock(&mutex);
 		return ERROR;
 	}
@@ -84,6 +91,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	bloques = obtenerBloques(datos, tipo);
 	if(!bloques) {
 		fprintf(stderr, "Se recibio un archivo que no es ni de texto ni binario, posiblemente sea un script file.\n");
+		log_error(fsLogger, "Se recibio un archivo que no es ni de texto ni binario, posiblemente sea un script file.", pathArchivo);
 		liberarBloques(bloques);
 		return ERROR;
 	}
@@ -111,6 +119,7 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 				|| bloque->numeroBloqueCopia1 == ESTA_LLENO) {
 			fprintf(stderr,
 					"[ERROR]: No se pudo guardar el archivo, no hay bloques disponibles en el nodo.\n");
+			log_error(fsLogger, "No se pudo guardar el archivo, no hay bloques disponibles en el nodo.");
 
 			// Libero recursos
 			liberarBloques(bloques);
@@ -160,6 +169,8 @@ int almacenarArchivo(char *path, char *nombreArchivo, int tipo, FILE *datos) {
 	archivo = nuevoArchivo(path, nombreArchivo, tipo, tamanio, bloques);
 	crearTablaDeArchivo(archivo);
 	actualizarTablaDeNodos();
+
+	log_info(fsLogger, "Almacenando archivo...hecho.");
 
 	// Libero recursos
 	liberarArchivo(archivo);

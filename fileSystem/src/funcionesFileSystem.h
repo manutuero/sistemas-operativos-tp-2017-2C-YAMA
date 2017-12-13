@@ -10,6 +10,7 @@
 #include "utils.h"
 #include <semaphore.h> // Para probar...
 #include <sys/wait.h>
+#include <commons/txt.h>
 #define BACKLOG 3
 #define CANTIDAD_DIRECTORIOS 100
 #define ALMACENAMIENTO_ARCHIVO 23
