@@ -433,43 +433,44 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
 		free(rutaTempRecibido);
 	}
 
-	if(i==infoReduccionGlobal->cantidadNodos){
+	if (i == infoReduccionGlobal->cantidadNodos) {
 
-	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
-			rutaArchApareado, rutaArchReductor, rutaArchReducidoFinal);
+		string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
+				rutaArchApareado, rutaArchReductor, rutaArchReducidoFinal);
 
-	resultado = system(lineaAEjecutar);
+		resultado = system(lineaAEjecutar);
 
-	if (resultado != -1) {
-		wait(&resultado);
-		notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
-		printf("Reduccion Global realizada, archivo %s generado\n",
-				infoReduccionGlobal->rutaArchivoTemporalFinal);
-		log_info(workerLogger,
-				"Reduccion Global realizada, archivo %s generado",
-				infoReduccionGlobal->rutaArchivoTemporalFinal);
+		if (resultado != -1) {
+			wait(&resultado);
+			notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
+			printf("Reduccion Global realizada, archivo %s generado\n",
+					infoReduccionGlobal->rutaArchivoTemporalFinal);
+			log_info(workerLogger,
+					"Reduccion Global realizada, archivo %s generado",
+					infoReduccionGlobal->rutaArchivoTemporalFinal);
+		} else {
+			notificarAMaster(ERROR_REDUCCION, socketMaster);
+			printf("Error en reduccion global\n");
+			log_info(workerLogger, "Error en reduccion global");
+		}
+
+		fclose(archivoApareado);
+		fclose(archivoReduccionGlobal);
+		remove(rutaArchAAparear);
+		remove(rutaArchApareado);
+		remove(rutaArchReductor);
+		free(rutaArchAAparear);
+		free(rutaArchApareado);
+		free(rutaArchLocal);
+		free(rutaArchReducidoFinal);
+		free(rutaArchReductor);
+		//free(rutaTempRecibido);
+		free(lineaAEjecutar);
 	} else {
 		notificarAMaster(ERROR_REDUCCION, socketMaster);
-		printf("Error en reduccion global\n");
-		log_info(workerLogger, "Error en reduccion global");
-	}
-
-	fclose(archivoApareado);
-	fclose(archivoReduccionGlobal);
-	remove(rutaArchAAparear);
-	remove(rutaArchApareado);
-	remove(rutaArchReductor);
-	free(rutaArchAAparear);
-	free(rutaArchApareado);
-	free(rutaArchLocal);
-	free(rutaArchReducidoFinal);
-	free(rutaArchReductor);
-	//free(rutaTempRecibido);
-	free(lineaAEjecutar);
-	}else {
-		notificarAMaster(ERROR_REDUCCION,socketMaster);
 		printf("No se pudo realizar la reduccion global");
-		log_info(workerLogger,"Error en reduccion global,no se genero %s",infoReduccionGlobal->rutaArchivoTemporalFinal);
+		log_info(workerLogger, "Error en reduccion global,no se genero %s",
+				infoReduccionGlobal->rutaArchivoTemporalFinal);
 	}
 
 }
@@ -584,7 +585,7 @@ char* deserializarRecepcionArchivoTemp(void* buffer) {
 }
 
 int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp,
-	int largoNombreArchTemp) {
+		int largoNombreArchTemp) {
 	void* buffer;
 	void* bufferMensaje;
 	t_header header;
@@ -673,7 +674,7 @@ void* serializarSolicitudArchivo(char* nombreArchTemp, int largoNombreArchTemp,
 	largoNombreArchTemp++;
 	memcpy(buffer + desplazamiento, &largoNombreArchTemp, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-	string_append(&nombreArchTemp,"\0");
+	string_append(&nombreArchTemp, "\0");
 	memcpy(buffer + desplazamiento, nombreArchTemp, largoNombreArchTemp);
 	desplazamiento += largoNombreArchTemp;
 
@@ -1170,21 +1171,22 @@ void notificarAMaster(int idNotificacion, int socketMaster) {
 void verificarExistenciaCarpetaLogs() {
 	DIR* directorio;
 	char*pathDirectorio;
-	pathDirectorio=malloc(100);
+	pathDirectorio = malloc(100);
 	char cwd[100];
-	char*linea=string_new();
-	if(getcwd(cwd,sizeof(cwd))!=NULL){
-		string_append(&pathDirectorio,cwd);
-		string_append(&pathDirectorio,"/logs");
-		directorio=opendir(pathDirectorio);
-		if(directorio==NULL) {
+	char*linea = string_new();
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		string_append(&pathDirectorio, cwd);
+		string_append(&pathDirectorio, "/logs");
+		directorio = opendir(pathDirectorio);
+		if (directorio == NULL) {
 			printf("Carpeta de logs exitente en /worker/logs");
-		}else
-			string_append(&linea,"mkdir ");
+			closedir(directorio);
+		} else {
+			string_append(&linea, "mkdir ");
 			string_append(&linea, pathDirectorio);
-		system(linea);
+			system(linea);
+		}
 	}
 	free(pathDirectorio);
-	closedir(directorio);
 	free(linea);
 }
