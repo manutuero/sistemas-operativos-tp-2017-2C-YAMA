@@ -433,7 +433,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
 		free(rutaTempRecibido);
 	}
 
-	if(i==infoReduccionGlobal->cantidadNodos-1){
+	if(i==infoReduccionGlobal->cantidadNodos){
 
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
 			rutaArchApareado, rutaArchReductor, rutaArchReducidoFinal);
