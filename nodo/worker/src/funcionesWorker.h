@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <commons/txt.h>
+#include <dirent.h>
 
 //#include <linux/sort.h>
 
@@ -165,5 +166,5 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal*,int);
 void notificarAMaster(int , int);
 int proximoRegistro(FILE*,char*);
 int recibirRespuestaFileSystem(int);
-
+void verificarExistenciaCarpetaLogs();
 #endif

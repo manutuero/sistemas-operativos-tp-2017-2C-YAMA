@@ -4,7 +4,7 @@ void crearLogger() {
 	char *pathLogger = string_new();
 	char cwd[1024];
 	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
-	string_append(&pathLogger, "/workerLogs.log");
+	string_append(&pathLogger, "/logs/workerLogs.log");
 
 	char *logWorkerFileName = strdup("workerLogs.log");
 	workerLogger = log_create(pathLogger, logWorkerFileName, false,
@@ -49,7 +49,6 @@ void cargarArchivoConfiguracion(char*nombreArchivo) {
 	if (config_has_property(config, "RUTA_TEMPORALES")) {
 		RUTA_TEMPORALES = config_get_string_value(config, "RUTA_TEMPORALES");
 	}
-
 
 	printf("\nIP Filesystem: %s\n", IP_FILESYSTEM);
 	printf("\nPuerto Filesystem: %d\n", PUERTO_FILESYSTEM);
@@ -178,26 +177,29 @@ char* getBloque(int numero) {
 
 }
 
-void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketMaster) {
+void realizarTransformacion(t_infoTransformacion* infoTransformacion,
+		int socketMaster) {
 	int respuesta;
 	char*rutaGuardadoTemp;
 	char* rutaArchTransformador;
-	char*rutaDataBloque=string_new();
-	string_append(&rutaDataBloque,"/home/utnso/thePonchos");
-	string_append(&rutaDataBloque,infoTransformacion->nombreArchTemp);
-	string_append(&rutaDataBloque,"D");
-	FILE* dataBloque=fopen(rutaDataBloque,"w+");
+	char*rutaDataBloque = string_new();
+	string_append(&rutaDataBloque, "/home/utnso/thePonchos");
+	string_append(&rutaDataBloque, infoTransformacion->nombreArchTemp);
+	string_append(&rutaDataBloque, "D");
+	FILE* dataBloque = fopen(rutaDataBloque, "w+");
 	FILE*archivoTemp;
 	rutaArchTransformador = guardarArchScript(
-			infoTransformacion->archTransformador,infoTransformacion->nombreArchTemp);
+			infoTransformacion->archTransformador,
+			infoTransformacion->nombreArchTemp);
 	char* bloque;
-	char*data=malloc(infoTransformacion->bytesOcupados);
+	char*data = malloc(infoTransformacion->bytesOcupados);
 	bloque = getBloque(infoTransformacion->numBloque);
 	data = memcpy(data, bloque, infoTransformacion->bytesOcupados);
-	txt_write_in_file(dataBloque,data);
+	txt_write_in_file(dataBloque, data);
 	char* lineaAEjecutar = string_new();
 	//string_append(&data, "\0");
-	rutaGuardadoTemp=armarRutaGuardadoTemp(infoTransformacion->nombreArchTemp);
+	rutaGuardadoTemp = armarRutaGuardadoTemp(
+			infoTransformacion->nombreArchTemp);
 	archivoTemp = fopen(rutaGuardadoTemp, "w+");
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s | sort > %s",
 			rutaDataBloque, rutaArchTransformador, rutaGuardadoTemp);
@@ -215,14 +217,16 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 	free(rutaDataBloque);
 	free(rutaArchTransformador);
 
-
-	if(respuesta!=-1){
-	wait(&respuesta);
-	notificarAMaster(TRANSFORMACION_OK, socketMaster);
-	log_info(workerLogger,"Transformacion del bloque %d realizada",infoTransformacion->numBloque);
-	free(lineaAEjecutar);
-	}else {
-	log_info(workerLogger,"No se pudo realizar la transformacion en el bloque",infoTransformacion->numBloque);
+	if (respuesta != -1) {
+		wait(&respuesta);
+		notificarAMaster(TRANSFORMACION_OK, socketMaster);
+		log_info(workerLogger, "Transformacion del bloque %d realizada",
+				infoTransformacion->numBloque);
+		free(lineaAEjecutar);
+	} else {
+		log_info(workerLogger,
+				"No se pudo realizar la transformacion en el bloque",
+				infoTransformacion->numBloque);
 	}
 
 	free(infoTransformacion->archTransformador);
@@ -232,25 +236,24 @@ void realizarTransformacion(t_infoTransformacion* infoTransformacion,int socketM
 }
 
 char* armarRutaGuardadoTemp(char*nombreTemp) {
-	char*rutaGuardadoTemp=string_new();
-	string_append(&rutaGuardadoTemp,RUTA_TEMPORALES);
-	string_append(&rutaGuardadoTemp,nombreTemp);
+	char*rutaGuardadoTemp = string_new();
+	string_append(&rutaGuardadoTemp, RUTA_TEMPORALES);
+	string_append(&rutaGuardadoTemp, nombreTemp);
 	return rutaGuardadoTemp;
 
 }
 
-char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
+char *guardarArchScript(char*contenidoArchivoScript, char* nombreArchTemp) {
 	char*rutaArchScritp = string_new();
-	char modo[]="0777";
+	char modo[] = "0777";
 	int permiso;
-	char* nombreSolo=string_new();
-	nombreSolo=string_substring_from(nombreArchTemp,4);
-	string_append(&rutaArchScritp,
-			"/home/utnso/thePonchos/tmp/scripts");
-	string_append(&rutaArchScritp,nombreSolo);
+	char* nombreSolo = string_new();
+	nombreSolo = string_substring_from(nombreArchTemp, 4);
+	string_append(&rutaArchScritp, "/home/utnso/thePonchos/tmp/scripts");
+	string_append(&rutaArchScritp, nombreSolo);
 	FILE*arch = fopen(rutaArchScritp, "w+");
-	permiso=strtol(modo,0,8);
-	chmod(rutaArchScritp,permiso);
+	permiso = strtol(modo, 0, 8);
+	chmod(rutaArchScritp, permiso);
 	txt_write_in_file(arch, contenidoArchivoScript);
 	fclose(arch);
 	free(nombreSolo);
@@ -265,18 +268,22 @@ char *guardarArchScript(char*contenidoArchivoScript,char* nombreArchTemp) {
  return nombreArchTemp;
  }*/
 
-void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketMaster) {
+void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,
+		int socketMaster) {
 	//verificarExistenciaPathTemp(pathTemporales);
 	char*rutaReducidoLocal;
 	char*rutaArchReductor;
-	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor,infoReduccionLocal->rutaArchReducidoLocal);
+	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor,
+			infoReduccionLocal->rutaArchReducidoLocal);
 	char*rutaArchConcat;
-		rutaArchConcat=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
-		string_append(&rutaArchConcat,"C");
-	FILE*archivoConcat=fopen(rutaArchConcat,"w+");
+	rutaArchConcat = armarRutaGuardadoTemp(
+			infoReduccionLocal->rutaArchReducidoLocal);
+	string_append(&rutaArchConcat, "C");
+	FILE*archivoConcat = fopen(rutaArchConcat, "w+");
 	FILE* archivoReduccionLocal;
-	rutaReducidoLocal=armarRutaGuardadoTemp(infoReduccionLocal->rutaArchReducidoLocal);
-	archivoReduccionLocal = fopen(rutaReducidoLocal,"w+");
+	rutaReducidoLocal = armarRutaGuardadoTemp(
+			infoReduccionLocal->rutaArchReducidoLocal);
+	archivoReduccionLocal = fopen(rutaReducidoLocal, "w+");
 	char*lineaAEjecutar = string_new();
 	int i;
 	int resultado;
@@ -285,20 +292,22 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	for (i = 0; i < infoReduccionLocal->cantidadTransformaciones; i++) {
 		//char* linea=malloc(LARGO_MAX_LINEA);
 
-		archivo = fopen(armarRutaGuardadoTemp((char*)list_get(infoReduccionLocal->archTemporales, i)), "r+");
+		archivo = fopen(
+				armarRutaGuardadoTemp(
+						(char*) list_get(infoReduccionLocal->archTemporales,
+								i)), "r+");
 		while (!feof(archivo)) {
-			linea=malloc(LARGO_MAX_LINEA);
-			proximoRegistro(archivo,linea);
+			linea = malloc(LARGO_MAX_LINEA);
+			proximoRegistro(archivo, linea);
 			txt_write_in_file(archivoConcat, linea);
 			free(linea);
 			//}
-			}
+		}
 		fclose(archivo);
 	}
 
 	string_append_with_format(&lineaAEjecutar, "cat %s | sort | %s > %s",
-			rutaArchConcat, rutaArchReductor,
-			rutaReducidoLocal);
+			rutaArchConcat, rutaArchReductor, rutaReducidoLocal);
 
 	resultado = system(lineaAEjecutar);
 
@@ -307,25 +316,26 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,int socketM
 	remove(rutaArchReductor);
 	fclose(archivoReduccionLocal);
 
-
-	if(resultado!=-1) {
+	if (resultado != -1) {
 		wait(&resultado);
 		notificarAMaster(REDUCCION_LOCAL_OK, socketMaster);
-		log_info(workerLogger,"Reduccion local realizada,archivo %s generado",infoReduccionLocal->rutaArchReducidoLocal);
+		log_info(workerLogger, "Reduccion local realizada,archivo %s generado",
+				infoReduccionLocal->rutaArchReducidoLocal);
 		free(lineaAEjecutar);
-	}else{
-		notificarAMaster(ERROR_REDUCCION,socketMaster);
-		log_info(workerLogger,"Reduccion Local error",infoReduccionLocal->rutaArchReducidoLocal);
+	} else {
+		notificarAMaster(ERROR_REDUCCION, socketMaster);
+		log_info(workerLogger, "Reduccion Local error",
+				infoReduccionLocal->rutaArchReducidoLocal);
 	}
 	free(infoReduccionLocal->archReductor);
 	free(infoReduccionLocal->rutaArchReducidoLocal);
-	list_destroy_and_destroy_elements(infoReduccionLocal->archTemporales,free);
+	list_destroy_and_destroy_elements(infoReduccionLocal->archTemporales, free);
 	free(infoReduccionLocal);
 
 	free(rutaArchConcat);
 	free(rutaArchReductor);
 	free(rutaReducidoLocal);
-	}
+}
 
 int proximoRegistro(FILE *datos, char *registro) {
 	int largo = 0;
@@ -347,8 +357,8 @@ int proximoRegistro(FILE *datos, char *registro) {
 	return largo;
 }
 
-
-void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int socketMaster) {
+void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
+		int socketMaster) {
 	char* lineaAEjecutar = string_new();
 	char* contenidoArchRecibido = string_new();
 	int i, socketDePedido, encontrado;
@@ -358,55 +368,64 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	char*rutaArchAAparear;
 	char*rutaArchApareado;
 	char*rutaArchReductor;
-	rutaArchReductor=guardarArchScript(infoReduccionGlobal->archivoReductor,infoReduccionGlobal->rutaArchivoTemporalFinal);
-	rutaArchAAparear=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
-	string_append(&rutaArchAAparear,"A");
+	rutaArchReductor = guardarArchScript(infoReduccionGlobal->archivoReductor,
+			infoReduccionGlobal->rutaArchivoTemporalFinal);
+	rutaArchAAparear = armarRutaGuardadoTemp(
+			infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaArchAAparear, "A");
 
-	rutaArchApareado=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
-	string_append(&rutaArchApareado,"AP");
+	rutaArchApareado = armarRutaGuardadoTemp(
+			infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaArchApareado, "AP");
 	//FILE* archAAparear = fopen(rutaArchAAparear, "w+");
 	FILE*archivoApareado = fopen(rutaArchApareado, "w+");
-	if(!archivoApareado) {
-		fprintf(stderr,"no se pudo crear el archivo\n");
+	if (!archivoApareado) {
+		fprintf(stderr, "no se pudo crear el archivo\n");
 	}
-	rutaArchReducidoFinal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
-	archivoReduccionGlobal = fopen(
-			rutaArchReducidoFinal, "w+");
+	rutaArchReducidoFinal = armarRutaGuardadoTemp(
+			infoReduccionGlobal->rutaArchivoTemporalFinal);
+	archivoReduccionGlobal = fopen(rutaArchReducidoFinal, "w+");
 	char*rutaTempRecibido;
-	rutaTempRecibido=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoTemporalFinal);
-	string_append(&rutaTempRecibido,"recibido");
+	rutaTempRecibido = armarRutaGuardadoTemp(
+			infoReduccionGlobal->rutaArchivoTemporalFinal);
+	string_append(&rutaTempRecibido, "recibido");
 	char*rutaArchLocal;
-	rutaArchLocal=armarRutaGuardadoTemp(infoReduccionGlobal->rutaArchivoLocal);
-	printf("rutaArchLocal:%s\n",rutaArchLocal);
-	FILE*archLocal=fopen(rutaArchLocal,"r");
-	copiarContenidoDeArchivo(archivoApareado,archLocal);
-	printf("copio contenido de la ruta %s a la ruta del archivo apareado\n",rutaArchLocal);
+	rutaArchLocal = armarRutaGuardadoTemp(
+			infoReduccionGlobal->rutaArchivoLocal);
+	printf("rutaArchLocal:%s\n", rutaArchLocal);
+	FILE*archLocal = fopen(rutaArchLocal, "r");
+	copiarContenidoDeArchivo(archivoApareado, archLocal);
+	printf("copio contenido de la ruta %s a la ruta del archivo apareado\n",
+			rutaArchLocal);
 	for (i = 0; i < infoReduccionGlobal->cantidadNodos; i++) {
 		rewind(archivoApareado);
 		t_datosNodoAEncargado infoArchivo = *(t_datosNodoAEncargado*) list_get(
 				infoReduccionGlobal->nodosAConectar, i);
-		rutaTempRecibido=armarRutaGuardadoTemp(infoArchivo.rutaArchivoReduccionLocal);
+		rutaTempRecibido = armarRutaGuardadoTemp(
+				infoArchivo.rutaArchivoReduccionLocal);
 		FILE* archivoRecibido = fopen(rutaTempRecibido, "w+");
 		socketDePedido = solicitarArchivoAWorker(infoArchivo.ip,
-				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal,infoArchivo.largoRutaArchivoReduccionLocal);
+				infoArchivo.puerto, infoArchivo.rutaArchivoReduccionLocal,
+				infoArchivo.largoRutaArchivoReduccionLocal);
 		if (socketDePedido != -1) {
-			contenidoArchRecibido = (char*)recibirArchivoTemp(socketDePedido,
+			contenidoArchRecibido = (char*) recibirArchivoTemp(socketDePedido,
 					&encontrado);
 			printf("recibi archivo temp\n");
 			if (encontrado != ERROR_ARCHIVO_NO_ENCONTRADO) {
 				txt_write_in_file(archivoRecibido, contenidoArchRecibido);
 				rewind(archivoRecibido);
 				//free(contenidoArchRecibido);
-				aparearArchivos(rutaArchAAparear, archivoRecibido, archivoApareado);
-				printf("apareo de archivos :%d\n",i);
+				aparearArchivos(rutaArchAAparear, archivoRecibido,
+						archivoApareado);
+				printf("apareo de archivos :%d\n", i);
 				//exit(1);
 			} else {
-				notificarAMaster(ERROR_REDUCCION_GLOBAL,socketMaster);
+				notificarAMaster(ERROR_REDUCCION_GLOBAL, socketMaster);
 				printf("no se encontro el archivo\n");
 				break;
 			}
 		} else {
-			notificarAMaster(ERROR_REDUCCION_GLOBAL,socketMaster);
+			notificarAMaster(ERROR_REDUCCION_GLOBAL, socketMaster);
 			printf("error de conectarse a worker\n");
 		}
 		fclose(archivoRecibido);
@@ -415,20 +434,22 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	}
 
 	string_append_with_format(&lineaAEjecutar, "cat %s | %s > %s",
-			rutaArchApareado, rutaArchReductor,
-			rutaArchReducidoFinal);
+			rutaArchApareado, rutaArchReductor, rutaArchReducidoFinal);
 
 	resultado = system(lineaAEjecutar);
 
-	if(resultado!=-1){
-	wait(&resultado);
-	notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
-	printf("Reduccion Global realizada, archivo %s generado\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
-	log_info(workerLogger,"Reduccion Global realizada, archivo %s generado",infoReduccionGlobal->rutaArchivoTemporalFinal);
-	}else{
-	notificarAMaster(ERROR_REDUCCION, socketMaster);
-	printf("Error en reduccion global\n");
-	log_info(workerLogger,"Error en reduccion global");
+	if (resultado != -1) {
+		wait(&resultado);
+		notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
+		printf("Reduccion Global realizada, archivo %s generado\n",
+				infoReduccionGlobal->rutaArchivoTemporalFinal);
+		log_info(workerLogger,
+				"Reduccion Global realizada, archivo %s generado",
+				infoReduccionGlobal->rutaArchivoTemporalFinal);
+	} else {
+		notificarAMaster(ERROR_REDUCCION, socketMaster);
+		printf("Error en reduccion global\n");
+		log_info(workerLogger, "Error en reduccion global");
 	}
 
 	fclose(archivoApareado);
@@ -445,11 +466,11 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,int sock
 	free(lineaAEjecutar);
 }
 
-void aparearArchivos(char* rutaArchAAparear,FILE* archivoRecibido,
+void aparearArchivos(char* rutaArchAAparear, FILE* archivoRecibido,
 		FILE* archivoApareado) {
 	t_regArch regArch1 = malloc(LARGO_MAX_LINEA);
 	t_regArch regArch2 = malloc(LARGO_MAX_LINEA);
-	FILE* archAAparear=fopen(rutaArchAAparear,"w+");
+	FILE* archAAparear = fopen(rutaArchAAparear, "w+");
 	printf("se creo archivo a aparear.\n");
 	bool finArch1 = false;
 	bool finArch2 = false;
@@ -506,7 +527,7 @@ void copiarContenidoDeArchivo(FILE* archivoCopiado, FILE* archivoACopiar) {
 	t_regArch regArchivoACopiar;
 	printf("no rompio no?\n");
 	while (!(feof(archivoACopiar))) {
-		regArchivoACopiar=malloc(LARGO_MAX_LINEA);
+		regArchivoACopiar = malloc(LARGO_MAX_LINEA);
 		fgets(regArchivoACopiar, LARGO_MAX_LINEA, archivoACopiar);
 		//printf("copie linea\n");
 		txt_write_in_file(archivoCopiado, regArchivoACopiar);
@@ -520,7 +541,7 @@ void* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 	void*buffer;
 	t_header header;
 	recibirHeader(socketDePedido, &header);
-	if(header.id == RECIBIR_ARCH_TEMP){
+	if (header.id == RECIBIR_ARCH_TEMP) {
 		buffer = malloc(header.tamanioPayload);
 		printf("estoy por recibir archivo de otro worker\n");
 		recibirPorSocket(socketDePedido, buffer, header.tamanioPayload);
@@ -530,8 +551,7 @@ void* recibirArchivoTemp(int socketDePedido, int* encontrado) {
 		//archTemporal = deserializarRecepcionArchivoTemp(buffer);
 		return buffer;
 		//free(archTemporal);
-	}
-	else if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
+	} else if (header.id == ERROR_ARCHIVO_NO_ENCONTRADO) {
 		*encontrado = ERROR_ARCHIVO_NO_ENCONTRADO;
 	}
 	return "";
@@ -548,26 +568,28 @@ char* deserializarRecepcionArchivoTemp(void* buffer) {
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = largoArchTemporal;
-	archTemporal=malloc(largoArchTemporal);
+	archTemporal = malloc(largoArchTemporal);
 	memcpy(archTemporal, buffer + desplazamiento, largoArchTemporal);
 	desplazamiento += bytesACopiar;
-	printf("%d\n",largoArchTemporal);
+	printf("%d\n", largoArchTemporal);
 	return archTemporal;
 }
-//larry no te olvides lo que tenes que hacer
-int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp,int largoNombreArchTemp) {
+
+int solicitarArchivoAWorker(char*ip, int puerto, char*nombreArchivoTemp,
+	int largoNombreArchTemp) {
 	void* buffer;
 	void* bufferMensaje;
 	t_header header;
 	int largoBuffer, tamanioMensaje, desplazamiento = 0;
 	int socketWorker = conectarseAWorker(puerto, ip);
 	if (socketWorker != -1) {
-		buffer = serializarSolicitudArchivo(nombreArchivoTemp,largoNombreArchTemp, &largoBuffer);
+		buffer = serializarSolicitudArchivo(nombreArchivoTemp,
+				largoNombreArchTemp, &largoBuffer);
 		tamanioMensaje = largoBuffer + sizeof(t_header);
 		bufferMensaje = malloc(tamanioMensaje);
 		header.id = SOLICITUD_WORKER;
 		header.tamanioPayload = largoBuffer;
-		printf("largo buffer a mandar: %d\n",largoBuffer);
+		printf("largo buffer a mandar: %d\n", largoBuffer);
 
 		memcpy(bufferMensaje, &header.id, sizeof(uint32_t));
 		desplazamiento += sizeof(uint32_t);
@@ -634,15 +656,16 @@ int conectarseAFilesystem(int puerto, char* ip) {
 
 	return socketFilesystem;
 }
-void* serializarSolicitudArchivo(char* nombreArchTemp,int largoNombreArchTemp, int* largoBuffer) {
+void* serializarSolicitudArchivo(char* nombreArchTemp, int largoNombreArchTemp,
+		int* largoBuffer) {
 	void* buffer;
 	int desplazamiento = 0;
 	int tamanioBuffer = largoNombreArchTemp + sizeof(uint32_t);
 	buffer = malloc(tamanioBuffer);
-
+	largoNombreArchTemp++;
 	memcpy(buffer + desplazamiento, &largoNombreArchTemp, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
-
+	string_append(&nombreArchTemp,"\0");
 	memcpy(buffer + desplazamiento, nombreArchTemp, largoNombreArchTemp);
 	desplazamiento += largoNombreArchTemp;
 
@@ -665,14 +688,14 @@ char* deserializarSolicitudArchivo(void* buffer) {
 	memcpy(nombreArchTemp, buffer + desplazamiento, bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	printf("largo:%d\n",largoNombreArchTemp);
-	printf("%s\n",nombreArchTemp);
+	printf("largo:%d\n", largoNombreArchTemp);
+	printf("%s\n", nombreArchTemp);
 	return nombreArchTemp;
 }
 
 void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
-	char* pathTemporales =string_new();
-	string_append(&pathTemporales,RUTA_TEMPORALES);
+	char* pathTemporales = string_new();
+	string_append(&pathTemporales, RUTA_TEMPORALES);
 	char* rutaArchivo = string_new();
 	int validacion, desplazamiento = 0;
 	int tamanioBuffer;
@@ -714,7 +737,7 @@ void responderSolicitudArchivoWorker(char* nombreArchTemp, int socketWorker) {
 		desplazamiento += sizeof(uint32_t);
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
-		enviarPorSocket(socketWorker, bufferMensaje,header.tamanioPayload);
+		enviarPorSocket(socketWorker, bufferMensaje, header.tamanioPayload);
 		printf("respondo a worker encargado\n");
 	}
 	free(buffer);
@@ -776,31 +799,6 @@ int verificarExistenciaArchTemp(char* nombreArchTemp, char* pathTemporales) {
 
 	return 2;
 }
-/*for(i=1; i < list_size(listaArchivos); i++){
- aparearArchivos(primerArchivo,list);
- }
-
- }*/
-/*
- void recibirInfoOperacion(int socketMaster) {
- void* buffer;
- t_header header;
- recibirHeader(socketMaster,&header);
- buffer=malloc(header.tamanioPayload);
- recibirPorSocket(socketMaster,buffer,header.tamanioPayload);
- switch(header.id){
-
- case TRANSFORMACION:
- deserializarInfoTransformacion(buffer);
- break;
- case REDUCCION_LOCAL:
- deserializarInfoReduccionLocal(buffer);
- break;
- case REDUCCION_GLOBAL:
- deserializarInfoReduccionGlobal(buffer);
- break;
- }
- }*/
 
 t_infoTransformacion* deserializarInfoTransformacion(void* buffer) {
 	t_infoTransformacion* infoTransformacion = malloc(
@@ -834,11 +832,12 @@ t_infoTransformacion* deserializarInfoTransformacion(void* buffer) {
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	bytesACopiar = infoTransformacion->largoArchTransformador+1;
-	infoTransformacion->archTransformador = malloc(infoTransformacion->largoArchTransformador);
+	bytesACopiar = infoTransformacion->largoArchTransformador + 1;
+	infoTransformacion->archTransformador = malloc(
+			infoTransformacion->largoArchTransformador);
 	memcpy(infoTransformacion->archTransformador, buffer + desplazamiento,
 			infoTransformacion->largoArchTransformador);
-	string_append(&infoTransformacion->archTransformador,"\0");
+	string_append(&infoTransformacion->archTransformador, "\0");
 
 	desplazamiento += bytesACopiar;
 
@@ -862,7 +861,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 			infoReduccionLocal->largoRutaArchReducidoLocal);
 	memcpy(infoReduccionLocal->rutaArchReducidoLocal, buffer + desplazamiento,
 			bytesACopiar);
-	string_append(&infoReduccionLocal->rutaArchReducidoLocal,"\0");
+	string_append(&infoReduccionLocal->rutaArchReducidoLocal, "\0");
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
@@ -875,7 +874,7 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 			infoReduccionLocal->largoArchivoReductor);
 	memcpy(infoReduccionLocal->archReductor, buffer + desplazamiento,
 			bytesACopiar);
-	string_append(&infoReduccionLocal->archReductor,"\0");
+	string_append(&infoReduccionLocal->archReductor, "\0");
 	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
@@ -904,14 +903,14 @@ t_infoReduccionLocal* deserializarInfoReduccionLocal(void*buffer) {
 
 	}
 	int j;
-	printf("%d\n",infoReduccionLocal->largoRutaArchReducidoLocal);
-	printf("%s\n",infoReduccionLocal->rutaArchReducidoLocal);
-	printf("%d\n",infoReduccionLocal->largoArchivoReductor);
+	printf("%d\n", infoReduccionLocal->largoRutaArchReducidoLocal);
+	printf("%s\n", infoReduccionLocal->rutaArchReducidoLocal);
+	printf("%d\n", infoReduccionLocal->largoArchivoReductor);
 	//printf("%s\n",infoReduccionLocal->archReductor);
 
-	printf("%d\n",infoReduccionLocal->cantidadTransformaciones);
-	for(j=0;j<infoReduccionLocal->cantidadTransformaciones;j++){
-		printf("%s\n",(char*)list_get(infoReduccionLocal->archTemporales,j));
+	printf("%d\n", infoReduccionLocal->cantidadTransformaciones);
+	for (j = 0; j < infoReduccionLocal->cantidadTransformaciones; j++) {
+		printf("%s\n", (char*) list_get(infoReduccionLocal->archTemporales, j));
 	}
 
 	free(buffer);
@@ -924,15 +923,17 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 			sizeof(t_infoReduccionGlobal));
 	uint32_t bytesACopiar, desplazamiento = 0, i = 0;
 
-	bytesACopiar=sizeof(uint32_t);
-	memcpy(&infoReduccionGlobal->largoRutaArchivoLocal,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
+	bytesACopiar = sizeof(uint32_t);
+	memcpy(&infoReduccionGlobal->largoRutaArchivoLocal, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
 
-	bytesACopiar=infoReduccionGlobal->largoRutaArchivoLocal;
-	infoReduccionGlobal->rutaArchivoLocal=malloc(infoReduccionGlobal->largoRutaArchivoLocal);
-	memcpy(infoReduccionGlobal->rutaArchivoLocal,buffer+desplazamiento,bytesACopiar);
-	desplazamiento+=bytesACopiar;
-
+	bytesACopiar = infoReduccionGlobal->largoRutaArchivoLocal;
+	infoReduccionGlobal->rutaArchivoLocal = malloc(
+			infoReduccionGlobal->largoRutaArchivoLocal);
+	memcpy(infoReduccionGlobal->rutaArchivoLocal, buffer + desplazamiento,
+			bytesACopiar);
+	desplazamiento += bytesACopiar;
 
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(&infoReduccionGlobal->largoRutaArchivoTemporalFinal,
@@ -995,18 +996,19 @@ t_infoReduccionGlobal* deserializarInfoReduccionGlobal(void*buffer) {
 		list_add(infoReduccionGlobal->nodosAConectar, nodo);
 	}
 	int j;
-	printf("%d\n",infoReduccionGlobal->largoRutaArchivoTemporalFinal);
-	printf("%s\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
-	printf("%d\n",infoReduccionGlobal->largoArchivoReductor);
-	printf("%d\n",infoReduccionGlobal->cantidadNodos);
+	printf("%d\n", infoReduccionGlobal->largoRutaArchivoTemporalFinal);
+	printf("%s\n", infoReduccionGlobal->rutaArchivoTemporalFinal);
+	printf("%d\n", infoReduccionGlobal->largoArchivoReductor);
+	printf("%d\n", infoReduccionGlobal->cantidadNodos);
 
-	for(j=0;j<infoReduccionGlobal->cantidadNodos;j++) {
-		t_datosNodoAEncargado* reg=(t_datosNodoAEncargado*)list_get(infoReduccionGlobal->nodosAConectar,j);
-		printf("%d\n",reg->puerto);
-		printf("%d\n",reg->largoIp);
-		printf("%s\n",reg->ip);
-		printf("%d\n",reg->largoRutaArchivoReduccionLocal);
-		printf("%s\n",reg->rutaArchivoReduccionLocal);
+	for (j = 0; j < infoReduccionGlobal->cantidadNodos; j++) {
+		t_datosNodoAEncargado* reg = (t_datosNodoAEncargado*) list_get(
+				infoReduccionGlobal->nodosAConectar, j);
+		printf("%d\n", reg->puerto);
+		printf("%d\n", reg->largoIp);
+		printf("%s\n", reg->ip);
+		printf("%d\n", reg->largoRutaArchivoReduccionLocal);
+		printf("%s\n", reg->rutaArchivoReduccionLocal);
 
 	}
 	free(buffer);
@@ -1023,21 +1025,21 @@ t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void* buffer) {
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	printf("%d\n",infoGuardadoFinal->largoRutaTemporal);
+	printf("%d\n", infoGuardadoFinal->largoRutaTemporal);
 	bytesACopiar = infoGuardadoFinal->largoRutaTemporal;
 	infoGuardadoFinal->rutaTemporal = malloc(
 			infoGuardadoFinal->largoRutaTemporal);
 	memcpy(infoGuardadoFinal->rutaTemporal, buffer + desplazamiento,
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
-	printf("%s\n",infoGuardadoFinal->rutaTemporal);
+	printf("%s\n", infoGuardadoFinal->rutaTemporal);
 
 	bytesACopiar = sizeof(uint32_t);
 	memcpy(&infoGuardadoFinal->largoRutaArchFinal, buffer + desplazamiento,
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-	printf("%d\n",infoGuardadoFinal->largoRutaArchFinal);
+	printf("%d\n", infoGuardadoFinal->largoRutaArchFinal);
 
 	bytesACopiar = infoGuardadoFinal->largoRutaArchFinal;
 	infoGuardadoFinal->rutaArchFinal = malloc(
@@ -1046,24 +1048,22 @@ t_infoGuardadoFinal* deserializarInfoGuardadoFinal(void* buffer) {
 			bytesACopiar);
 	desplazamiento += bytesACopiar;
 
-
-	printf("%s\n",infoGuardadoFinal->rutaArchFinal);
-
+	printf("%s\n", infoGuardadoFinal->rutaArchFinal);
 
 	return infoGuardadoFinal;
 
 }
 
-void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal,int socketMaster) {
+void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal,
+		int socketMaster) {
 	char*contenidoArchTempFinal;
 	int tamanioArchTempFinal;
 	char* rutaTemp;
 	int respuestaFileSystem;
-	rutaTemp=armarRutaGuardadoTemp(infoGuardadoFinal->rutaTemporal);
+	rutaTemp = armarRutaGuardadoTemp(infoGuardadoFinal->rutaTemporal);
 	tamanioArchTempFinal = devolverTamanioArchivo(rutaTemp);
 	//contenidoArchTempFinal = malloc(tamanioArchTempFinal);
-	contenidoArchTempFinal = obtenerContenidoArchivo(
-			rutaTemp);
+	contenidoArchTempFinal = obtenerContenidoArchivo(rutaTemp);
 	void* buffer;
 	void* bufferMensaje;
 	t_header header;
@@ -1074,7 +1074,7 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal,int socket
 		buffer = serializarInfoGuardadoFinal(tamanioArchTempFinal,
 				contenidoArchTempFinal, infoGuardadoFinal, &largoBuffer);
 		tamanioMensaje = largoBuffer;
-		bufferMensaje = malloc(tamanioMensaje +sizeof(t_header));
+		bufferMensaje = malloc(tamanioMensaje + sizeof(t_header));
 		header.id = GUARDAR_FINAL;
 		header.tamanioPayload = largoBuffer;
 
@@ -1088,18 +1088,23 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal,int socket
 		printf("serializo archivo al FS\n");
 
 		enviarPorSocket(socketFilesystem, bufferMensaje, tamanioMensaje);
-		log_info(workerLogger,"Envio archivo para guardarse en filesystem %s",infoGuardadoFinal->rutaArchFinal);
-		respuestaFileSystem=recibirRespuestaFileSystem(socketFilesystem);
-		if(respuestaFileSystem==RESPUESTA_FS_OK) {
-			notificarAMaster(GUARDADO_OK_EN_FS,socketMaster);
-			log_info(workerLogger,"Guardado final en filesystem ok de archivo %s",infoGuardadoFinal->rutaArchFinal);
-		}else {
-			notificarAMaster(FALLO_GUARDADO_FINAL,socketMaster);
-			log_info(workerLogger,"Fallo en guardado final de archivo %s",infoGuardadoFinal->rutaArchFinal);
+		log_info(workerLogger, "Envio archivo para guardarse en filesystem %s",
+				infoGuardadoFinal->rutaArchFinal);
+		respuestaFileSystem = recibirRespuestaFileSystem(socketFilesystem);
+		if (respuestaFileSystem == RESPUESTA_FS_OK) {
+			notificarAMaster(GUARDADO_OK_EN_FS, socketMaster);
+			log_info(workerLogger,
+					"Guardado final en filesystem ok de archivo %s",
+					infoGuardadoFinal->rutaArchFinal);
+		} else {
+			notificarAMaster(FALLO_GUARDADO_FINAL, socketMaster);
+			log_info(workerLogger, "Fallo en guardado final de archivo %s",
+					infoGuardadoFinal->rutaArchFinal);
 		}
-	}else {
-		notificarAMaster(FALLO_GUARDADO_FINAL,socketMaster);
-		log_info(workerLogger,"Fallo en guardado final de archivo %s",infoGuardadoFinal->rutaArchFinal);
+	} else {
+		notificarAMaster(FALLO_GUARDADO_FINAL, socketMaster);
+		log_info(workerLogger, "Fallo en guardado final de archivo %s",
+				infoGuardadoFinal->rutaArchFinal);
 	}
 	free(buffer);
 	free(bufferMensaje);
@@ -1107,11 +1112,11 @@ void guardadoFinalEnFilesystem(t_infoGuardadoFinal* infoGuardadoFinal,int socket
 
 int recibirRespuestaFileSystem(int socketFileSystem) {
 	t_header header;
-	recibirHeader(socketFileSystem,&header);
+	recibirHeader(socketFileSystem, &header);
 
-	if(header.id==RESPUESTA_FS_OK) {
+	if (header.id == RESPUESTA_FS_OK) {
 		return RESPUESTA_FS_OK;
-	}else {
+	} else {
 		return ERROR_GUARDADO_FINAL;
 	}
 
@@ -1152,4 +1157,26 @@ void notificarAMaster(int idNotificacion, int socketMaster) {
 	header.tamanioPayload = 0;
 
 	enviarPorSocket(socketMaster, &header, 0);
+}
+
+void verificarExistenciaCarpetaLogs() {
+	DIR* directorio;
+	char*pathDirectorio;
+	pathDirectorio=malloc(100);
+	char cwd[100];
+	char*linea=string_new();
+	if(getcwd(cwd,sizeof(cwd))!=NULL){
+		string_append(&pathDirectorio,cwd);
+		string_append(&pathDirectorio,"/logs");
+		directorio=opendir(pathDirectorio);
+		if(directorio==NULL) {
+			printf("Carpeta de logs exitente en /worker/logs");
+		}else
+			string_append(&linea,"mkdir ");
+			string_append(&linea, pathDirectorio);
+		system(linea);
+	}
+	free(pathDirectorio);
+	closedir(directorio);
+	free(linea);
 }
