@@ -176,6 +176,7 @@ t_list* archivosTranformacionOk;
 //semaforos
 pthread_mutex_t mutexMaximasTareas;
 pthread_mutex_t mutexTotalFallos;
+pthread_mutex_t mutexReplanificado;
 pthread_mutex_t mutexTotalTransformaciones;
 pthread_mutex_t mutexTotalReduccionesLocales;
 pthread_mutex_t mutexTotalReduccionesGlobales;
@@ -199,6 +200,8 @@ int cantidadTareasCorriendoTransformacion, maximoTareasCorriendoTransformacion;
 int cantidadTareasCorriendoRedLocal, maximoTareasCorriendoRedLocal;
 double tiempoTotalTransformaciones, tiempoTotalRedLocales, tiempoTotalRedGlobal;
 int reduccionGlobalRealizada, cantidadTransformacionesRealizadas, cantidadReduccionesLocalesRealizadas;
+bool replanificado;
+
 /* FIRMAS DE FUNCIONES  */
 
 int chequearParametros(char *transformador,char *reductor,char *archivoAprocesar,char *direccionDeResultado);

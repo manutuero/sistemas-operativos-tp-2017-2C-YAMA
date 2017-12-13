@@ -65,6 +65,7 @@ void destruirListas() {
 	pthread_mutex_destroy(&mutexTotalTransformaciones);
 	pthread_mutex_destroy(&mutexTotalReduccionesLocales);
 	pthread_mutex_destroy(&mutexConexionWorker);
+	pthread_mutex_destroy(&mutexReplanificado);
 }
 
 void liberarTransformaciones(void* transformacion){
@@ -101,6 +102,8 @@ void inicializarMutex() {
 	pthread_mutex_init(&mutexTiempoTransformaciones, NULL);
 	pthread_mutex_init(&mutexTiempoReducciones, NULL);
 	pthread_mutex_init(&mutexTotalFallos, NULL);
+	pthread_mutex_init(&mutexReplanificado, NULL);
+
 }
 
 void crearLogger() {
@@ -283,6 +286,8 @@ void recibirPlanificacionDeYama(int socketYama) {
 	void* buffer;
 	t_header header;
 	recibirHeader(socketYama, &header);
+//	if (header.id == ABORTARJOB)
+	//	abortarMaster();
 	if (header.id != ENVIOPLANIFICACION)
 		exit(0);
 	buffer = malloc(header.tamanioPayload);
@@ -481,6 +486,7 @@ void cargarNodosTransformacion() {
 void operarEtapas() {
 
 	int i;
+	replanificado = false;
 	int transformaciones = list_size(listaTransformaciones);
 	//int redLocales = list_size(listaRedLocales);
 	int redGlobales = list_size(listaRedGloblales);
@@ -579,6 +585,7 @@ void replanificarTransformaciones(uint32_t tamanio){
 	log_info(masterLogger,"replanificada la transformacion del job.");
 	cargarNodosTransformacion();
 	enviarTransformacionAWorkers(transformador, reductor);
+	replanificado = false;
 	free(buffer);
 
 }
@@ -1065,7 +1072,13 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 	pthread_mutex_unlock(&mutexConexionWorker);
 	if (socketWorker == -1) {
 		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
-		enviarFalloTransformacionAYama(transformacion,&header);
+		pthread_mutex_lock(&mutexReplanificado);
+		if(!replanificado){
+			enviarFalloTransformacionAYama(transformacion, &header);
+			borrarTemporalesDeNodo(transformacion->idNodo);
+			replanificado = true;
+		}
+		pthread_mutex_unlock(&mutexReplanificado);
 		log_error(masterLogger, "El worker %d no se encontro levantado.\n",transformacion->idNodo);
 		borrarTemporalesDeNodo(transformacion->idNodo);
 	} else {
@@ -1101,10 +1114,13 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 		}
 		else{
 			printf("error en nodo %d\n",transformacion->idNodo);
-			enviarFalloTransformacionAYama(transformacion, &header);
+			if(!replanificado){
+				enviarFalloTransformacionAYama(transformacion, &header);
+				borrarTemporalesDeNodo(transformacion->idNodo);
+				replanificado = true;
+			}
 			log_error(masterLogger, "El worker %d no pudo terminar la ejecucion de la tarea de transformacion.\n",
 							transformacion->idNodo);
-			borrarTemporalesDeNodo(transformacion->idNodo);
 		}
 	}
 	free(worker->rutaArchivoTemporal);
@@ -1132,18 +1148,25 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	fallo->rutaTemporalTransformacion = malloc(fallo->largoRutaTemporal);
 	strcpy(fallo->rutaTemporalTransformacion,transformacion->archivoTransformacion);
 	string_append(&fallo->rutaTemporalTransformacion,"\0");
-	fallo->largoRutaArchivoAProcesar = strlen(archivoAprocesar); //tercer argumento de master
-	fallo->rutaArchivoAProcesar = malloc(fallo->largoRutaArchivoAProcesar);
-	strcpy(fallo->rutaArchivoAProcesar, archivoAprocesar);
-	string_append(&fallo->rutaArchivoAProcesar,"\0");
-	fallo->largoRutaArchivoDestino = strlen(direccionDeResultado); //cuartoumento argumento de master
-	fallo->rutaArchivoDestino = malloc(fallo->largoRutaArchivoDestino);
+	fallo->largoRutaArchivoAProcesar = strlen(archivoAprocesar)+1; //tercer argumento de master
+	//fallo->rutaArchivoAProcesar = malloc(fallo->largoRutaArchivoAProcesar);
+	//strcpy(fallo->rutaArchivoAProcesar, archivoAprocesar);
+	//string_append(&fallo->rutaArchivoAProcesar,"\0");
+	fallo->rutaArchivoAProcesar = string_duplicate(archivoAprocesar);
+
+	fallo->largoRutaArchivoDestino = strlen(direccionDeResultado)+1; //cuartoumento argumento de master
+	//fallo->rutaArchivoDestino = malloc(fallo->largoRutaArchivoDestino);
+
+		//pedido.nombreArchivo[pedido.largoArchivo] = "\0";
+	fallo->rutaArchivoDestino= string_duplicate(direccionDeResultado);
+
+	//strcpy(fallo->rutaArchivoDestino, direccionDeResultado);
+	//string_append(&fallo->rutaArchivoDestino,"\0");
 
 	printf("temporal de transformacion: %s\n",transformacion->archivoTransformacion);
 	printf("%d de temporal: %s\n",fallo->largoRutaTemporal,fallo->rutaTemporalTransformacion);
-
-	strcpy(fallo->rutaArchivoDestino, direccionDeResultado);
-	string_append(&fallo->rutaArchivoDestino,"\0");
+	printf("%d de original: %s\n",fallo->largoRutaArchivoAProcesar,fallo->rutaArchivoAProcesar);
+	printf("%d de temporal: %s\n",fallo->largoRutaArchivoDestino,fallo->rutaArchivoDestino);
 
 
 	tamanioBuffer = sizeof(t_header) + (3 * sizeof(uint32_t))
@@ -1163,6 +1186,7 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	memcpy(buffer + desplazamiento, fallo->rutaTemporalTransformacion,
 			fallo->largoRutaTemporal);
 	printf("despues serializar: %d- %s\n",fallo->largoRutaTemporal,fallo->rutaTemporalTransformacion);
+
 	desplazamiento += fallo->largoRutaTemporal;
 	memcpy(buffer + desplazamiento, &fallo->largoRutaArchivoAProcesar,
 			sizeof(uint32_t));
@@ -1288,7 +1312,6 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 	printf("%d\n",redLocalWorker->largoRutaArchivoReducidoLocal);
 	printf("%s\n",redLocalWorker->rutaArchivoReducidoLocal);
 	printf("%d\n",redLocalWorker->largoArchivoReductor);
-	//printf("%s\n",redLocalWorker->archivoReductor);
 
 
 	memcpy(buffer + desplazamiento, &redLocalWorker->largoRutaArchivoReducidoLocal, sizeof(uint32_t));
