@@ -1484,6 +1484,7 @@ int devolverTamanioArchivo(char* archivo) {
 	int tam = mystat.st_size;
 
 	close(file);
+	tam++;
 	return tam;
 }
 
