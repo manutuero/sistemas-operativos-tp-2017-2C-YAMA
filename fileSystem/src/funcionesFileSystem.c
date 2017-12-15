@@ -2066,6 +2066,10 @@ t_infoArchivoFinal* deserializarInfoArchivoFinal(void* buffer) {
 	memcpy(archivo->archivoFinal, buffer + desplazamiento,
 			archivo->largoArchivo);
 	desplazamiento += archivo->largoArchivo;
+
+	// Libero recursos.
+	free(buffer);
+
 	return archivo;
 }
 
@@ -2427,13 +2431,18 @@ int guardarArchivoReduccionGlobal(t_infoArchivoFinal *infoArchivoFinal) {
 	resultadoAlmacenamiento = almacenarArchivo(pathDirectorioYamaFs,
 			nombreArchivo, tipoArchivo, datos);
 
-	fclose(datos);
-
+	// Determina el idHeader que devolvera a worker.
 	if (resultadoAlmacenamiento == EXITO) {
 		idRespuestaWorker = ALMACENAMIENTO_FINAL_OK;
 	} else if (resultadoAlmacenamiento == ERROR) {
 		idRespuestaWorker = ERROR_ALMACENAMIENTO_FINAL;
 	}
+
+	// Libero recursos.
+	fclose(datos);
+	free(infoArchivoFinal->archivoFinal);
+	free(infoArchivoFinal->rutaArchivoFinal);
+	free(infoArchivoFinal);
 
 	return idRespuestaWorker;
 }
