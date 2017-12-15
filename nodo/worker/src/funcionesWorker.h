@@ -11,8 +11,6 @@
 #include <commons/txt.h>
 #include <dirent.h>
 
-//#include <linux/sort.h>
-
 /* Variables globales */
 pthread_mutex_t mutexRedGlobal;
 t_log* workerLogger;
@@ -126,6 +124,7 @@ typedef struct {
 #define GUARDADO_OK_EN_FS 32
 #define FALLO_GUARDADO_FINAL 108
 #define ERROR_GUARDADO_FINAL 107
+#define ERROR_TRANSFORMACION 103
 
 /* Firmas de funciones */
 void crearLogger();

@@ -2,7 +2,6 @@
 
 int main(void) {
 
-	//pathTemporales = "/home/utnso/temp/";
 	verificarExistenciaCarpetaLogs();
 	crearLogger();
 	NODOARCHCONFIG = "nodoConfig.cfg";
@@ -10,11 +9,9 @@ int main(void) {
 
 	abrirDatabin();
 
-	//struct sockaddr_in direccionDelServidorKernel;
 	direccionWorker.sin_family = AF_INET;
 	direccionWorker.sin_port = htons(PUERTO_WORKER);
 	direccionWorker.sin_addr.s_addr = INADDR_ANY;
-	//memset(&(direccionYama.sin_zero), '\0', 8);  // Se setea el resto del array de addr_in en 0
 
 	int activado = 1;
 	int socketMaster;
@@ -41,11 +38,8 @@ int main(void) {
 	}
 
 	int tamanioDir = sizeof(direccionWorker);
-	//char* buffer;
 	int bytesRecibidos, nuevoSocket;
 
-
-	//signal(SIGCHLD,SIG_IGN);
 	int i = 0;
 	printf("escuchando masters\n");
 	while (1) {
@@ -54,8 +48,6 @@ int main(void) {
 				(struct soccaddr*) &direccionWorker, &tamanioDir)) <= 0)
 			perror("accept");
 		else {
-			printf("Entro una conexion por el sd %d\n", nuevoSocket);
-
 			void* buffer;
 			t_infoTransformacion* infoTransformacion;
 			t_infoReduccionLocal* infoReduccionLocal;
@@ -64,9 +56,6 @@ int main(void) {
 			char* nombreArchTempPedido;
 			t_header header;
 			recibirHeader(nuevoSocket, &header);
-			if(header.id !=TRANSFORMACION){
-				printf("header reduccion %d\n",header.id);
-			}
 
 			buffer = malloc(header.tamanioPayload);
 			bytesRecibidos=recibirPorSocket(nuevoSocket, buffer, header.tamanioPayload);
@@ -79,7 +68,7 @@ int main(void) {
 				fprintf(stderr,"fallo el fork!");
 			}
 			if(pid == 0){
-			   //if (fork() == 0) {//pid nieto
+
 				switch (header.id) {
 
 				case TRANSFORMACION:
@@ -89,35 +78,31 @@ int main(void) {
 				case REDUCCION_LOCAL:
 					infoReduccionLocal = deserializarInfoReduccionLocal(buffer);
 					realizarReduccionLocal(infoReduccionLocal, nuevoSocket);
+					printf("Termino reduccion local\n");
 					break;
 				case REDUCCION_GLOBAL:
 					infoReduccionGlobal = deserializarInfoReduccionGlobal(
 							buffer);
 					realizarReduccionGlobal(infoReduccionGlobal, nuevoSocket);
+					printf("Termino reduccion global\n");
 					break;
 				case ORDEN_GUARDADO_FINAL:
 					printf("inicio guardado final: deserializo\n");
 					infoGuardadoFinal = deserializarInfoGuardadoFinal(buffer);
-					printf("deserializo. mando a FS\n");
 					guardadoFinalEnFilesystem(infoGuardadoFinal,nuevoSocket);
+					printf("Finalizo guardado final\n");
 					break;
 				case SOLICITUD_WORKER:
+					printf("Inicio pedido de encargado\n");
 					nombreArchTempPedido = deserializarSolicitudArchivo(buffer);
 					responderSolicitudArchivoWorker(nombreArchTempPedido,
 							nuevoSocket);
+					printf("Finalizo pedido de encargado\n");
 					break;
 				}
 
 				close(nuevoSocket);
-				printf("Realice la tarea %d\n",i);
 				exit(0);
-				//waitpid(pid,0,WNOHANG);
-				//kill(pid,SIGTERM);
-
-			   //else{ //pid hijo
-					//waitpid(pid,0,WNOHANG);
-				   //exit(0);
-			   //}
 			}
 			else{
 
