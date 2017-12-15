@@ -334,7 +334,14 @@ void ordenarListaNodos(t_list *listaNodos) {
 
 // Si la condicion retorna 'false' intercambia el orden, sino deja ordenado como esta.
 bool compararBloquesLibres(t_nodo *unNodo, t_nodo *otroNodo) {
-	return otroNodo->bloquesLibres < unNodo->bloquesLibres;
+	float porcentajeUnNodo, porcentajeOtroNodo;
+
+	porcentajeUnNodo = (float) unNodo->bloquesLibres / (float) unNodo->bloquesTotales;
+
+	porcentajeOtroNodo = (float) otroNodo->bloquesLibres / (float) otroNodo->bloquesTotales;
+
+	//return otroNodo->bloquesLibres < unNodo->bloquesLibres;
+	return porcentajeOtroNodo < porcentajeUnNodo;
 }
 
 bool compararPorIdDesc(t_nodo *unNodo, t_nodo *otroNodo) {
