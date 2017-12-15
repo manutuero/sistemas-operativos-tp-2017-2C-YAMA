@@ -195,7 +195,7 @@ void iniciarMaster(char* rutaTransformador, char* rutaReductor,
 	double tiempo = (double) (t_fin - t_ini) / CLOCKS_PER_SEC * 1000;
 	metricas(tiempo);
 
-	destruirListas();
+	//destruirListas();
 	config_destroy(config);
 	log_destroy(masterLogger);
 }
@@ -1013,7 +1013,7 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 		}
 	}
 	guardado->largoRutaArchivoFinal = strlen(direccionDeResultado)+1;
-	guardado->nombreArchivoArchivoFinal = malloc(strlen(direccionDeResultado));
+	guardado->nombreArchivoArchivoFinal = malloc(guardado->largoRutaArchivoFinal);
 	strcpy(guardado->nombreArchivoArchivoFinal, direccionDeResultado);
 	string_append(&guardado->nombreArchivoArchivoFinal,"\0");
 	buffer = malloc(sizeof(uint32_t)*2 + guardado->largoRutaArchivoFinal +
