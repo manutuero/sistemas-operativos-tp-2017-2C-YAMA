@@ -138,7 +138,6 @@ void *preplanificarJob(t_job* jobMaster){
 	free(clockAux);
 
 	usleep(RETARDO_PLANIFICACION);
-
 	return((void*)0);
 }
 
@@ -989,6 +988,9 @@ void actualizarConfig()
 	if (config_has_property(config,"ALGORITMO_BALANCEO"))
 		algoritmo = config_get_int_value(config,"ALGORITMO_BALANCEO");
 
+	if (config_has_property(config,"RETARDO_PLANIFICACION"))
+		RETARDO_PLANIFICACION = config_get_int_value(config,"RETARDO_PLANIFICACION");
+
 	fclose(fpConfig);
 	free(pathArchConfig);
 	free(sJob);
@@ -1481,7 +1483,7 @@ void enviarPlanificacionAMaster(t_job* jobMaster){
 
 void eliminarJob(char *temporal){
 
-	int i;
+	int i, cantRedLocales;
 	t_tabla_estados *registro;
 	t_list *listaFiltrada;
 
@@ -1491,15 +1493,40 @@ void eliminarJob(char *temporal){
 
 	filtrarLista(listaFiltrada,registro->job);
 
+	cantRedLocales = cantNodosConRedLocal(listaFiltrada);
+
 	for(i=0;i<list_size(listaFiltrada);i++)
 	{
 		registro = list_get(listaFiltrada,i);
+		switch(registro->etapa)
+		{
+			case TRANSFORMACION:
+				workers[registro->nodo].workLoad--;
+				break;
+			case REDUCCION_GLOBAL:
+				if((cantRedLocales/2)==0)
+					{
+						workers[registro->nodo].workLoad+=(cantRedLocales/2);
+					}else
+					{
+						workers[registro->nodo].workLoad+=(cantRedLocales/2)+1;
+					}
+
+		}
+
 		registro->estado=ERROR_TAREA;
 	}
 
 	list_destroy(listaFiltrada);
 
 	return;
+}
+
+int cantNodosConRedLocal(t_list *listaFiltrada)
+{
+	//t_tabla_estados *registro;
+
+	return 1;
 }
 
 /*SRLZ					Serializaciones								 */

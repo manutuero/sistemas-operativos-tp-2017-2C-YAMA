@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <utils.h>
 #include <signal.h>
+#include <commons/temporal.h>
+#include <dirent.h>
 
 typedef struct{
 		uint32_t largoArchivo;
@@ -26,11 +28,12 @@ struct sockaddr_in direccionFS;
 struct sockaddr_in direccionYama;
 int socketMasters, socketFS;
 char* ip,*socketFSNodos;
-extern uint32_t ultimoMaster;
+extern uint32_t ultimoMaster,reconfiguracion;
 uint32_t job;
 t_config *config;
 char* FS_IP;
 int FS_PUERTO,PUERTO_FS_NODOS,RETARDO_PLANIFICACION,PUERTO_MASTERS;
+t_log *logger;
 
 typedef struct{
 	uint32_t idNodo;
@@ -72,5 +75,5 @@ void conseguirIdNodo(char*,t_header*);
 /* log YAMA */
 void encargadoInterrupciones(int);
 
-void crearYAMALogger(t_log*);
+void crearYAMALogger();
 #endif /* FUNCIONESYAMA_H_ */

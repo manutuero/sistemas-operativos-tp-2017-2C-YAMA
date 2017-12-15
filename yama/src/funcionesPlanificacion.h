@@ -242,6 +242,8 @@ t_transformacionMaster *recuperarInformacionTransformacion(t_list*,t_bloqueRecv 
 
 void eliminarJob(char *);
 
+int cantNodosConRedLocal(t_list *);
+
 /* Serializacion de estructuras de planificacion */
 
 void enviarMensajeFalloOperacion(t_job* jobMaster);

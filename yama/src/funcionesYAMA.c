@@ -1,14 +1,7 @@
-/*
- * funcionesYAMA.c
- *
- *  Created on: 20/9/2017
- *      Author: utnso
- */
-
 #include "funcionesYAMA.h"
 #include "funcionesPlanificacion.h"
 
-uint32_t masterID = 0, disponibilidadBase;
+uint32_t masterID = 0, disponibilidadBase,reconfiguracion=true;
 char* temp = "/tmp/";
 
 void conectarseAFS() {
@@ -165,10 +158,12 @@ void escucharMasters() {
 
 		readfds = auxRead;
 		sleep(1);
-		if (select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1) {
+		if ((select(maxPuerto + 1, &readfds, NULL, NULL, NULL) == -1)&&(reconfiguracion==false)) {
 			perror("select");
 			exit(1);
 		}
+		else
+			reconfiguracion = false;
 
 		for (i = 0; i <= maxPuerto; i++) {
 			if (FD_ISSET(i, &readfds)) {
@@ -225,13 +220,10 @@ void escucharMasters() {
 								break;
 							}else
 							{
-								printf("termino la trans del temporal %s\n",temporal);
 
 								if(cambiarEstado(temporal,COMPLETADO))
 									{
-										printf("temporal %s\n",temporal);
 										conseguirIdNodo(temporal,&headerResp);
-										printf("nodo reduccion local: %d\n",headerResp.tamanioPayload);
 										headerResp.id = 13;
 										enviarPorSocket(i,&headerResp,0);
 									}
@@ -255,7 +247,7 @@ void escucharMasters() {
 							}
 							else
 							{
-							printf("termino la redlocal del temporal %s\n",temporal);
+							printf("Termino la redlocal del temporal %s\n",temporal);
 
 
 							if(cambiarEstado(temporal,COMPLETADO)){
@@ -281,21 +273,20 @@ void escucharMasters() {
 								break;
 							}else
 							{
-								printf("termino la redglobal del temporal %s\n",temporal);
-								uint32_t respuesta = 21;
+								printf("Termino la redglobal del temporal %s\n",temporal);
+								//uint32_t respuesta = 21;
 								headerResp.id = 21;
 								headerResp.tamanioPayload=0;
 								enviarPorSocket(i,&headerResp,0);
 								descargarWorkload(temporal);
 								free(temporal);
-								printf("%d",respuesta);
 							}
 
 							break;
 
 						case 103:
-							printf("repreplanifica\n");
-							t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
+							printf("No se puede replanificar\n");
+							/*t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
 							char *nombreTMP;
 							int *desplazamiento;
 							buffer = malloc(headerResp.tamanioPayload);
@@ -303,7 +294,7 @@ void escucharMasters() {
 							bytesRecibidos=recibirPorSocket(i,buffer,headerResp.tamanioPayload);
 							if(bytesRecibidos==0)
 							{
-								printf("Fallo la coneccion con master");
+								printf("Fallo la coneccion con master\n");
 								FD_CLR(i, &readfds);
 								shutdown(i, 2);
 								break;
@@ -332,24 +323,23 @@ void escucharMasters() {
 									jobMaster->idMaster = registro->master;
 									jobMaster->socketMaster = i;
 									jobMaster->replanifica = 1;
-									printf("repre2\n");
 									rePrePlanificacion(pedido->nombreArchivo,pedido->nombreArchivoGuardadoFinal,nombreTMP, jobMaster);
 								}
-							}
+							}*/
 								break;
 
 						case 104:
-							printf("Se procede a terminar el trabajo en estado erroneo");
+							printf("Se procede a terminar el trabajo en estado erroneo\n");
 							eliminarJob(temporal);
 							break;
 
 						case 107:
-							printf("Se procede a actualizar trabajo a error tarea por fallo guardado final en yamafs");
+							printf("Se procede a actualizar trabajo a error tarea por fallo guardado final en yamafs\n");
 							eliminarJob(temporal);
 							break;
 
 						default:
-							printf("Header ID erroneo");
+							printf("Header ID erroneo\n");
 						}
 
 					}
@@ -411,7 +401,7 @@ void escuchaActualizacionesNodos() {
 				workers[infoNodo.idNodo].puerto = infoNodo.puerto;
 				workers[infoNodo.idNodo].ip = malloc(infoNodo.largoIp);
 				strcpy(workers[infoNodo.idNodo].ip, infoNodo.IP);
-				printf("Recibida info nodo:   %d", infoNodo.idNodo);
+
 				puts("");
 			} else {
 				workers[infoNodo.idNodo].habilitado = 0;
@@ -494,13 +484,11 @@ int recibirRutaDeArchivoAProcesar(int socketMaster,t_pedidoTransformacion** ruta
 		jobMaster->pedidoTransformacion=**ruta;
 
 		pthread_t hiloPeticionMaster;
-		printf("job: %d\n", jobMaster->job);
 		pthread_create(&hiloPeticionMaster, NULL, (void*) preplanificarJob,
 				jobMaster);
 
 		pthread_join(hiloPeticionMaster, NULL); //ver si despues se saca o se deja el join
 
-		printf("salgo del hilo de plani\n");
 
 		free(jobMaster);
 
@@ -611,20 +599,11 @@ void conseguirIdNodo(char* temporal,t_header *header)
 	t_tabla_estados *registro;
 	int i;
 
-	printf("%s\n", temporal);
 	for(i=0;i<list_size(listaTablaEstados);i++)
 	{
 		registro = list_get(listaTablaEstados,i);
 		if(sonIguales(registro->archivoTemp,temporal))
 		{
-			printf("archivo %s\n", registro->archivoTemp);
-			printf("bloque %d\n", registro->bloque);
-			printf("estado %d\n", registro->estado);
-			printf("etapa %d\n", registro->etapa);
-			printf("job %d\n", registro->job);
-			printf("nodo %d\n", registro->nodo);
-			printf("master %d\n", registro->master);
-			printf("bloque archivo %d\n", registro->nroBloqueArch);
 			header->tamanioPayload=registro->nodo;
 			break;
 		}
@@ -637,67 +616,102 @@ void encargadoInterrupciones(int senial)
 	int i;
 	char *mensaje;
 	t_tabla_estados *registro;
-	t_log *logger;
 
-	crearYAMALogger(logger);
-
-	//signal(senial,SIG_IGN);
-
-	if(list_size(listaTablaEstados)==0)
-		log_info(logger,"NO HAY ACTIVIDAD QUE REGISTRAR");
-	else
+	if (senial==SIGINT)
 	{
-		mensaje = string_new();
-		for(i=0;i<list_size(listaTablaEstados);i++)
+		crearYAMALogger();
+
+
+		if(list_size(listaTablaEstados)==0)
+			log_info(logger,"NO HAY ACTIVIDAD QUE REGISTRAR");
+		else
 		{
-			registro = list_get(listaTablaEstados,i);
-			if((registro->estado==COMPLETADO)||(registro->estado==ERROR_TAREA))
+			for(i=0;i<list_size(listaTablaEstados);i++)
 			{
-				string_append(&mensaje,"JOB: ");
-				string_append(&mensaje,string_itoa(registro->job));
-				string_append(&mensaje,"\tMASTER ID: ");
-				string_append(&mensaje,string_itoa(registro->master));
-				switch(registro->etapa)
+				mensaje = string_new();
+				registro = list_get(listaTablaEstados,i);
+				if((registro->estado==COMPLETADO)||(registro->estado==ERROR_TAREA))
 				{
-				case 1:
-					string_append(&mensaje,"\tETAPA TRANSFORMACION");
-					break;
-				case 2:
-					string_append(&mensaje,"\tETAPA REDUCCION LOCAL");
-					break;
-				case 3:
-					string_append(&mensaje,"\tETAPA REDUCCION GLOBAL");
-					break;
-				}
-				string_append(&mensaje,"\tARCHIVO TEMPORAL: ");
-				string_append(&mensaje,registro->archivoTemp);
-				string_append(&mensaje,"\ESTADO: ");
-				if(registro->estado==COMPLETADO)
-					string_append(&mensaje,"COMPLETADO");
-				else
-					string_append(&mensaje,"ERROR EN LA OPERACION");
+					string_append(&mensaje,"\n");
+					string_append(&mensaje,"JOB: ");
+					string_append(&mensaje,string_itoa(registro->job));
+					string_append(&mensaje,"\tMASTER ID: ");
+					string_append(&mensaje,string_itoa(registro->master));
+					string_append(&mensaje,"\tARCHIVO TEMPORAL: ");
+					string_append(&mensaje,registro->archivoTemp);
+					string_append(&mensaje,"\n");
+					switch(registro->etapa)
+					{
+						case 1:
+							string_append(&mensaje,"ETAPA TRANSFORMACION");
+							break;
+						case 2:
+							string_append(&mensaje,"ETAPA REDUCCION LOCAL");
+							break;
+						case 3:
+							string_append(&mensaje,"ETAPA REDUCCION GLOBAL");
+							break;
+					}
+
+					string_append(&mensaje,"\tESTADO: ");
+
+					if(registro->estado==COMPLETADO)
+						string_append(&mensaje,"COMPLETADO");
+					else
+						string_append(&mensaje,"ERROR EN LA OPERACION");
+					string_append(&mensaje,"\n");
+					}
+				log_info(logger, mensaje);
 			}
-		log_info(logger,mensaje);
-	}}
-	//log_destroy(logger);
-	exit(0);
+		}
+		exit(0);
+	}
+
+	if(senial==SIGUSR1)
+	{
+		printf("Se recarga el archivo de configuracion\n");
+		reconfiguracion=true;
+	}
 }
 
-void crearYAMALogger(t_log *logger) {
+void crearYAMALogger() {
 	char *pathLogger = string_new();
-	char* temporal = string_new();
+	char* nombreArchivo = string_new();
 	char* sTime = temporal_get_string_time();
 	char cwd[1024];
-	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
-	string_append(&temporal, "/logs/YAMALogs");
-	string_append(&temporal, sTime);
-	string_append(&temporal,".log");
-	string_append(&pathLogger, temporal);
+	char *comando = string_new();
+	DIR *dir;
 
-	char *logYAMAFileName = strdup(temporal);
+	string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+	string_append(&pathLogger, "/logs");
+
+	// Verifica si existe ..cwd/logs
+	dir = opendir(pathLogger);
+	if(!dir) {// Si no existe, lo crea.
+		string_append(&comando, "mkdir -p ");
+		string_append(&comando, pathLogger);
+		system(comando);
+	} else {
+		closedir(dir); // Si existe cierra el puntero.
+	}
+
+	string_append(&nombreArchivo, "/");
+	string_append(&nombreArchivo, sTime);
+	string_append(&nombreArchivo,".log");
+
+	string_append(&pathLogger, nombreArchivo);
+
+	// Obtengo el nombre que tendra el archivo logger.
+	char *logYAMAFileName = strdup(nombreArchivo);
+
+	// Creo el logger.
+	logger = log_create(pathLogger, logYAMAFileName, false, LOG_LEVEL_INFO);
+
+	// Libero recursos
 	free(sTime);
-	free(temporal);
+	free(nombreArchivo);
 	free(logYAMAFileName);
 	free(pathLogger);
+	free(comando);
 	logYAMAFileName = NULL;
 }
