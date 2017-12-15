@@ -28,7 +28,7 @@ int main(void) {
 	// Se enlaza el socket al puerto
 	if (bind(socketMaster, (struct sockaddr *) &direccionWorker,
 			sizeof(struct sockaddr)) != 0) {
-		perror("No se pudo conectar");
+		perror("No se pudo conectar.");
 		exit(1);
 	}
 	// Se pone a escuchar el servidor kernel
@@ -41,7 +41,7 @@ int main(void) {
 	int bytesRecibidos, nuevoSocket;
 
 	int i = 0;
-	printf("escuchando masters\n");
+	printf("Listo para recibir peticiones de jobs.\n");
 	while (1) {
 		i++;
 		if ((nuevoSocket = accept(socketMaster,
@@ -60,12 +60,12 @@ int main(void) {
 			buffer = malloc(header.tamanioPayload);
 			bytesRecibidos=recibirPorSocket(nuevoSocket, buffer, header.tamanioPayload);
 			if(bytesRecibidos<=0){
-				printf("Error conexion con master entrante");
+				printf("Error conexion con master entrante.\n");
 				continue;
 			}
 			pid = fork();
 			if(pid<0){
-				fprintf(stderr,"fallo el fork!");
+				fprintf(stderr,"fallo el fork.\n");
 			}
 			if(pid == 0){
 
@@ -78,26 +78,26 @@ int main(void) {
 				case REDUCCION_LOCAL:
 					infoReduccionLocal = deserializarInfoReduccionLocal(buffer);
 					realizarReduccionLocal(infoReduccionLocal, nuevoSocket);
-					printf("Termino reduccion local\n");
+					printf("Termino reduccion local,job: %s\n",infoReduccionLocal->rutaArchReducidoLocal);
 					break;
 				case REDUCCION_GLOBAL:
 					infoReduccionGlobal = deserializarInfoReduccionGlobal(
 							buffer);
 					realizarReduccionGlobal(infoReduccionGlobal, nuevoSocket);
-					printf("Termino reduccion global\n");
+					printf("Termino reduccion global,job: %s\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
 					break;
 				case ORDEN_GUARDADO_FINAL:
-					printf("inicio guardado final: deserializo\n");
 					infoGuardadoFinal = deserializarInfoGuardadoFinal(buffer);
+					printf("inicio guardado final de archivo:  %s\n",infoGuardadoFinal->rutaArchFinal);
 					guardadoFinalEnFilesystem(infoGuardadoFinal,nuevoSocket);
-					printf("Finalizo guardado final\n");
+					printf("Finalizo guardado final de archivo: %s\n",infoGuardadoFinal->rutaArchFinal);
 					break;
 				case SOLICITUD_WORKER:
-					printf("Inicio pedido de encargado\n");
+					printf("Solicitud de archivo temporal de encargado.\n");
 					nombreArchTempPedido = deserializarSolicitudArchivo(buffer);
 					responderSolicitudArchivoWorker(nombreArchTempPedido,
 							nuevoSocket);
-					printf("Finalizo pedido de encargado\n");
+					printf("Finalizo solicitud de archivo de encargado.\n");
 					break;
 				}
 

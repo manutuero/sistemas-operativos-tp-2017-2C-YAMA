@@ -207,6 +207,7 @@ char *guardarArchScript(char*contenidoArchivoScript, char* nombreArchTemp) {
 
 void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,
 	int socketMaster) {
+	printf("Inicio reduccion local,job: %s\n", infoReduccionLocal->rutaArchReducidoLocal);
 	char*rutaReducidoLocal;
 	char*rutaArchReductor;
 	rutaArchReductor = guardarArchScript(infoReduccionLocal->archReductor,
@@ -292,6 +293,7 @@ int proximoRegistro(FILE *datos, char *registro) {
 
 void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
 		int socketMaster) {
+	printf("Inicio reduccion Global,job: %s\n",infoReduccionGlobal->rutaArchivoTemporalFinal);
 	char* lineaAEjecutar = string_new();
 	char* contenidoArchRecibido = string_new();
 	int i, socketDePedido, encontrado;
