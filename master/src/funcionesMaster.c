@@ -151,7 +151,8 @@ t_config* cargarArchivoDeConfiguracion() {
 	free(pathArchConfig);
 
 	if (!config) {
-		perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
+		log_error(masterLogger,"No se pudo cargar el archivo de configuracion.");
+		//perror("[ERROR]: No se pudo cargar el archivo de configuracion.");
 		exit(EXIT_FAILURE);
 	}
 
@@ -206,25 +207,21 @@ int conectarseAYama(int puerto, char* ip) {
 	direccionYama.sin_family = AF_INET;
 	direccionYama.sin_port = htons(puerto);
 	direccionYama.sin_addr.s_addr = inet_addr(ip);
-	//memset(&(direccionYama.sin_zero), '\0', 8);
 
 	int yama = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (connect(yama, (struct sockaddr *) &direccionYama,
 			sizeof(struct sockaddr)) != 0) {
-		perror("fallo la conexion a YAMA");
 		log_error(masterLogger, "No se pudo conectar a YAMA");
 		exit(1);
 	}
 
-	printf("se conecto a YAMA en el socket %d\n", yama);
 	log_info(masterLogger, "Establecida conexion con YAMA");
 
 	return yama;
 }
 
 void mandarArchivosAYama(int socketYama, char* archivoAprocesar) {
-	t_rutaArchivo ruta;
 	t_header header;
 	int tamanioBuffer, desplazamiento = 0;
 	void * buffer, *bufferStruct;
@@ -841,7 +838,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 }
 
 int transformacionExistente(char* temporal){
-	int i, posAux;
+	int i;
 	char* tempGuardado;
 	for(i=0;i<list_size(archivosTranformacionOk);i++){
 		tempGuardado = list_get(archivosTranformacionOk, i);
@@ -873,7 +870,6 @@ void avisarAYama(t_transformacionMaster* transformacion, t_header headerResp) {
 void avisarAYamaRedLocal(t_infoReduccionesLocales reduccionWorker,
 		t_header headerResp) {
 	int desplazamiento;
-	printf("%s\n",reduccionWorker.rutaArchivoReducidoLocal);
 	headerResp.tamanioPayload = reduccionWorker.largoRutaArchivoReducidoLocal;
 	void* buffer = malloc(sizeof(t_header) + headerResp.tamanioPayload);
 	desplazamiento = 0;
@@ -927,8 +923,6 @@ void avisarAlmacenadoFinal() {
 	}
 
 	if (socketWorker == -1) {
-		printf("envio desconexion del nodo a yama en el socket %d\n",
-				socketYama);
 		header.id = ERRORALMACENADOFINAL;
 		header.tamanioPayload = 0;
 		enviarPorSocket(socketYama, &header, 0);
@@ -949,11 +943,7 @@ void avisarAlmacenadoFinal() {
 		memcpy(buffer, &header, sizeof(t_header));
 		memcpy(buffer+sizeof(t_header),bufferStruct, tamanioBuffer);
 
-		printf("header id: %d\n",header.id);
-		printf("header payload: %d\n",header.tamanioPayload);
-
 		enviarPorSocket(socketWorker, buffer, tamanioBuffer);
-		printf("se avisa al worker encargado (nodo %d) para almacenar el resultado del job\n",nodoEncargado);
 		log_info(masterLogger,"Se avisa al worker encargado (nodo %d) para almacenar el resultado del job.",
 				nodoEncargado);
 		//free(temporalGlobal);
@@ -963,20 +953,16 @@ void avisarAlmacenadoFinal() {
 		int respuesta = respuestaWorker(socketWorker);
 		if(respuesta == ERRORALMACENADOFINAL){
 			header.id = ERRORALMACENADOFINALYAMA;
-			printf("error en FS\n");
-			printf("envio a Yama que no se guardo el archivo\n");
+			log_error(masterLogger,"Error en FS.");
 		}
 		else if(respuesta == ALMACENADOFINALOK){
 			header.id = ALMACENADOFINALOK;
-			printf("guardo archivo correctamente.\n");
+			log_info(masterLogger, "guardo archivo correctamente.");
 			return;
 		}
 		header.tamanioPayload = strlen(temporalGlobal);
 		buffer = malloc(sizeof(t_header) + header.tamanioPayload);
 
-		printf("header %d\n");
-		printf("payload %d\n");
-		printf("temporal %s\n",temporalGlobal);
 
 		memcpy(buffer, &header.id, sizeof(header.id));
 		desplazamiento += sizeof(header.id);
@@ -987,11 +973,8 @@ void avisarAlmacenadoFinal() {
 				header.tamanioPayload);
 		desplazamiento += header.tamanioPayload;
 
-
-
-		printf("termino de serializar respuesta final\n");
 		enviarPorSocket(socketYama, buffer, header.tamanioPayload);
-		printf("envio respuesta guardado a Yama\n");
+		log_info(masterLogger, "Envio a Yama que no se guardo el archivo.");
 		free(buffer);
 	}
 }
@@ -1028,10 +1011,6 @@ void* serializarInfoGuardadoFinal(t_infoGuardadoFinal* guardado,int* tamanioBuff
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer+desplazamiento,guardado->nombreArchivoArchivoFinal,guardado->largoRutaArchivoFinal);
 	desplazamiento += guardado->largoRutaArchivoFinal;
-	printf("guardado largo temporal %d\n",guardado->largoRutaTemporalArchivo);
-	printf("guardado largo temporal %s\n",guardado->nombreArchivoTemporal);
-	printf("guardado largo final %d\n",guardado->largoRutaArchivoFinal);
-	printf("guardado largo temporal %s\n",guardado->nombreArchivoArchivoFinal);
 
 	*tamanioBuffer = desplazamiento;
 	//free(guardado->nombreArchivoArchivoFinal);
@@ -1102,7 +1081,6 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 		log_info(masterLogger, "Enviado transformacion a worker %d",transformacion->idNodo);
 
 		if (respuestaWorker(socketWorker) == TRANSFORMACIONOKWORKER) {
-			//printf("transformacion OK\n");
 			pthread_mutex_lock(&mutexTotalTransformaciones);
 			disminuirTransformacionesDeNodo(transformacion->idNodo);
 			cantidadTransformacionesRealizadas++;
@@ -1149,25 +1127,10 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	strcpy(fallo->rutaTemporalTransformacion,transformacion->archivoTransformacion);
 	string_append(&fallo->rutaTemporalTransformacion,"\0");
 	fallo->largoRutaArchivoAProcesar = strlen(archivoAprocesar)+1; //tercer argumento de master
-	//fallo->rutaArchivoAProcesar = malloc(fallo->largoRutaArchivoAProcesar);
-	//strcpy(fallo->rutaArchivoAProcesar, archivoAprocesar);
-	//string_append(&fallo->rutaArchivoAProcesar,"\0");
 	fallo->rutaArchivoAProcesar = string_duplicate(archivoAprocesar);
 
-	fallo->largoRutaArchivoDestino = strlen(direccionDeResultado)+1; //cuartoumento argumento de master
-	//fallo->rutaArchivoDestino = malloc(fallo->largoRutaArchivoDestino);
-
-		//pedido.nombreArchivo[pedido.largoArchivo] = "\0";
+	fallo->largoRutaArchivoDestino = strlen(direccionDeResultado)+1; //cuarto argumento de master
 	fallo->rutaArchivoDestino= string_duplicate(direccionDeResultado);
-
-	//strcpy(fallo->rutaArchivoDestino, direccionDeResultado);
-	//string_append(&fallo->rutaArchivoDestino,"\0");
-
-	printf("temporal de transformacion: %s\n",transformacion->archivoTransformacion);
-	printf("%d de temporal: %s\n",fallo->largoRutaTemporal,fallo->rutaTemporalTransformacion);
-	printf("%d de original: %s\n",fallo->largoRutaArchivoAProcesar,fallo->rutaArchivoAProcesar);
-	printf("%d de temporal: %s\n",fallo->largoRutaArchivoDestino,fallo->rutaArchivoDestino);
-
 
 	tamanioBuffer = sizeof(t_header) + (3 * sizeof(uint32_t))
 			+ fallo->largoRutaArchivoAProcesar + fallo->largoRutaTemporal + fallo->largoRutaArchivoDestino;
@@ -1185,7 +1148,6 @@ void enviarFalloTransformacionAYama(t_transformacionMaster* transformacion,
 	desplazamiento += sizeof(uint32_t);
 	memcpy(buffer + desplazamiento, fallo->rutaTemporalTransformacion,
 			fallo->largoRutaTemporal);
-	printf("despues serializar: %d- %s\n",fallo->largoRutaTemporal,fallo->rutaTemporalTransformacion);
 
 	desplazamiento += fallo->largoRutaTemporal;
 	memcpy(buffer + desplazamiento, &fallo->largoRutaArchivoAProcesar,
@@ -1229,7 +1191,6 @@ void borrarTemporalesDeNodo(int nodo){
 
 void disminuirTransformacionesDeNodo(int nodo) {
 	int i;
-	printf("nodo> %d\n", nodo);
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
 		if (nodosTransformacion[i].idNodo == nodo)
 			nodosTransformacion[i].cantidadTransformaciones--;
@@ -1240,7 +1201,6 @@ void disminuirTransformacionesDeNodo(int nodo) {
 int conectarseAWorker(int puerto, char* ip) {
 
 	struct sockaddr_in direccionWorker;
-	printf("puerto %d, ip %s\n", puerto, ip);
 
 	direccionWorker.sin_family = AF_INET;
 	direccionWorker.sin_port = htons(puerto);
@@ -1250,15 +1210,13 @@ int conectarseAWorker(int puerto, char* ip) {
 
 	socketWorker = socket(AF_INET, SOCK_STREAM, 0);
 	if(socketWorker <= 0){
-		printf("error en la conexion del worker\n");
+		log_error(masterLogger, "Error en la conexion del worker.");
 		return -1;
 	}
 
 	if (connect(socketWorker, (struct sockaddr *) &direccionWorker,sizeof(struct sockaddr)) != 0) {
-		perror("fallo la conexion al worker");
+		log_error(masterLogger,"fallo la conexion al worker");
 		return -1;
-	} else {
-		printf("se conecto a un worker\n");
 	}
 
 	return socketWorker;
@@ -1305,14 +1263,6 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 
 	buffer = malloc(tamanioBuffer);
 
-	//memcpy(buffer + desplazamiento, &redLocalWorker->etapa, sizeof(uint32_t));
-	//desplazamiento += sizeof(uint32_t);
-
-
-	printf("%d\n",redLocalWorker->largoRutaArchivoReducidoLocal);
-	printf("%s\n",redLocalWorker->rutaArchivoReducidoLocal);
-	printf("%d\n",redLocalWorker->largoArchivoReductor);
-
 
 	memcpy(buffer + desplazamiento, &redLocalWorker->largoRutaArchivoReducidoLocal, sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -1338,7 +1288,6 @@ void* serializarReduccionLocalWorker(t_infoReduccionesLocales* redLocalWorker,in
 		desplazamiento += sizeof(uint32_t);
 		memcpy(buffer + desplazamiento, temporales.rutaTemporalTransformacion,temporales.largoRutaTemporalTransformacion);
 		desplazamiento += temporales.largoRutaTemporalTransformacion;
-		printf("%s\n",temporales.rutaTemporalTransformacion);
 	}
 
 
@@ -1355,8 +1304,6 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 			+ redGlobalWorker->largoRutaArchivoTemporalGlobal + redGlobalWorker->largoRutaArchivoTemporalLocal;
 	buffer = malloc(tamanioBuffer);
 
-	//memcpy(buffer + desplazamiento, &redGlobalWorker->etapa, sizeof(uint32_t));
-	//desplazamiento += sizeof(uint32_t);
 	memcpy(buffer + desplazamiento, &redGlobalWorker->largoRutaArchivoTemporalLocal,
 			sizeof(uint32_t));
 	desplazamiento += sizeof(uint32_t);
@@ -1403,8 +1350,6 @@ void* serializarReduccionGlobalWorker(t_infoReduccionGlobal* redGlobalWorker,
 		memcpy(buffer + desplazamiento, nodos->rutaArchivoReduccionLocal,
 				nodos->largoRutaArchivoReduccionLocal);
 		desplazamiento += nodos->largoRutaArchivoReduccionLocal;
-		printf("%d\n",nodos->largoRutaArchivoReduccionLocal);
-		printf("%s\n",nodos->rutaArchivoReduccionLocal);
 	}
 
 	*largoBuffer = tamanioBuffer;
@@ -1415,16 +1360,12 @@ int respuestaWorker(int socketWorker) {
 
 	char* buffer = malloc(sizeof(int));
 	t_header header;
-	int respuesta;
-	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, 0);
 	int bytesRecibidos = recibirHeader(socketWorker, &header);
-	//int bytesRecibidos = recibirPorSocket(socketWorker, &header, sizeof(int));
-	//printf("%d\n", bytesRecibidos);
 	free(buffer);
 	if(bytesRecibidos == 0)
 		return 0;
 	else //return respuesta;
-	return header.id;
+		return header.id;
 }
 
 void metricas(double tiempo) {
@@ -1433,7 +1374,7 @@ void metricas(double tiempo) {
 	double promedioReducciones = tiempoTotalRedLocales
 			/ (double) tiempoTotalRedLocales;
 	printf("\n--metricas--\n\n");
-	printf("tiempo de ejecucion del job: %.16g milisegundos\n", tiempo);
+/*	printf("tiempo de ejecucion del job: %.16g milisegundos\n", tiempo);
 	printf("tiempo de ejecucion de etapa de transformacion: %.16g milisegundos\n", tiempoTotalTransformaciones);
 	printf("tiempo de ejecucion de etapa de reduccion local: %.16g milisegundos\n", tiempoTotalRedLocales);
 	printf("tiempo promedio de ejecucion de etapa de transformacion: %.16g milisegundos\n",
@@ -1448,13 +1389,14 @@ void metricas(double tiempo) {
 	printf("cantidad maxima de tareas de transformacion en paralelo: %d\n",maximoTareasCorriendoTransformacion);
 	printf("cantidad maxima de tareas de reduccion local en paralelo: %d\n",maximoTareasCorriendoRedLocal);
 	printf("cantidad de fallos obtenidos: %d\n", fallos);
-/*
-	log_info(masterLogger,"tiempo de ejecucion del job: %.16g milisegundos", tiempo * 1000);
-	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de transformacion: %.16g milisegundos",
+*/
+	log_info(masterLogger,"\n\t--metricas--\n");
+	log_info(masterLogger,"tiempo de ejecucion del job: %.16g ms", tiempo * 1000);
+	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de transformacion: %.16g ms",
 			promedioTransformaciones);
-	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion local: %.16g milisegundos",
+	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion local: %.16g ms",
 			promedioReducciones);
-	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion global: %.16g milisegundos",
+	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion global: %.16g ms",
 		tiempoTotalRedGlobal);
 	log_info(masterLogger,"total de transformaciones realizadas: %d",
 			cantidadTransformacionesRealizadas);
@@ -1465,11 +1407,10 @@ void metricas(double tiempo) {
 	log_info(masterLogger,"cantidad maxima de tareas de transformacion en paralelo: %d",
 				maximoTareasCorriendoTransformacion);
 	log_info(masterLogger,"cantidad maxima de tareas de reduccion local en paralelo: %d",maximoTareasCorriendoRedLocal);
-	log_info(masterLogger,"cantidad de fallos obtenidos: %d", fallos);*/
+	log_info(masterLogger,"cantidad de fallos obtenidos: %d", fallos);
 }
 
 int devolverTamanioArchivo(char* archivo) {
-	printf("%s\n", archivo);
 	int file = open(archivo, O_RDONLY);
 	struct stat mystat;
 	if (file == -1) {
@@ -1493,11 +1434,11 @@ char* obtenerContenidoArchivo(char* archivo) {
 	int file = open(archivo, O_RDWR);
 	struct stat mystat;
 	if (file == -1) {
-		perror("open");
+		log_error(masterLogger,"error al abrir el archivo %s.",archivo);
 		exit(1);
 	}
 	if (fstat(file, &mystat) < 0) {
-		perror("fstat");
+		log_error(masterLogger, "Error al calcular el fstat del archivo %s.",archivo);
 		close(file);
 		exit(1);
 	}
