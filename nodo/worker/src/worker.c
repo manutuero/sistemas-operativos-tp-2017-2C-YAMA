@@ -78,7 +78,6 @@ int main(void) {
 				case REDUCCION_LOCAL:
 					infoReduccionLocal = deserializarInfoReduccionLocal(buffer);
 					realizarReduccionLocal(infoReduccionLocal, nuevoSocket);
-					printf("Termino reduccion local,job: %s\n",infoReduccionLocal->rutaArchReducidoLocal);
 					break;
 				case REDUCCION_GLOBAL:
 					infoReduccionGlobal = deserializarInfoReduccionGlobal(

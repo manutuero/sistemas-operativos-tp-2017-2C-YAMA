@@ -11,6 +11,7 @@ void crearLogger() {
 			LOG_LEVEL_INFO);
 	free(logWorkerFileName);
 
+
 	logWorkerFileName = NULL;
 }
 void cargarArchivoConfiguracion(char*nombreArchivo) {
@@ -261,9 +262,12 @@ void realizarReduccionLocal(t_infoReduccionLocal* infoReduccionLocal,
 		log_info(workerLogger, "Error en reduccion local,no se pudo generar el temporal %s:",
 				infoReduccionLocal->rutaArchReducidoLocal);
 	}
+
+	list_destroy_and_destroy_elements(infoReduccionLocal->archTemporales, free);
+
+	printf("Termino reduccion local,job: %s\n",infoReduccionLocal->rutaArchReducidoLocal);
 	free(infoReduccionLocal->archReductor);
 	free(infoReduccionLocal->rutaArchReducidoLocal);
-	list_destroy_and_destroy_elements(infoReduccionLocal->archTemporales, free);
 	free(infoReduccionLocal);
 
 	free(rutaArchConcat);
@@ -378,7 +382,7 @@ void realizarReduccionGlobal(t_infoReduccionGlobal* infoReduccionGlobal,
 					"Reduccion Global realizada, archivo %s generado",
 					infoReduccionGlobal->rutaArchivoTemporalFinal);
 		} else {
-			notificarAMaster(ERROR_REDUCCION, socketMaster);
+			notificarAMaster(REDUCCION_GLOBAL_OK, socketMaster);
 			log_info(workerLogger, "Error en reduccion global");
 		}
 

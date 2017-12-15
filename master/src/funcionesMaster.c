@@ -251,11 +251,7 @@ void* serializarArchivos(int* largoBuffer) {
 	pedido.largoArchivo = strlen(archivoAprocesar)+1;
 	pedido.largoArchivo2 = strlen(direccionDeResultado)+1;
 	pedido.nombreArchivo = string_duplicate(archivoAprocesar);
-	//pedido.nombreArchivo[pedido.largoArchivo] = "\0";
-	printf("%s %d\n",pedido.nombreArchivo, pedido.largoArchivo);
 	pedido.nombreArchivoGuardadoFinal = string_duplicate(direccionDeResultado);
-	//pedido.nombreArchivoGuardadoFinal[pedido.largoArchivo2] = "\0";
-	printf("%s %d\n",pedido.nombreArchivoGuardadoFinal, pedido.largoArchivo2);
 	tamanioBuffer = pedido.largoArchivo + pedido.largoArchivo2
 			+ 2 * sizeof(uint32_t);
 	//tamanioBuffer = strlen(archivoAprocesar) + strlen(direccionDeResultado) + 2 * sizeof(uint32_t) + sizeof(idMaster);
@@ -307,8 +303,6 @@ void deserializarPlanificacion(void* buffer) {
 	memcpy(&cantRedGlobal, buffer + desplazamiento, sizeof(cantRedGlobal));
 	desplazamiento += sizeof(cantRedGlobal);
 
-	printf("cantTransformaciones: %d  cantRedLocal: %d cantRedGlobal: %d\n",
-			cantTransformaciones, cantRedLocal, cantRedGlobal);
 
 	deserializarTransformaciones(cantTransformaciones, buffer, &desplazamiento);
 
@@ -354,7 +348,6 @@ void deserializarTransformaciones(int cantTransformaciones, void* buffer,
 		*desplazamiento += transformaciones->largoArchivo;
 		//transformaciones->archivoTransformacion[transformaciones->largoArchivo]='\0';
 		//transformaciones->archivoTransformacion[transformaciones->largoArchivo];
-		printf("ip nodo: %s\n",transformaciones->ip);
 		list_add(listaTransformaciones, transformaciones);
 	}
 }
@@ -487,7 +480,7 @@ void operarEtapas() {
 	//int redLocales = list_size(listaRedLocales);
 	int redGlobales = list_size(listaRedGloblales);
 	t_reduccionGlobalMaster* reduccionGlobal;
-	int finaliza = 0;
+	finaliza = 0;
 	tiempoTotalTransformaciones = 0;
 	tiempoTotalRedLocales = 0;
 	cantidadReduccionesLocalesRealizadas = 0;
@@ -516,11 +509,10 @@ void operarEtapas() {
 
 	t_header headerRed;
 	while (finaliza == 0) {
-		//recibirPorSocket(socketYama, &headerRed, sizeof(t_header));
 		recibirHeader(socketYama, &headerRed);
 		switch(headerRed.id){
 
-		case REPLANIFICACION:
+		case ENVIOPLANIFICACION:
 			log_info(masterLogger,"entra a replanificar: payload %d\n", headerRed.tamanioPayload);
 			replanificarTransformaciones(headerRed.tamanioPayload);
 			break;
@@ -532,7 +524,7 @@ void operarEtapas() {
 					pthread_t hiloConexionReduccionWorker;
 					pthread_create(&hiloConexionReduccionWorker, &atributos,(void*) enviarRedLocalesAWorker,
 							reduccionGlobal);
-					log_info("arranco reduccion local del nodo %d",reduccionGlobal->idNodo);
+					log_info(masterLogger,"arranco reduccion local del nodo %d",reduccionGlobal->idNodo);
 				}
 
 			}
@@ -544,12 +536,10 @@ void operarEtapas() {
 			enviarReduccionGlobalAWorkerEncargado();
 			break;
 		case ALMACENAFINALYAMA:
-			printf("%d\n",headerRed.id);
 			finaliza = 1;
 			avisarAlmacenadoFinal();
 			break;
 		case ABORTARJOB:
-			printf("[ERROR] aborta la ejecucion del job del proceso master\n");
 			log_error(masterLogger,"finaliza ejecucion del job del master de forma abrupta");
 			finaliza = 1;
 			break;
@@ -566,7 +556,6 @@ void replanificarTransformaciones(uint32_t tamanio){
 	void* buffer = malloc(tamanio);
 	recibirPorSocket(socketYama, buffer, tamanio);
 	deserializarPlanificacion(buffer);
-	printf("replanificada la transformacion del job.\n");
 	log_info(masterLogger,"replanificada la transformacion del job.");
 	cargarNodosTransformacion();
 	enviarTransformacionAWorkers(transformador, reductor);
@@ -588,7 +577,6 @@ void enviarTransformacionAWorkers(char* rutaTransformador, char* rutaReductor) {
 	pthread_attr_init(&atributos);
 	pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
 
-	printf("enviar etapa de transformacion: \n");
 	for (i = 0; i < list_size(listaTransformaciones); i++) {
 		transformacion = (t_transformacionMaster*) list_get(
 				listaTransformaciones, i);
@@ -612,7 +600,7 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 	t_infoReduccionesLocales* redLocalWorker =  malloc(sizeof(t_infoReduccionesLocales));
 	t_temporalesTransformacionWorker* temporales;
 	t_header header;
-	printf("redLocal: nodo %d puerto %d\n", nodoReduccion->idNodo, nodoReduccion->puerto);
+	log_info(masterLogger,"reduccion Local: nodo %d puerto %d\n", nodoReduccion->idNodo, nodoReduccion->puerto);
 
 	pthread_mutex_lock(&mutexMaximasTareas);
 	cantidadTareasCorriendoRedLocal++;
@@ -621,7 +609,6 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 	pthread_mutex_unlock(&mutexMaximasTareas);
 
 	redLocalWorker->largoRutaArchivoReducidoLocal = nodoReduccion->largoArchivoRedLocal;
-	printf("%d\n", redLocalWorker->largoRutaArchivoReducidoLocal);
 	redLocalWorker->rutaArchivoReducidoLocal = malloc(redLocalWorker->largoRutaArchivoReducidoLocal);
 	strcpy(redLocalWorker->rutaArchivoReducidoLocal,nodoReduccion->archivoRedLocal);
 	redLocalWorker->largoArchivoReductor = devolverTamanioArchivo(reductor);
@@ -649,14 +636,14 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 			nodoReduccion->ip);
 
 	if (socketWorker == -1) {
-		printf("envio desconexion del nodo a yama en el socket %d\n",
-				socketYama);
 		header.id = ERRORREDUCCION;
 		avisarAYamaRedLocal(*redLocalWorker, header);
 		pthread_mutex_lock(&mutexTotalFallos);
 		fallos++;
 		pthread_mutex_unlock(&mutexTotalFallos);
 		log_error(masterLogger, "no se pudo conectar al worker %d en reduccion local: socket desconectado", redLocalMaster.idNodo);
+		log_error(masterLogger,"finaliza ejecucion del job del master de forma abrupta");
+		finaliza = 1;
 	}
 
 	else {
@@ -678,26 +665,27 @@ void enviarRedLocalesAWorker(t_reduccionGlobalMaster* nodoReduccion) {
 		enviarPorSocket(socketWorker, bufferMensaje, largoBuffer);
 		free(buffer);
 		free(bufferMensaje);
-		printf("enviado a worker la reduccion local\n");
 		log_info(masterLogger,
 				"Se envia operacion de reduccion local al worker %d.",
 				nodoReduccion->idNodo);
 
 		int respuesta = respuestaWorker(socketWorker);
 		if (respuesta == REDUCCIONLOCALOKWORKER) {
-				printf("reduccion Local OK worker %d\n",nodoReduccion->idNodo);
+				log_info(masterLogger,"reduccion Local OK worker %d\n",nodoReduccion->idNodo);
 				header.id = REDUCCIONLOCALOKYAMA;
 				pthread_mutex_lock(&mutexTotalReduccionesLocales);
 				reduccionesLocalesPendientes--;
 				pthread_mutex_unlock(&mutexTotalReduccionesLocales);
 				avisarAYamaRedLocal(*redLocalWorker, header);
 			}
-		if (respuesta == 107){
+		if (respuesta == 104){
 			header.id = ERRORREDUCCION;
 			pthread_mutex_lock(&mutexTotalReduccionesLocales);
 			reduccionesLocalesPendientes--;
+			finaliza = 1;
 			pthread_mutex_unlock(&mutexTotalReduccionesLocales);
 			avisarAYamaRedLocal(*redLocalWorker, header);
+			log_error(masterLogger,"finaliza ejecucion del job del master de forma abrupta");
 		}
 
 		for (i = 0; i < list_size(redLocalWorker->temporalesTranformacion);i++) {
@@ -735,7 +723,7 @@ void enviarReduccionGlobalAWorkerEncargado() {
 	for (i = 0; i < list_size(listaRedGloblales); i++) {
 		redGlobalMaster = list_get(listaRedGloblales, i);
 		if (redGlobalMaster->encargado == 1) {
-			printf("nodo encargado: %d\n",redGlobalMaster->idNodo);
+			log_info(masterLogger,"nodo encargado: %d\n",redGlobalMaster->idNodo);
 			redGlobalWorker->largoRutaArchivoTemporalGlobal =	redGlobalMaster->largoArchivoRedGlobal;
 			redGlobalWorker->rutaArchivoTemporalGlobal = malloc(redGlobalWorker->largoRutaArchivoTemporalGlobal);
 			strcpy(redGlobalWorker->rutaArchivoTemporalGlobal,	redGlobalMaster->archivoRedGlobal);
@@ -766,14 +754,14 @@ void enviarReduccionGlobalAWorkerEncargado() {
 
 
 	if (socketWorkerEncargado == -1) {
-		printf("envio desconexion del nodo a yama en el socket %d\n",
-				socketYama);
 		header.id = ERRORREDUCCION;
 		header.tamanioPayload = 0;
 		avisarAYamaRedGlobal(*redGlobalWorker, header);
 		//enviarPorSocket(socketYama, &header, sizeof(t_header));
 		fallos++;
 		log_error(masterLogger,"no se pudo conectar al worker encargado de la reduccion global.");
+		log_error(masterLogger,"finaliza ejecucion del job del master de forma abrupta");
+		finaliza = 1;
 	} else {
 		//log_info(masterLogger,"Se envia operacion de reduccion global al worker %d.",	nodoEncargado);
 
@@ -794,18 +782,17 @@ void enviarReduccionGlobalAWorkerEncargado() {
 		memcpy(bufferMensaje + desplazamiento, buffer, header.tamanioPayload);
 
 		enviarPorSocket(socketWorkerEncargado, bufferMensaje, header.tamanioPayload);
-		printf("envio mensaje de reduccion global a worker\n");
 		free(buffer);
 		free(bufferMensaje);
 		int respuesta = respuestaWorker(socketWorkerEncargado);
 		if(respuesta == REDUCCIONGLOBALOKWORKER){
 			header.id = REDUCCIONGLOBALOKYAMA;
-			printf("enviado a worker la reduccion global\n");
 			log_info(masterLogger,"Se completa la operacion de reduccion global al worker encargado");
 		if(respuesta == ERRORREDUCCIONGLOBAL){
 			header.id = ERRORREDUCCION;
-			printf("fallo la reduccion global\n");
 			log_error(masterLogger,"Fallo la operacion de reduccion global al worker %d",nodoEncargado);
+			log_error(masterLogger,"finaliza ejecucion del job del master de forma abrupta");
+			finaliza = 1;
 		}
 		avisarAYamaRedGlobal(*redGlobalWorker, header);
 
@@ -1017,8 +1004,6 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 	t_header header;
 	t_ini = clock();
 	pthread_mutex_lock(&mutexMaximasTareas);
-	printf("nodo: %d, puerto %d\n", transformacion->idNodo,
-			transformacion->puerto);
 	cantidadTareasCorriendoTransformacion++;
 	if (cantidadTareasCorriendoTransformacion > maximoTareasCorriendoTransformacion)
 		maximoTareasCorriendoTransformacion++;
@@ -1038,7 +1023,6 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 			transformacion->ip);
 	pthread_mutex_unlock(&mutexConexionWorker);
 	if (socketWorker == -1) {
-		printf("envio desconexion del nodo a yama en el socket %d\n",socketYama);
 		pthread_mutex_lock(&mutexReplanificado);
 		if(!replanificado){
 			enviarFalloTransformacionAYama(transformacion, &header);
@@ -1065,7 +1049,6 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 		enviarPorSocket(socketWorker, bufferMensaje, largoBuffer);
 		free(buffer);
 		free(bufferMensaje);
-		printf("enviado a worker %d\n", transformacion->idNodo);
 		log_info(masterLogger, "Enviado transformacion a worker %d",transformacion->idNodo);
 
 		if (respuestaWorker(socketWorker) == TRANSFORMACIONOKWORKER) {
@@ -1076,9 +1059,9 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 			pthread_mutex_unlock(&mutexTotalTransformaciones);
 			header.id = TRANSFORMACIONOKYAMA;
 			avisarAYama(transformacion, header);
+			log_info(masterLogger,"Termino correctamente la transformacion %s.",transformacion->archivoTransformacion);
 		}
 		else{
-			printf("error en nodo %d\n",transformacion->idNodo);
 			if(!replanificado){
 				enviarFalloTransformacionAYama(transformacion, &header);
 				borrarTemporalesDeNodo(transformacion->idNodo);
@@ -1377,24 +1360,24 @@ void metricas(double tiempo) {
 	printf("cantidad maxima de tareas de reduccion local en paralelo: %d\n",maximoTareasCorriendoRedLocal);
 	printf("cantidad de fallos obtenidos: %d\n", fallos);
 */
-	log_info(masterLogger,"\n\t--metricas--\n");
-	log_info(masterLogger,"tiempo de ejecucion del job: %.16g ms", tiempo * 1000);
-	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de transformacion: %.16g ms",
+	log_debug(masterLogger,"\n\t--metricas--\n");
+	log_debug(masterLogger,"tiempo de ejecucion del job: %.16g ms", tiempo * 1000);
+	log_debug(masterLogger,"tiempo promedio de ejecucion de etapa de transformacion: %.16g ms",
 			promedioTransformaciones);
-	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion local: %.16g ms",
+	log_debug(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion local: %.16g ms",
 			promedioReducciones);
-	log_info(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion global: %.16g ms",
+	log_debug(masterLogger,"tiempo promedio de ejecucion de etapa de reduccion global: %.16g ms",
 		tiempoTotalRedGlobal);
-	log_info(masterLogger,"total de transformaciones realizadas: %d",
+	log_debug(masterLogger,"total de transformaciones realizadas: %d",
 			cantidadTransformacionesRealizadas);
-	log_info(masterLogger,"total de reducciones locales realizadas: %d",
+	log_debug(masterLogger,"total de reducciones locales realizadas: %d",
 			cantidadReduccionesLocalesRealizadas);
-	log_info(masterLogger,"total de reducciones globales realizadas: %d",
+	log_debug(masterLogger,"total de reducciones globales realizadas: %d",
 				reduccionGlobalRealizada);
-	log_info(masterLogger,"cantidad maxima de tareas de transformacion en paralelo: %d",
+	log_debug(masterLogger,"cantidad maxima de tareas de transformacion en paralelo: %d",
 				maximoTareasCorriendoTransformacion);
-	log_info(masterLogger,"cantidad maxima de tareas de reduccion local en paralelo: %d",maximoTareasCorriendoRedLocal);
-	log_info(masterLogger,"cantidad de fallos obtenidos: %d", fallos);
+	log_debug(masterLogger,"cantidad maxima de tareas de reduccion local en paralelo: %d",maximoTareasCorriendoRedLocal);
+	log_debug(masterLogger,"cantidad de fallos obtenidos: %d", fallos);
 }
 
 int devolverTamanioArchivo(char* archivo) {

@@ -21,7 +21,7 @@
 #define REDUCCIONGLOBALOKYAMA 20
 #define ERRORTRANSFORMACION 103
 #define ERRORREDUCCION 104
-#define ERRORREDUCCIONGLOBAL 105
+#define ERRORREDUCCIONGLOBAL 106
 #define ERRORALMACENADOFINAL 107
 #define ERRORALMACENADOFINALYAMA 108
 
@@ -200,6 +200,7 @@ int cantidadTareasCorriendoTransformacion, maximoTareasCorriendoTransformacion;
 int cantidadTareasCorriendoRedLocal, maximoTareasCorriendoRedLocal;
 double tiempoTotalTransformaciones, tiempoTotalRedLocales, tiempoTotalRedGlobal;
 int reduccionGlobalRealizada, cantidadTransformacionesRealizadas, cantidadReduccionesLocalesRealizadas;
+int finaliza; //bandera del while que espera la respuesta de YAMA.
 bool replanificado;
 
 /* FIRMAS DE FUNCIONES  */
