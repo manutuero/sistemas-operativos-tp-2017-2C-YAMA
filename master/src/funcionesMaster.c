@@ -238,11 +238,10 @@ void mandarArchivosAYama(int socketYama, char* archivoAprocesar) {
 	memcpy(buffer + desplazamiento, bufferStruct, header.tamanioPayload);
 	desplazamiento += header.tamanioPayload;
 
-	int tamanioMensaje = header.tamanioPayload + sizeof(t_header);
 	enviarPorSocket(socketYama, buffer, header.tamanioPayload);
 	free(bufferStruct);
 	free(buffer);
-	log_info(masterLogger, "Se envio la ruta del archivo a procesar a YAMA");
+	log_info(masterLogger, "Se envio las ruta a procesar a YAMA:\n%s\n%s",archivoAprocesar,direccionDeResultado);
 }
 
 void* serializarArchivos(int* largoBuffer) {
@@ -522,29 +521,18 @@ void operarEtapas() {
 		switch(headerRed.id){
 
 		case REPLANIFICACION:
-			printf("entra a replanificar: payload %d\n", headerRed.tamanioPayload);
+			log_info(masterLogger,"entra a replanificar: payload %d\n", headerRed.tamanioPayload);
 			replanificarTransformaciones(headerRed.tamanioPayload);
 			break;
 		case INICIOREDUCCIONLOCAL:
 			for (i = 0; i < list_size(listaRedGloblales); i++) {
-				//if (nodosTransformacion[i].idNodo == headerRed.tamanioPayload) { //en tamanioPayload tengo el idnodo
-				/*if(nodosTransformacion[i].cantidadTransformaciones == 0){
-					log_info(masterLogger, "inicia la reduccion local del nodo %d",nodosTransformacion->idNodo);
-					printf("termino todas las transformaciones del nodo %d\n",
-					nodosTransformacion[i].idNodo);
 
-					pthread_t hiloConexionReduccionWorker;
-					pthread_create(&hiloConexionReduccionWorker, &atributos,(void*) enviarRedLocalesAWorker,
-							(t_reduccionGlobalMaster*) list_get(listaRedGloblales, i));
-					nodosTransformacion[i].cantidadTransformaciones--;
-					//pthread_join(hiloConexionReduccionWorker, NULL);
-				}*/
 				reduccionGlobal = (t_reduccionGlobalMaster*) list_get(listaRedGloblales, i);
 				if(reduccionGlobal->idNodo == headerRed.tamanioPayload){
 					pthread_t hiloConexionReduccionWorker;
 					pthread_create(&hiloConexionReduccionWorker, &atributos,(void*) enviarRedLocalesAWorker,
 							reduccionGlobal);
-
+					log_info("arranco reduccion local del nodo %d",reduccionGlobal->idNodo);
 				}
 
 			}
@@ -1087,7 +1075,6 @@ void hiloConexionWorker(t_transformacionMaster* transformacion) {
 			list_add(archivosTranformacionOk, transformacion->archivoTransformacion);
 			pthread_mutex_unlock(&mutexTotalTransformaciones);
 			header.id = TRANSFORMACIONOKYAMA;
-			log_info(masterLogger,"termino tarea de transformacion del worker %d",transformacion->idNodo);
 			avisarAYama(transformacion, header);
 		}
 		else{
