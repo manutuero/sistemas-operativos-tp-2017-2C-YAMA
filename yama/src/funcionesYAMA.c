@@ -201,7 +201,7 @@ void escucharMasters() {
 					else if (bytesRecibidos == 0) {
 						//printf("Se desconecto del fileSystem el socket %d", i);
 						//printf("%d\n",headerResp.id);
-						FD_CLR(i, &readfds);
+						FD_CLR(i, &auxRead);
 						shutdown(i, 2);
 						//close(i);
 					} else {
@@ -286,6 +286,12 @@ void escucharMasters() {
 
 						case 103:
 							printf("No se puede replanificar\n");
+							headerResp.id = 101;
+							headerResp.tamanioPayload=0;
+							enviarPorSocket(i,&headerResp,0);
+							FD_CLR(i, &auxRead);
+							//shutdown(i, 2);
+							cerrarSocket(i);
 							/*t_pedidoTransformacion* pedido = malloc(sizeof(t_pedidoTransformacion));
 							char *nombreTMP;
 							int *desplazamiento;
@@ -331,15 +337,31 @@ void escucharMasters() {
 						case 104:
 							printf("Se procede a terminar el trabajo en estado erroneo\n");
 							eliminarJob(temporal);
+							headerResp.id = 101;
+							headerResp.tamanioPayload=0;
+							enviarPorSocket(i,&headerResp,0);
+							FD_CLR(i, &auxRead);
+							//shutdown(i, 2);
+							cerrarSocket(i);
 							break;
 
 						case 107:
 							printf("Se procede a actualizar trabajo a error tarea por fallo guardado final en yamafs\n");
 							eliminarJob(temporal);
+							headerResp.id = 101;
+							headerResp.tamanioPayload=0;
+							enviarPorSocket(i,&headerResp,0);
+							FD_CLR(i, &auxRead);
+							//shutdown(i, 2);
+							cerrarSocket(i);
 							break;
 
 						default:
 							printf("Header ID erroneo\n");
+							FD_CLR(i, &auxRead);
+							//shutdown(i, 2);
+							cerrarSocket(i);
+							break;
 						}
 
 					}
@@ -401,7 +423,7 @@ void escuchaActualizacionesNodos() {
 				workers[infoNodo.idNodo].puerto = infoNodo.puerto;
 				workers[infoNodo.idNodo].ip = malloc(infoNodo.largoIp);
 				strcpy(workers[infoNodo.idNodo].ip, infoNodo.IP);
-
+				printf("Nodo conectado %d\n",infoNodo.idNodo);
 				puts("");
 			} else {
 				workers[infoNodo.idNodo].habilitado = 0;
